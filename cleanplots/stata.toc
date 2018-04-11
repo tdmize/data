@@ -1,0 +1,4 @@
+v 3
+d cleanplots - graphing scheme
+d Trenton D. Mize, Purdue University
+p cleanplots graph scheme
