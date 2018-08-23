@@ -1,0 +1,4 @@
+v 3
+d usetdm - downloads class and workshop datasets from web
+d Trenton D. Mize, Purdue University
+p usetdm command to download class and workshop data
