@@ -252,10 +252,10 @@ color background             white
 * Default for all other non-specified objects
 * NOTE: CIs in marginsplot is based on this
 color p1					red
-color p2 					blue
-color p3 					gs8
+color p2 					gs8
+color p3 					cyan*1.2
 color p4 					black
-color p5 					cyan
+color p5 					blue
 color p6 					purple
 color p7 					gold
 color p8 					dkgreen
@@ -268,10 +268,10 @@ color p14 					black
 
 * Default for lines (matching the symbols)
 color p1line				red
-color p2line				blue
-color p3line				gs8
+color p2line				gs8
+color p3line				cyan*1.2
 color p4line				black
-color p5line 				cyan
+color p5line 				blue
 color p6line 				purple
 color p7line 				gold
 color p8line 				dkgreen
@@ -283,10 +283,10 @@ color p13line 				sand
 color p14line 				black
 
 color p1lineplot			red
-color p2lineplot			blue
-color p3lineplot			gs8
+color p2lineplot			gs8
+color p3lineplot			cyan*1.2
 color p4lineplot			black
-color p5lineplot 			cyan
+color p5lineplot 			blue
 color p6lineplot			purple
 color p7lineplot 			gold
 color p8lineplot 			dkgreen
@@ -298,10 +298,10 @@ color p13lineplot			sand
 color p14lineplot 			black
 
 color p1markline			red
-color p2markline			blue
-color p3markline			gs8
+color p2markline			gs8
+color p3markline			cyan*1.2
 color p4markline			black
-color p5markline 			cyan
+color p5markline 			blue
 color p6markline			purple
 color p7markline 			gold
 color p8markline 			dkgreen
@@ -314,10 +314,10 @@ color p14markline 			black
 
 * Bar charts
 color p1bar					red*.8
-color p2bar					blue*.7
-color p3bar					gs10
-color p4bar					gs3
-color p5bar					cyan*.7
+color p2bar					gs10
+color p3bar					cyan*1.2
+color p4bar					black*.9
+color p5bar					blue*.8
 color p6bar					purple*.8
 color p7bar					gold*.8
 color p8bar					dkgreen*.9
@@ -330,10 +330,10 @@ color p14bar				black
 
 * Pie slices
 color p1pie					red*.8
-color p2pie					blue*.7
-color p3pie					gs10
-color p4pie					gs3
-color p5pie					cyan*.7
+color p2pie					gs10
+color p3pie					cyan*1.2
+color p4pie					black*.9
+color p5pie					blue*.8
 color p6pie					purple*.8
 color p7pie					gold*.8
 color p8pie					dkgreen*.9
@@ -346,8 +346,8 @@ color p14pie				black
 
 * Fade out bar charts and histograms into lighther palette because
 * so much ink
-intensity bar 				100
-intensity histogram         100
+intensity bar 				80
+intensity histogram         80
 
 * Confidence Intervals
 color ci_line      			gs13
