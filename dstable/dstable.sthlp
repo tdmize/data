@@ -12,7 +12,7 @@
 
 
 {p 4 18 2}
-{cmd:dstable} [{varlist}] {ifin} {cmd:,}
+{cmd:dstable} {varlist} {ifin} {cmd:,}
 {opt filename( )} [options]
 {p_end}
 
@@ -69,7 +69,8 @@ in {bf:stats( )}. The following statistics are available:
 {p2line}
 {p2col :{ul:{bf:mean}}}Mean of continuous variables; proportion of binary/nominal variables.{p_end}
 {p2col :{ul:{bf:sd}}}Standard deviation (c).{p_end}
-{p2col :{ul:{bf:count}}}Freqency for each category of a nominal variable.{p_end}
+{p2col :{ul:{bf:freq}}}Freqency for each category of a nominal variable.{p_end}
+{p2col :{ul:{bf:n}}}Number of non-missing observations for a variable.{p_end}
 {p2col :{ul:{bf:var}}{bf:iance}}Variance (c).{p_end}
 {p2col :{ul:{bf:med}}{bf:ian}}Median (c).{p_end}
 {p2col :{ul:{bf:min}}}Minimum (c).{p_end}
@@ -104,6 +105,18 @@ example to use three decimal places, specify "#.000"
 {p_end}
 
 {p2colset 5 18 19 0}
+{synopt:{opt note:s(string)}} adds footnotes to the bottom of the table. 
+The notes are automatically wrapped so they do not exceed the width of the 
+table. For long lists of notes, you will need to adjust the height of the cell 
+in Excel after the table is made for all of the notes to be visible. Notes 
+must be enclosed in quotation marks, e.g. notes("This is a footnote"). 
+For long lists of notes you can list the notes on multiple lines in the code, 
+as long as each line is enclosed in quotations, 
+e.g. notes("This is the first footnote" "This is the second footnote"). 
+The appearance of the notes will be unaffected.
+{p_end}
+
+{p2colset 5 18 19 0}
 {synopt:{opt title(string)}} adds a title to the table. The default is to 
 title the table "Table #: Descriptive Statistics (N = ##)" where the N size is 
 calculated automatically based on the total number of observations that 
@@ -111,19 +124,30 @@ descriptive statistics were calculated for.
 {p_end}
 
 {p2colset 5 18 19 0}
-{synopt:{opt font(string)}} changes the font of all numbers, labels, and titles 
-in the table. The default is "Times New Roman"
+{synopt:{opt font(string)}} changes the font of all numbers, labels, otes, 
+and titles in the table. The default is "Times New Roman"
 {p_end}
 
 {p2colset 5 18 19 0}
-{synopt:{opt fonts:ize(#)}} changes the font size of all numbers, labels, and titles 
-in the table. The default is 11.
+{synopt:{opt fonts:ize(#)}} changes the font size of all numbers, labels, 
+and titles in the table. The default is 11.
+{p_end}
+
+{p2colset 5 18 19 0}
+{synopt:{opt notesize(#)}} changes the font size of the footnotes on 
+the table. The default is 10.
 {p_end}
 
 {p2colset 5 18 19 0}
 {synopt:{opt txtindent(#)}} changes how far the statistics are indented from 
-the right edge of the column. All statistics are right-justified so that 
+the right edge of the column. All statistics are right-justified so that the 
 statistics align on the decimal point. The default is 1.
+{p_end}
+
+{p2colset 5 18 19 0}
+{synopt:{opt sing:leborder}} changes to a single horizontal line as the border 
+on the top and bottom of the table. The default is to use double horizontal 
+lines as the table top and bottom borders.
 {p_end}
 
 {p2colset 5 18 19 0}
@@ -136,34 +160,39 @@ where the table is saved. The default is to name the sheet "Descriptives Table"
 
 {phang} sysuse nlsw88
 
-{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, 
-			filename("descriptives") {p_end}
+{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
+{phang2}	filename("descriptivesEX1") {p_end}
 
-{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, 
-			filename("descriptives") stats(mean count sd min max iqr median) {p_end}
+{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
+{phang2}	filename("descriptivesEX2") stats(mean freq sd min max iqr median) {p_end}
 
-{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, 
-			filename("descriptives") font("Helvetica") fontsize(13) {p_end}
+{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
+{phang2}	filename("descriptivesEX3") font("Helvetica") fontsize(13) {p_end}
 
-{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, 
-			filename("descriptives") nformat("#.000") {p_end}
+{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
+{phang2}	filename("descriptivesEX4") nformat("#.000") {p_end}
 			
+{phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, /// {p_end}
+{phang2}	filename("descriptivesEX5") /// {p_end}
+{phang2}	notes("This is the first footnote." /// {p_end}
+{phang3}			"This is how to split long footnotes" /// {p_end}
+{phang3}			"onto multiple lines of the code.") {p_end}
 
+			
 {title:Comments}
 
 {pstd} {cmd:dstable} makes the descriptive statistics table using Stata's 
 {bf:putexcel} command. Because of some of the putexcel features used, 
-version Stata 15.0 or newer is required to use {cmd:dstable}.
+Stata version 15.0 or newer is required to use {cmd:dstable}.
 
 {pstd} Available statistics for continuous variables are those that can be 
-calculated with tabstat (with the exception of {bf:q}; note also that 
-while {bf:n} and {bf:count} are allowed they are only reported for binary and 
-nominal variables). See {help tabstat} for more details.
+calculated with tabstat (with the exception of {bf:q} - which is not allowed 
+with {cmd:dstable}). See {help tabstat} for more details.
 
 
 {title:Authorship}
 
-{pstd} dstable is written by Trenton D Mize (Department of Sociology, 
+{pstd} {cmd:dstable} is written by Trenton D Mize (Department of Sociology, 
 Purdue University) and Bianca Manago (Department of Sociology, Vanderbilt University). 
 Questions can be sent to tmize@purdue.edu {p_end}
 

@@ -9,10 +9,12 @@ program define dstable, rclass
 	syntax varlist(min=1 fv) [if] [in], ///
 		FILEname(string) ///		*  these are required options
 		[STATs(string) ///	// these are optional options
-		nformat(string) title(string) font(string) FONTSize(string) ///
-		txtindent(string) SHEETname(string)]
+		nformat(string) title(string) NOTEs(string) ///
+		font(string) FONTSize(string) notesize(string) ///
+		txtindent(string) SINGleborder SHEETname(string)]
 		
-marksample touse
+		
+marksample touse, novarlist 	// allows missing values casewise
 	
 *Error out if if/in qualifiers specify no obs
 qui count if `touse'
@@ -50,6 +52,14 @@ if "`fontsize'" == "" {
 else {
 	local fsize = `" `fontsize' "'
 	}
+
+if "`notesize'" == "" {
+	local notefsize = "10"
+	}
+  
+else {
+	local notefsize = `" `notesize' "'
+	}
 	
 *Set the indentation of numbers from right side of column
 if "`txtindent'" == "" {
@@ -74,6 +84,14 @@ local nformat "nformat("`nfmt'") txtindent(`indent') right font("`fonttype'", "`
 local fformat "nformat(#) txtindent(`indent') right font("`fonttype'", "`fsize'")"
 local lformat "left font("`fonttype'", "`fsize'")"
 
+*Option to set single line formatting for borders of table (double is default)
+if "`singleborder'" == "" {
+	local lineset = "double"
+	}
+else {
+	local lineset = ""
+	}	
+	
 	
 // Determine # of rows needed in table //
 local numrows = 0
@@ -115,8 +133,7 @@ foreach v in `varlist' {
 
 *For continuous vars	
 if `numcats' == 1 {
-	noisily di in white "`v' is a continuous var"
-	
+
 	local clab: variable label `v'
 	putexcel B`rownum' = "`clab'", `lformat'
 
@@ -126,7 +143,6 @@ if `numcats' == 1 {
 
 *For binary vars
 if `numcats' == 2 {
-	noisily di in white "`v' is a binary var"
 	
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
 	local blab: variable label `varname'
@@ -138,7 +154,6 @@ if `numcats' == 2 {
 	
 *For nominal (3+ category) vars
 if `numcats' >= 3 {
-	noisily di in white "`v' is a nominal var"
 
 	*Label the overall variable
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
@@ -165,13 +180,10 @@ if `numcats' >= 3 {
 // Calculate descriptive statistics //				
 **************************************
 
-
 *Create temporary DV to use in regress for estat sum	
 tempvar 	y_999
 gen 		y_999 = runiform()
 sum 		y_999
-
-
 
 *Default is to report mean/prop and SD
 if "`stats'" == "" {
@@ -182,25 +194,26 @@ else {
 	local statlist = `" `stats' "'
 	}	
 
-*Set column (letters in Excel) based on number of stats 	
-local letters `" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "'
-di `letters'
-local numstats : word count `statlist'
+local numstats 	: word count `statlist'	
+
+*Set column #s (letters in Excel) based on number of stats 	
+local letters `" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "'
 
 local rownum = 4	// starting on Excel's 4th row for space and headings
-*NEED to find a way to subtract out total num rows each times through
 
-*Loop through requested stats
+
+// Loop through requested stats //
 forvalues i = 1/`numstats' {
 
-local letter : word `i' of `letters'
-local stat : word `i' of `statlist'
+local letter 	: word `i' of `letters'
+local stat 		: word `i' of `statlist'
 
 *Label the current column with nicer formatted stat name
 local meancol 		= "Mean/Prop."
 local sdcol 		= "SD"
+local ncol 			= "n"
+local freqcol 		= "Freq."
 local countcol 		= "Freq."
-local ncol 			= "Freq."
 local mincol 		= "Min."
 local maxcol 		= "Max."
 local sumcol 		= "Sum"
@@ -229,7 +242,8 @@ local p95col 		= "95th Perc."
 local p99col 		= "99th Perc."
 local iqrcol 		= "IQR"
 
-putexcel 	`letter'3 = `" ``stat'col' "', hcenter font("`fonttype'", "`fsize'")
+putexcel 	`letter'3 = `" ``stat'col' "', ///
+			hcenter font("`fonttype'", "`fsize'")
 
 
 *Count categories to determine if var is continuous, binary, or nominal	
@@ -237,8 +251,9 @@ foreach v in `varlist' {
 	fvexpand `v'
 	local numcats : word count `r(varlist)' 
 
-*For continuous vars	
-if `numcats' == 1 & "`stat'" != "count" & "`stat'" != "n" {
+	
+// For continuous vars //	
+if `numcats' == 1 & "`stat'" != "freq" & "`stat'" != "count" & "`stat'" != "n" {
 	
 	tabstat `v' if `touse', stat("`stat'") save
 	mat temp = r(StatTotal)
@@ -249,15 +264,26 @@ if `numcats' == 1 & "`stat'" != "count" & "`stat'" != "n" {
 	local ++rownum
 	}
 
+else if `numcats' == 1 & "`stat'" == "n" {
+	
+	tabstat `v' if `touse', stat("`stat'") save
+	mat temp = r(StatTotal)
 
-*For binary vars
+	local ncon = temp[1,1]
+	putexcel `letter'`rownum' = `ncon', `fformat'
+	
+	local ++rownum
+	}
+	
+	
+// For binary vars //
 else if `numcats' == 2 & "`stat'" == "mean" {
 	
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
 	
 	*Calculate proportion (note: need this instead of tabstat in case
 	* binary var is not coded 0/1)
-	reg y_999 i.`v'
+	reg y_999 i.`varname' if `touse'
 	estat sum
 	mat temp = r(stats)
 	
@@ -266,15 +292,31 @@ else if `numcats' == 2 & "`stat'" == "mean" {
 	
 	local 	++rownum	
 	}
+
+else if `numcats' == 2 & "`stat'" == "n" {
+	
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
+	
+	*Calculate n
+	tabstat `varname' if `touse', stat("`stat'") save
+	mat temp = r(StatTotal)
+
+	local nbin = temp[1,1]
+	putexcel `letter'`rownum' = `nbin', `fformat'
+	
+	local 	++rownum	
+	}	
 	
 	
-*For nominal (3+ category) vars
+// For nominal (3+ category) vars //
 else if `numcats' >= 3 & "`stat'" == "mean" {
 
 	local ++ rownum		// new row so each category is below
 	
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
+	
 	*Calculate proportions
-	reg y_999 ibn.`v' if `touse', nocon
+	reg y_999 ibn.`varname' if `touse', nocon
 	estat sum
 	mat temp = r(stats)
 		
@@ -290,8 +332,26 @@ else if `numcats' >= 3 & "`stat'" == "mean" {
 	}
 	}
 
+else if `numcats' >= 3 & "`stat'" == "n" {
+
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
 	
-else if `numcats' >= 3 & "`stat'" == "count" | "`stat'" == "n" {
+	*Calculate n
+	tabstat `varname' if `touse', stat("`stat'") save
+	mat temp = r(StatTotal)
+
+	local nnom = temp[1,1]
+	putexcel `letter'`rownum' = `nnom', `fformat'
+	
+	local ++ rownum
+	
+	*Loop to skip over each individual category rows
+	forvalues i = 1/`numcats' {
+		local ++ rownum
+	}
+	}
+	
+else if `numcats' >= 3 & "`stat'" == "freq" | "`stat'" == "count" {
 
 	local ++ rownum		// new row so each category is below
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
@@ -332,14 +392,14 @@ local rightcol : word `numstats' of `letters'
 *Add a basic title at the top of the table; change name if specified
 if "`title'" == "" {
 	putexcel 	B2:`rightcol'2 = "Table #: Descriptive Statistics (N = `N')",  ///
-				merge left border(bottom, double) ///
+				merge left border(bottom, `lineset') ///
 				font("`fonttype'", "`fsize'") bold
 		}
 
 else {
 	local titletext = `" `title' "'
 	putexcel 	B2:D`rightcol'2 = "`titletext'",  ///
-				merge left border(bottom, double) ///
+				merge left border(bottom, `lineset') ///
 				font("`fonttype'", "`fsize'") bold
 	}
 	
@@ -349,9 +409,21 @@ putexcel 	B3:`rightcol'3, border(bottom)
 
 *Add double-line formatting to bottom of the table		
 local 		bottom = `numrows' + 3
-putexcel 	B`bottom':`rightcol'`bottom', border(bottom, double)
+putexcel 	B`bottom':`rightcol'`bottom', border(bottom, `lineset')
 
-*ADD NOTES to table
+*Add footnotes to table
+local 		notestart = `bottom' + 1
+
+if "`notes'" != "" {
+	local notetext = `" `notes' "'
+	putexcel 	B`notestart':`rightcol'`notestart' = "`notetext'", ///
+			merge left txtwrap font("`fonttype'", "`notefsize'")
+	}
+
+else {
+	}
+	
+
 
 end	
 
