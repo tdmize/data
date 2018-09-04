@@ -26,8 +26,9 @@ statistics and labeled output most appropriate for the measurement level
 of the variable.
 
 {pstd}
-Factor syntax is required: binary and nominal variables should be entered 
-into the variable list with the i. prefix.
+Factor syntax is required: binary and nominal variables must be entered 
+into the variable list with the i. prefix. Variables without any prefix are 
+assumed to be continuous.
 
 {pstd}
 {cmd:dstable} outputs the descriptive statistics table to Excel; it can 
@@ -135,7 +136,7 @@ and titles in the table. The default is 11.
 
 {p2colset 5 18 19 0}
 {synopt:{opt notesize(#)}} changes the font size of the footnotes on 
-the table. The default is 10.
+the table. The default is 9.
 {p_end}
 
 {p2colset 5 18 19 0}
@@ -153,6 +154,17 @@ lines as the table top and bottom borders.
 {p2colset 5 18 19 0}
 {synopt:{opt sheet:name(string)}} adds a name to the individual Excel sheet 
 where the table is saved. The default is to name the sheet "Descriptives Table"
+{p_end}
+
+{marker stats}
+{dlgtab:Group options}
+
+{p2colset 5 18 19 0}
+{synopt:{opt group(groupvar)}} specifies that descriptive statistics should be 
+calculated separately for each group of the nominal grouping variable. 
+Statistics for each group are added to the right of the tables. Labels for the 
+new columns are automatically generated from the value labels of the grouping 
+variable.
 {p_end}
 
 
