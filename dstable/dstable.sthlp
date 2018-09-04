@@ -99,10 +99,16 @@ in {bf:stats( )}. The following statistics are available:
 {dlgtab:Other options}
 
 {p2colset 5 18 19 0}
-{synopt:{opt nformat(string)}} changes the format for the statistics. 
-The format follows that specified by {bf:putexcel} (see {help putexcel advanced}). 
-The default is "#.00" which specifies two decimal places. To change this, for 
-example to use three decimal places, specify "#.000"
+{synopt:{opt dec:imals(#)}} changes the number of decimal places reported 
+for the statistics. The default is 2.
+{p_end}
+
+{p2colset 5 18 19 0}
+{synopt:{opt listwise}} performs listwise deletion across all specified 
+variables. That is, observations with missing data on any of the variables 
+are excluded from any of the reported statistics. The default is casewise 
+deletion which includes observations that are non-missing for each specific 
+statistic. 
 {p_end}
 
 {p2colset 5 18 19 0}

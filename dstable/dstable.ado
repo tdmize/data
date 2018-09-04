@@ -9,13 +9,20 @@ program define dstable, rclass
 	syntax varlist(min=1 fv) [if] [in], ///
 		FILEname(string) ///		*  these are required options
 		[STATs(string) ///	// these are optional options
-		nformat(string) title(string) NOTEs(string) ///
+		DECimals(string) listwise title(string) NOTEs(string) ///
 		font(string) FONTSize(string) notesize(string) ///
 		txtindent(string) SINGleborder SHEETname(string) ///
-		group(varlist max=1)]
+		group(varlist max=1) noborder]
+
 		
-		
-marksample touse, novarlist 	// allows missing values casewise
+// Default to casewise handling of missing values unless listwise is specified		
+if "`listwise'" == "" {	
+	marksample touse, novarlist 
+	}
+
+else {
+	marksample touse
+	}
 	
 *Error out if if/in qualifiers specify no obs
 qui count if `touse'
@@ -72,13 +79,33 @@ else {
 	}
 	
 *Set the format of numbers (e.g. number of decimal places)
-if "`nformat'" == "" {
+if "`decimals'" == "" {
 	local nfmt = "#.00"
 	}
 
-else {
-	local nfmt = `" `nformat' "'
-	}	
+if "`decimals'" == "0" {
+	local nfmt = "#"
+	}
+	
+if "`decimals'" == "1" {
+	local nfmt = "#.0"
+	}
+
+if "`decimals'" == "2" {
+	local nfmt = "#.00"
+	}
+	
+if "`decimals'" == "3" {
+	local nfmt = "#.000"
+	}
+	
+if "`decimals'" == "4" {
+	local nfmt = "#.0000"
+	}
+	
+if "`decimals'" == "5" {
+	local nfmt = "#.00000"
+	}
 	
 *Formats for the numbers and labels
 local nformat "nformat("`nfmt'") txtindent(`indent') right font("`fonttype'", "`fsize'")"
@@ -217,7 +244,7 @@ else {
 local numstats 	: word count `statlist'	
 
 *Set column #s (letters in Excel) based on number of stats 	
-local letters `" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" Y" Z" "'
+local letters `" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z" "AA" "AB" "AC "AD" "AE" "AF "AG" "'
 
 local rownum = 5	// starting on Excel's 5th row so space for headings
 
@@ -243,23 +270,23 @@ local letter 	: word `letnum' of `letters'
 local stat 		: word `i' of `statlist'
 
 *Label the current column with nicer formatted stat name
-local meancol 		= "Mean"
-local sdcol 		= "SD"
-local ncol 			= "n"
-local freqcol 		= "Freq."
-local countcol 		= "Freq."
-local mincol 		= "Min."
-local maxcol 		= "Max."
-local sumcol 		= "Sum"
-local rangecol 		= "Range"
-local rcol 			= "Range"
-local variancecol 	= "Var."
-local varcol 		= "Var."
-local vcol 			= "Var."
+local meancol 		= "Mean  "
+local sdcol 		= "SD  "
+local ncol 			= "n  "
+local freqcol 		= "Freq.  "
+local countcol 		= "Freq.  "
+local mincol 		= "Min.  "
+local maxcol 		= "Max.  "
+local sumcol 		= "Sum  "
+local rangecol 		= "Range  "
+local rcol 			= "Range  "
+local variancecol 	= "Var.  "
+local varcol 		= "Var.  "
+local vcol 			= "Var.  "
 local cvcol 		= "SD/Mean"
 local semeancol 	= "SE(Mean)"
-local skewnesscol 	= "Skew."
-local skewcol 		= "Skew."
+local skewnesscol 	= "Skew.  "
+local skewcol 		= "Skew.  "
 local kurtosiscol	= "Kurtosis"
 local kurcol 		= "Kurtosis"
 local kcol 			= "Kurtosis"
@@ -274,10 +301,10 @@ local p75col 		= "75th Perc."
 local p90col		= "90th Perc."
 local p95col 		= "95th Perc."
 local p99col 		= "99th Perc."
-local iqrcol 		= "IQR"
+local iqrcol 		= "IQR  "
 
 qui putexcel `letter'4 = `" ``stat'col' "', ///
-			hcenter font("`fonttype'", "`fsize'")
+			right font("`fonttype'", "`fsize'")
 
 
 *Count categories to determine if var is continuous, binary, or nominal	
@@ -466,7 +493,20 @@ if "`group'" != "" {
 *Add single line under stats column headings
 qui putexcel B4:`rightcol'4, border(bottom)
 
+*Add double-line formatting to bottom of the table		
+local 			bottom = `numrows' + 4
+qui putexcel 	B`bottom':`rightcol'`bottom', border(bottom, `lineset')
+
 *If group( ) specified, add group name labels above corresponding stats
+	*Nosort option
+if "`noborder'" == "" {
+	local borderop = ", border(right, dotted)"
+	}
+
+else {
+	local borderop = ""
+	}
+	
 local leftnum 	= 1
 local rightnum 	= `numstats'
 	
@@ -476,7 +516,7 @@ if "`group'" != "" {
 
 	foreach i of local levels {
 	
-	fvexpand `group'
+	fvexpand i.`group'
 	local numgroups : word count `r(varlist)' 
 
 	local left 		: word `leftnum' of `letters'
@@ -486,15 +526,18 @@ if "`group'" != "" {
 	qui putexcel `left'3:`right'3 = "`c`i''", ///
 		underline merge hcenter font("`fonttype'", "`fsize'") 
 
+	*Adding dotted right border between groups except for last group
+	if `i' != `numgroups' {
+		qui putexcel `right'3:`right'`bottom' `borderop'
+		}
+	
 	local leftnum = `leftnum' + `numstats'
 	local rightnum = `rightnum' + `numstats'
 	}
 }
 
 
-*Add double-line formatting to bottom of the table		
-local 			bottom = `numrows' + 4
-qui putexcel 	B`bottom':`rightcol'`bottom', border(bottom, `lineset')
+
 
 *Add footnotes to table
 local 		notestart = `bottom' + 1
