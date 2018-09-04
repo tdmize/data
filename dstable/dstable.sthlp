@@ -183,9 +183,12 @@ variable.
 
 {phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
 {phang2}	filename("descriptivesEX4") nformat("#.000") {p_end}
+
+{phang} dstable wage age i.union i.collgrad tenure i.occupation hours, {p_end}
+{phang2}	filename("descriptivesEX5") group(race) {p_end}
 			
 {phang} dstable wage age i.race i.union i.collgrad tenure i.occupation hours, /// {p_end}
-{phang2}	filename("descriptivesEX5") /// {p_end}
+{phang2}	filename("descriptivesEX6") /// {p_end}
 {phang2}	notes("This is the first footnote." /// {p_end}
 {phang3}			"This is how to split long footnotes" /// {p_end}
 {phang3}			"onto multiple lines of the code.") {p_end}
