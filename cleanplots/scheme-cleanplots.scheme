@@ -3,12 +3,12 @@
 * Graphing scheme with colors and other tweaks for common graphs
 * Particularly designed for easier and better default plots of 
 * predictions and marginal effects
-* Many option are baed on user-written plotplain (Bischof 2017)
+* Many option are based on the excellent plotplain scheme (Bischof 2017)
 
 * NOTE: "help scheme entries" for what each command does
 
 * Trenton D. Mize
-* 2018-03-21
+* 2018-09-16
 #include s1mono
 
 // Legend outside in lower right corner
@@ -183,21 +183,21 @@ symbolsize         			medsmall
 symbolsize p       			medsmall
 
 * Default symbol shapes
-symbol p1     				circle_hollow
-symbol p2     				circle
-symbol p3     				circle_hollow
-symbol p4     				circle
-symbol p5     				circle_hollow
-symbol p6     				circle
-symbol p7     				square_hollow
-symbol p8     				square
+symbol p1     				smcircle_hollow
+symbol p2     				smcircle
+symbol p3     				smsquare_hollow
+symbol p4     				smsquare
+symbol p5     				smtriangle_hollow
+symbol p6     				smtriangle
+symbol p7     				smdiamond_hollow
+symbol p8     				smdiamond
 symbol p9     				i
-symbol p10    				diamond_hollow
-symbol p11    				triangle_hollow
-symbol p12    				plus
-symbol p13    				x
-symbol p14    				circle_hollow
-symbol p15    				circle
+symbol p10    				plus
+symbol p11    				x
+symbol p12    				smcircle
+symbol p13    				smcircle_hollow
+symbol p14    				smsquare
+symbol p15    				smsquare_hollow
 
 linepattern p1lineplot  	solid
 linepattern p2lineplot  	solid 
@@ -207,13 +207,13 @@ linepattern p5lineplot  	solid
 linepattern p6lineplot  	solid
 linepattern p7lineplot  	solid
 linepattern p8lineplot  	solid
-linepattern p9lineplot  	shortdash_dot
-linepattern p10lineplot 	shortdash
-linepattern p11lineplot 	shortdash
-linepattern p12lineplot 	shortdash
-linepattern p13lineplot 	shortdash
-linepattern p14lineplot 	shortdash
-linepattern p15lineplot 	shortdash
+linepattern p9lineplot  	dash
+linepattern p10lineplot 	dash
+linepattern p11lineplot 	dash
+linepattern p12lineplot 	dash
+linepattern p13lineplot 	dash
+linepattern p14lineplot 	dash
+linepattern p15lineplot 	dash
 
 linepattern p1line  		solid
 linepattern p2line  		solid 
@@ -223,13 +223,13 @@ linepattern p5line  		solid
 linepattern p6line  		solid
 linepattern p7line  		solid
 linepattern p8line  		solid
-linepattern p9line  		shortdash_dot
-linepattern p10line 		shortdash
-linepattern p11linep 		shortdash
-linepattern p12line 		shortdash
-linepattern p13line 		shortdash
-linepattern p14line 		shortdash
-linepattern p15line	 		shortdash
+linepattern p9line  		dash
+linepattern p10line 		dash
+linepattern p11linep 		dash
+linepattern p12line 		dash
+linepattern p13line 		dash
+linepattern p14line 		dash
+linepattern p15line	 		dash
 
 linepattern xyline      	shortdash 	
 linepattern ci          	dash
@@ -251,11 +251,11 @@ color background             white
 
 * Default for all other non-specified objects
 * NOTE: CIs in marginsplot is based on this
-color p1					red
-color p2 					gs8
-color p3 					cyan*1.2
+color p1					red*1.2
+color p2 					eltblue
+color p3 					gs8
 color p4 					black
-color p5 					blue
+color p5 					cyan*1.2
 color p6 					purple
 color p7 					gold
 color p8 					dkgreen
@@ -267,11 +267,11 @@ color p13 					sand
 color p14 					black
 
 * Default for lines (matching the symbols)
-color p1line				red
-color p2line				gs8
-color p3line				cyan*1.2
+color p1line				red*1.2
+color p2line				eltblue
+color p3line				gs8
 color p4line				black
-color p5line 				blue
+color p5line 				cyan*1.2
 color p6line 				purple
 color p7line 				gold
 color p8line 				dkgreen
@@ -282,11 +282,11 @@ color p12line				pink
 color p13line 				sand
 color p14line 				black
 
-color p1lineplot			red
-color p2lineplot			gs8
-color p3lineplot			cyan*1.2
+color p1lineplot			red*1.2
+color p2lineplot			eltblue
+color p3lineplot			gs8
 color p4lineplot			black
-color p5lineplot 			blue
+color p5lineplot 			cyan*1.2
 color p6lineplot			purple
 color p7lineplot 			gold
 color p8lineplot 			dkgreen
@@ -297,11 +297,11 @@ color p12lineplot			pink
 color p13lineplot			sand
 color p14lineplot 			black
 
-color p1markline			red
-color p2markline			gs8
-color p3markline			cyan*1.2
+color p1markline			red*1.2
+color p2markline			eltblue
+color p3markline			gs8
 color p4markline			black
-color p5markline 			blue
+color p5markline 			cyan*1.2
 color p6markline			purple
 color p7markline 			gold
 color p8markline 			dkgreen
@@ -313,11 +313,11 @@ color p13markline			sand
 color p14markline 			black
 
 * Bar charts
-color p1bar					red*.8
-color p2bar					gs10
-color p3bar					cyan*1.2
+color p1bar					red
+color p2bar					eltblue*.8
+color p3bar					gs10
 color p4bar					black*.9
-color p5bar					blue*.8
+color p5bar					cyan
 color p6bar					purple*.8
 color p7bar					gold*.8
 color p8bar					dkgreen*.9
@@ -329,11 +329,11 @@ color p13bar				sand*.8
 color p14bar				black
 
 * Pie slices
-color p1pie					red*.8
-color p2pie					gs10
-color p3pie					cyan*1.2
+color p1pie					red
+color p2pie					eltblue*.8
+color p3pie					gs10
 color p4pie					black*.9
-color p5pie					blue*.8
+color p5pie					cyan
 color p6pie					purple*.8
 color p7pie					gold*.8
 color p8pie					dkgreen*.9
