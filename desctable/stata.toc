@@ -1,0 +1,4 @@
+v 3
+d desctable - creates descriptive statistics tables in Excel
+d Trenton D. Mize, Purdue University and Bianca Manago, Vanderbilt University
+p desctable command for descriptive statistics table
