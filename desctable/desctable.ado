@@ -2,7 +2,7 @@
 * desctable creates descriptive statistics tables
 
 capture program drop desctable
-*! desctable v1.0.2 Trenton Mize 2018-09-16
+*! desctable v1.0.2 Trenton Mize 2018-09-17
 program define desctable, rclass
 	version 15.0
 
@@ -581,7 +581,7 @@ if "`notes'" != "" {
 *Display a note for where the table is saved
 di _newline(1)
 di in white "Descriptive statistics table has been saved in the folder:"
-cd
+pwd
 	
 end	
 
