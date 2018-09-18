@@ -244,6 +244,7 @@ else {
 	fvexpand i.`group'
 	local numgroups : word count `r(varlist)' 
 	local groupspec = `" & `group' == "'
+	local groupname = " `group' "
 
 	forvalues i = 1/`numgroups' {
 		fvexpand i.`group'
@@ -404,25 +405,33 @@ else if `numcats' == 2 & "`stat'" == "n" {
 else if `numcats' >= 3 & "`stat'" == "mean" {
 
 	local ++ rownum		// new row so each category is below
-	
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
 	
-	*Calculate proportions
-	qui reg `y' ibn.`varname' if `touse' `groupspec' `grpnum`k'', nocon
-	qui estat sum
-	mat temp = r(stats)
-		
-	*Loop through all categories for proportions
+	*Calculate frequencies
+	qui tab `varname' `groupname' if `touse', matcell(freq)
+			
+	*Loop through all categories for frequencies / total n for group
 	forvalues i = 1/`numcats' {
 	
-	local tempnum = `i' + 1
-		
-	local propnom = temp[`tempnum',1]
-	qui putexcel `letter'`rownum' = `propnom', `nformat'
+	*Calculate total n for that group
+	qui tabstat `varname' if `touse' `groupspec' `grpnum`k'', stat(n) save
+	mat tempn = r(StatTotal)
+	local groupn = tempn[1,1]
+	
+	local freqnom = freq[`i',`k']
+	
+	local propcat = `freqnom' / `groupn'
+
+	if `freqnom' == 0 {
+		local propcat = "."
+		}
+	
+	qui putexcel `letter'`rownum' = `propcat', `nformat'
 	
 	local ++ rownum
 	}
-	}
+	}	
+
 
 else if `numcats' >= 3 & "`stat'" == "n" {
 
@@ -449,12 +458,22 @@ else if `numcats' >= 3 & "`stat'" == "freq" | "`stat'" == "count" {
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
 	
 	*Calculate frequencies
-	qui tab `varname' if `touse' `groupspec' `grpnum`k'', matcell(freq)
+	qui tab `varname' `groupname' if `touse', matcell(freq)
 			
-	*Loop through all categories for frequencies
+	*Loop through all categories for frequencies / total n for group
 	forvalues i = 1/`numcats' {
 	
-	local freqnom = freq[`i',1]
+	*Calculate total n for that group
+	qui tabstat `varname' if `touse' `groupspec' `grpnum`k'', stat(n) save
+	mat tempn = r(StatTotal)
+	local groupn = tempn[1,1]
+	
+	local freqnom = freq[`i',`k']
+	
+	if `freqnom' == 0 {
+		local freqnom = "."
+		}
+	
 	qui putexcel `letter'`rownum' = `freqnom', `fformat'
 	
 	local ++ rownum
