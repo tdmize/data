@@ -4,7 +4,7 @@
 capture program drop desctable
 *! desctable v1.0.2 Trenton Mize 2018-09-17
 program define desctable, rclass
-	version 15.0
+	version 14.1
 
 	syntax varlist(min=1 fv) [if] [in], ///
 		FILEname(string) ///		*  these are required options

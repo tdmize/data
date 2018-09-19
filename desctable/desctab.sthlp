@@ -1,5 +1,5 @@
 {smcl}
-{* 2018-09-02 Trenton D Mize}{...}
+{* 2018-09-19 Trenton D Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -12,7 +12,7 @@
 
 
 {p 4 18 2}
-{cmd:desctable} {varlist} {ifin} {cmd:,}
+{opt desctab:le} {varlist} {ifin} {cmd:,}
 {opt filename( )} [options]
 {p_end}
 
@@ -189,7 +189,7 @@ variable.
 {phang2}	filename("descriptivesEX3") font("Helvetica") fontsize(13) {p_end}
 
 {phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
-{phang2}	filename("descriptivesEX4") nformat("#.000") {p_end}
+{phang2}	filename("descriptivesEX4") decimals(3) {p_end}
 
 {phang} desctable wage age i.union i.collgrad tenure i.occupation hours, {p_end}
 {phang2}	filename("descriptivesEX5") group(race) {p_end}
@@ -205,7 +205,7 @@ variable.
 
 {pstd} {cmd:desctable} makes the descriptive statistics table using Stata's 
 {bf:putexcel} command. Because of some of the putexcel features used, 
-Stata version 15.0 or newer is required to use {cmd:desctable}.
+Stata version 14.1 or newer is required to use {cmd:desctable}.
 
 {pstd} Available statistics for continuous variables are those that can be 
 calculated with tabstat (with the exception of {bf:q} - which is not allowed 

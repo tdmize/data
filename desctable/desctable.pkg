@@ -1,7 +1,7 @@
 v 3
 d desctable - creates descriptive statistics tables in Excel
 d Trenton D. Mize, Purdue University and Bianca Manago, Vanderbilt Unversity
-d Distribution-Date: 20180917
+d Distribution-Date: 20180919
 f desctable.ado
 f desctab.ado
 f desctable.sthlp
