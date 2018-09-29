@@ -24,12 +24,75 @@ else {
 	marksample touse
 	}
 	
+	
+***********************************
+// Check Options / Report Errors //	
+***********************************
+
 *Error out if if/in qualifiers specify no obs
 qui count if `touse'
 	local N = `r(N)'
 	
 	if `r(N)' == 0 {
 	error 2000
+	}
+
+*Define which stats to calculaute; default is to report mean/prop and SD
+if "`stats'" == "" {
+	local statlist = "mean sd"
+	}
+
+else {
+	local statlist = `" `stats' "'
+	}	
+
+local numstats 	: word count `statlist'	
+
+*Error out if svy/mi stat is requested but data is not svyset/mi set
+forvalues s = 1/`numstats' {
+
+local stat 	: word `s' of `statlist'
+
+if "`stat'" == "svymean" | "`stat'" == "svysemean" {
+	qui svyset
+	local svysetting = "`r(settings)'"
+		
+	if "`svysetting'" == ", clear" {
+	di as err "{cmd:svy} statistic requested but data is not {cmd:svyset}."
+	di as err "Use {cmd:svyset} to set survey design settings for data."
+	exit
+	}
+	}
+
+if "`stat'" == "mimean" | "`stat'" == "misemean" ///
+		| "`stat'" == "misvymean" | "`stat'" == "misvysemean" {
+	qui mi query
+	
+	if r(update) == . {
+	di as err "{cmd:mi} statistic requested but data is not {cmd:mi set}."
+	di as err "Use {cmd:mi set} to set imputation settings for data."
+	exit
+	}
+	}
+
+*Error out if mi stat is requested and group option is specified
+if "`group'" != "" {
+	if "`stat'" == "mimean" | "`stat'" == "misemean" | "`stat'" == "misvymean" ///
+		| "`stat'" == "misvysemean" {
+
+	di as err "You specified both a {opt mi} statistic and the {opt group} option."
+	di as err "This is reasonable, but not currently supported by {cmd:desctable}."
+	di as err "If you can figure out how to program this, you can be third author."
+	exit
+	}
+	}
+}
+
+*Explain reported N when listwise option is used
+if "`listwise'" != "" {	
+	di in yellow "With the {opt listwise} option, the sample size reported at the top of the table"
+	di in yellow "is the # of complete observations for the variables specified"
+	di in yellow "(i.e. # of obs with no missing data)." 
 	}
 	
 *Give warning message in output if sample size varies across vars
@@ -53,14 +116,27 @@ local missvars = r(vars)
 local missnum = r(N_incomplete)
 
 if `missnum' != 0 {
-di _newline(1)
-di in red "Sample size varies across variables in the table due to missing data."
-di in red "`missnum' observations have some missing data on variables in the table."
-di in red " - Variables with missing data are:"
-di in yellow `"    `missvars' "'
-di _newline(1)
-di in white "Use the stat(n) option to show the # of non-missing obs for each variable."
-di in white "Use the listwise option to exclude observations with any missing data."
+
+	if strpos("`statlist'", "mi") {
+	
+	di in yellow "Sample size reported at the top of the table is # of total observations in the data."
+	di in yellow "Most statistics reported by {cmd:desctable} utilize only complete observations;"
+	di in yellow "any {cmd:mi} statistic also utilizes imputed data." 
+	di _newline(1)
+	di in yellow "To view the # of complete, incomplete, and imputed observations use {stata mi describe:mi describe}."
+	}
+		
+	else {
+	di in yellow "Sample size reported at the top of the table is # of total observations in the data."
+	di _newline(1)
+	di in red "The sample size varies across variables in the table due to missing data."
+	di in red "`missnum' observations have some missing data on variables in the table."
+	di in red " - Variables with missing data are:"
+	di in yellow `"    `missvars' "'
+	di _newline(1)
+	di in yellow "Use the {opt stat(n)} option to show the # of non-missing obs for each variable."
+	di in yellow "Use the {opt listwise} option to exclude observations with any missing data."
+	}
 }
 		
 *Create blank excel sheet - name based on filename() specification
@@ -254,7 +330,7 @@ else {
 	}
 }	
 
-
+	
 **************************************
 // Calculate descriptive statistics //				
 **************************************
@@ -263,27 +339,15 @@ else {
 tempvar 	y
 qui gen 	`y' = runiform()
 
-*Default is to report mean/prop and SD
-if "`stats'" == "" {
-	local statlist = "mean sd"
-	}
-
-else {
-	local statlist = `" `stats' "'
-	}	
-
-	
-local numstats 	: word count `statlist'	
 
 *Set column #s (letters in Excel) based on number of stats 	
 local letters `" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z" "AA" "AB" "AC "AD" "AE" "AF "AG" "'
 
-local rownum = 5	// starting on Excel's 5th row so space for headings
+local rownum 	= 5	// starting on Excel's 5th row so space for headings
 
-
+	
 // Loop through each group
 forvalues k = 1/`numgroups' { 
-
 
 // Loop through requested stats //
 forvalues i = 1/`numstats' {
@@ -291,18 +355,11 @@ forvalues i = 1/`numstats' {
 *Put next group's stats to the right of the preceeding group
 local letnum 	= `i' + `numstats' * (`k' - 1)
 
-/*
-*NOTE: This only works between 1st and 2nd groups set of stats?
-if `k' > 1 {		// adding an empty column to separate groups
-	local letnum = `letnum' + 1 
-	}
-*/
-	
 local letter 	: word `letnum' of `letters'
 local stat 		: word `i' of `statlist'
 
 *Label the current column with nicer formatted stat name
-local meancol 		= "Mean  "
+local meancol 		= "Mean/Prop."
 local sdcol 		= "SD  "
 local ncol 			= "n  "
 local freqcol 		= "Freq.  "
@@ -334,6 +391,12 @@ local p90col		= "90th Perc."
 local p95col 		= "95th Perc."
 local p99col 		= "99th Perc."
 local iqrcol 		= "IQR  "
+local svymeancol 	= "Svy. Mean"
+local svysemeancol	= "Svy. SE(Mean)"
+local mimeancol		= "MI Mean"
+local misemeancol	= "MI SE(Mean)"
+local misvymeancol	= "MI Svy. Mean"
+local misvysemeancol = "MI Svy. SE(Mean)"
 
 qui putexcel `letter'4 = `" ``stat'col' "', ///
 			right font("`fonttype'", "`fsize'")
@@ -344,9 +407,16 @@ foreach v in `varlist' {
 	fvexpand `v'
 	local numcats : word count `r(varlist)' 
 
-	
+
+*************************	
 // For continuous vars //	
-if `numcats' == 1 & "`stat'" != "freq" & "`stat'" != "count" & "`stat'" != "n" {
+*************************	
+
+if `numcats' == 1 & "`stat'" != "freq" & "`stat'" != "count" ///
+		& "`stat'" != "n" & "`stat'" != "svymean" ///
+		& "`stat'" != "svysemean" & "`stat'" != "mimean" ///
+		& "`stat'" != "misemean" & "`stat'" != "misvymean"  ///
+		& "`stat'" != "misvysemean" {
 	
 	qui tabstat `v' if `touse' `groupspec' `grpnum`k'', stat("`stat'") save
 	mat temp = r(StatTotal)
@@ -368,8 +438,77 @@ else if `numcats' == 1 & "`stat'" == "n" {
 	local ++rownum
 	}
 	
+else if `numcats' == 1 & "`stat'" == "svymean" {
 	
+	qui svy: mean `v' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local smeancon = temp[1,1]
+	qui putexcel `letter'`rownum' = `smeancon', `nformat'
+	
+	local ++rownum
+	}
+	
+else if `numcats' == 1 & "`stat'" == "svysemean" {
+	
+	qui svy: mean `v' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local secon = temp[2,1]
+	qui putexcel `letter'`rownum' = `secon', `nformat'
+	
+	local ++rownum
+	}
+		
+else if `numcats' == 1 & "`stat'" == "mimean" {
+	
+	qui mi est: mean `v' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local mimeancon = temp[1,1]
+	qui putexcel `letter'`rownum' = `mimeancon', `nformat'
+	
+	local ++rownum
+	}
+
+else if `numcats' == 1 & "`stat'" == "misemean" {
+	
+	qui mi est: mean `v' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local misecon = temp[2,1]
+	qui putexcel `letter'`rownum' = `misecon', `nformat'
+	
+	local ++rownum
+	}	
+	
+else if `numcats' == 1 & "`stat'" == "misvymean" {
+	
+	qui mi est: svy: mean `v' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local mimeancon = temp[1,1]
+	qui putexcel `letter'`rownum' = `mimeancon', `nformat'
+	
+	local ++rownum
+	}
+
+else if `numcats' == 1 & "`stat'" == "misvysemean" {
+	
+	qui mi est: svy: mean `v' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local misecon = temp[2,1]
+	qui putexcel `letter'`rownum' = `misecon', `nformat'
+	
+	local ++rownum
+	}	
+	
+	
+*********************	
 // For binary vars //
+*********************	
+
 else if `numcats' == 2 & "`stat'" == "mean" {
 	
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
@@ -400,8 +539,50 @@ else if `numcats' == 2 & "`stat'" == "n" {
 	local 	++rownum	
 	}	
 	
+else if `numcats' == 2 & "`stat'" == "svymean" {
 	
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
+	
+	qui svy: mean `varname' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local spropbin = temp[1,1]
+	qui putexcel `letter'`rownum' = `spropbin', `nformat'
+	
+	local 	++rownum	
+	}	
+	
+else if `numcats' == 2 & "`stat'" == "mimean" {
+	
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
+	
+	qui mi est: mean `varname' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local mipropbin = temp[1,1]
+	qui putexcel `letter'`rownum' = `mipropbin', `nformat'
+	
+	local 	++rownum	
+	}	
+	
+else if `numcats' == 2 & "`stat'" == "misvymean" {
+	
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
+	
+	qui mi est: svy: mean `varname' if `touse' `groupspec' `grpnum`k''
+	mat temp = r(table)
+
+	local mipropbin = temp[1,1]
+	qui putexcel `letter'`rownum' = `mipropbin', `nformat'
+	
+	local 	++rownum	
+	}	
+
+
+************************************	
 // For nominal (3+ category) vars //
+************************************
+	
 else if `numcats' >= 3 & "`stat'" == "mean" {
 
 	local ++ rownum		// new row so each category is below
@@ -432,7 +613,82 @@ else if `numcats' >= 3 & "`stat'" == "mean" {
 	}
 	}	
 
+else if `numcats' >= 3 & "`stat'" == "svymean" {
+	
+	local ++ rownum		// new row so each category is below
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
+	
+	qui svy: tab `varname' `groupname' if `touse', col
+	mat freq = e(Prop)
+	
+	*Calculate column total
+	local coltot = 0
+	forvalues i = 1/`numcats' {
+		local coltot = freq[`i',`k'] + `coltot' 
+		}
+		
+	*Loop through all categories for svy proportions for group
+	forvalues i = 1/`numcats' {
+	
+	local spropnom = freq[`i',`k']
+	local svprop = `spropnom' / `coltot'
+	
+	if `spropnom' == 0 {
+		local svprop = "."
+		}
+	
+	qui putexcel `letter'`rownum' = `svprop', `nformat'
+	
+	local ++ rownum
+	}
+	}
 
+else if `numcats' >= 3 & "`stat'" == "mimean" {
+	
+	local ++ rownum		// new row so each category is below
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
+	
+	qui mi est: prop `varname' if `touse' `groupspec' `grpnum`k''
+	mat freq = r(table)
+	
+	*Loop through all categories for mi est proportions for group
+	forvalues i = 1/`numcats' {
+	
+	local mipropnom = freq[`k',`i']
+	
+	if `mipropnom' == 0 {
+		local mipropnom = "."
+		}
+	
+	qui putexcel `letter'`rownum' = `mipropnom', `nformat'
+	
+	local ++ rownum
+	}
+	}
+
+else if `numcats' >= 3 & "`stat'" == "misvymean" {
+	
+	local ++ rownum		// new row so each category is below
+	local varname = substr("`v'", 3, .)		// Strip the i. prefix
+	
+	qui mi est: svy: prop `varname' if `touse' `groupspec' `grpnum`k''
+	mat freq = r(table)
+	
+	*Loop through all categories for mi est proportions for group
+	forvalues i = 1/`numcats' {
+	
+	local mipropnom = freq[`k',`i']
+	
+	if `mipropnom' == 0 {
+		local mipropnom = "."
+		}
+	
+	qui putexcel `letter'`rownum' = `mipropnom', `nformat'
+	
+	local ++ rownum
+	}
+	}
+	
 else if `numcats' >= 3 & "`stat'" == "n" {
 
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
@@ -488,7 +744,7 @@ else {
 		local rownum = `rownum' + `numcats' + 1
 	}
 }
-}	
+}
 local rownum = `rownum' - `numrows'		// start back at first row
 }
 }

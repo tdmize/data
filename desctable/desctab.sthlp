@@ -3,7 +3,7 @@
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
-{p2col:{cmd:desctable} {hline 2}}Tables of Descriptive Statistics - with 
+{p2col:{cmdab:desctab:le} {hline 2}}Tables of Descriptive Statistics - with 
 	Unique Treatment of Continuous, Binary, and Nominal Variables {p_end}
 {p2colreset}{...}
 
@@ -12,7 +12,7 @@
 
 
 {p 4 18 2}
-{opt desctab:le} {varlist} {ifin} {cmd:,}
+{cmdab:desctab:le} {varlist} {ifin} {cmd:,}
 {opt filename( )} [options]
 {p_end}
 
@@ -92,24 +92,36 @@ statistics are available:
 {p2col :{ul:{bf:p90}}}90th percentile (c).{p_end}
 {p2col :{ul:{bf:p95}}}95th percentile (c).{p_end}
 {p2col :{ul:{bf:p99}}}99th percentile (c).{p_end}
+{p2col :{ul:{bf:}}} {p_end}
+{p2col :{ul:{bf:svymean}}}*Survey weighted estimate of mean; proportion of binary/nominal variables.{p_end}
+{p2col :{ul:{bf:svysemean}}}*Survey weighted estimate of standard error of mean (c).{p_end}
+{p2col :{ul:{bf:mimean}}}*Multiple imputation estimate of mean; proportion of binary/nominal variables.{p_end}
+{p2col :{ul:{bf:misemean}}}*Multiple imputation estimate of standard error of mean (c).{p_end}
+{p2col :{ul:{bf:misvymean}}}*Survey weighted multiple imputation estimate of mean; proportion of binary/nominal variables.{p_end}
+{p2col :{ul:{bf:misvysemean}}}*Survey weighted multiple imputation estimate of standard error of mean (c).{p_end}
+
 {p2line}
 
 (c) indicates this statistic is only reported for continuous variables.
+
+* {bf:svy} statistics are only available if data has been {help svyset}. 
+{bf:mi} statistics are only available if data has been {help mi set}. 
+{bf:misvy} statistics are only available if data has been {help mi svyset}.
 
 {marker stats}
 {dlgtab:Other options}
 
 {p2colset 5 18 19 0}
 {synopt:{opt dec:imals(#)}} changes the number of decimal places reported 
-for the statistics. The default is 2.
+for the statistics. The default is 2. Any integer between 0 - 5 is allowed.
 {p_end}
 
 {p2colset 5 18 19 0}
 {synopt:{opt listwise}} performs listwise deletion across all specified 
 variables. That is, observations with missing data on any of the variables 
-are excluded from any of the reported statistics. The default is casewise 
-deletion which includes observations that are non-missing for each specific 
-statistic. 
+included in the table are excluded from any of the reported statistics. 
+The default is casewise deletion which includes observations that are 
+non-missing for each specific statistic. 
 {p_end}
 
 {p2colset 5 18 19 0}
