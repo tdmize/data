@@ -67,8 +67,9 @@ if "`stat'" == "svymean" | "`stat'" == "svysemean" {
 if "`stat'" == "mimean" | "`stat'" == "misemean" ///
 		| "`stat'" == "misvymean" | "`stat'" == "misvysemean" {
 	qui mi query
+	local mistyle = r(style)
 	
-	if r(update) == . {
+	if "`mistyle'" == "." {
 	di as err "{cmd:mi} statistic requested but data is not {cmd:mi set}."
 	di as err "Use {cmd:mi set} to set imputation settings for data."
 	exit
