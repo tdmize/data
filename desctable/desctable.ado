@@ -1,8 +1,8 @@
 * Author: Trenton Mize & Bianca Manago
-* desctable creates descriptive statistics tables
+* desctable creates descriptive statistics tables in Excel
 
 capture program drop desctable
-*! desctable v1.0.2 Trenton Mize 2018-09-17
+*! desctable v1.0.3 Trenton Mize 2018-10-03
 program define desctable, rclass
 	version 14.1
 
@@ -341,8 +341,15 @@ tempvar 	y
 qui gen 	`y' = runiform()
 
 
-*Set column #s (letters in Excel) based on number of stats 	
-local letters `" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z" "AA" "AB" "AC "AD" "AE" "AF "AG" "'
+*Set column #s (letters in Excel) based on number of stats/group 	
+local letters `" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "'
+local letters `"`letters' "R" "S" "T" "U" "V" "W" "X" "Y" "Z" "'
+local letters `"`letters' "AA" "AB" "AC" "AD" "AE" "AF" "AG" "AH" "AI" "AJ" "'
+local letters `"`letters' "AK" "AL" "AM" "AN" "AO" "AP" "AQ" "AR" "AS" "AT" "'
+local letters `"`letters' "AU" "AV" "AW" "AX" "AY" "AZ" "'
+local letters `"`letters' "BA" "BB" "BC" "BD" "BE" "BF" "BG" "BH" "BI" "BJ" "'
+local letters `"`letters' "BK" "BL" "BM" "BN" "BO" "BP" "BQ" "BR" "BS" "BT" "'
+local letters `"`letters' "BU" "BV" "BW" "BX" "BY" "BZ" "'
 
 local rownum 	= 5	// starting on Excel's 5th row so space for headings
 
