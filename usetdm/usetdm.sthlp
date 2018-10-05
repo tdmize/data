@@ -23,8 +23,8 @@ various classes and workshops.
 Option {opt clear} must be specified if another dataset is currently in memory.
 
 {pstd} Datasets available include: addhealth4, gss, hrs06, pew16, tenure, 
-usstates, uscounty, world, and many more. To see the full list, go to:
-https://tdmize.github.io/data/data.html 
+usstates, uscounty, world, and many more. To see the full list, 
+{browse "https://tdmize.github.io/data/data.html": click here}.
 {p_end}
 
 {title:Examples}
@@ -35,8 +35,8 @@ https://tdmize.github.io/data/data.html
 
 {title:Additional Materials}
 
-{pstd} Class and workshop materials are available at 
-trentonmize.com/teaching {p_end}
+{pstd} Class and workshop materials are available 
+{browse "https://www.trentonmize.com/teaching: on the author's website.}{p_end}
 
 {title:Authorship}
 
