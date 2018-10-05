@@ -1,0 +1,4 @@
+v 3
+d mecompare - Example .do and .dta files for Comparing Marginal Effects paper
+d Trenton D. Mize, Long Doan, and J. Scott Long
+p mecompare package for comparing marginal effects example files
