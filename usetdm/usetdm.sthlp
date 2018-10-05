@@ -36,7 +36,7 @@ usstates, uscounty, world, and many more. To see the full list,
 {title:Additional Materials}
 
 {pstd} Class and workshop materials are available 
-{browse "https://www.trentonmize.com/teaching: on the author's website.}{p_end}
+{browse "https://www.trentonmize.com/teaching": on the author's website.}{p_end}
 
 {title:Authorship}
 
