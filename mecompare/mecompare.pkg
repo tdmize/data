@@ -1,7 +1,7 @@
 v 3
 d mecompare - package for comparing marginal effects examples
 d Trenton D. Mize, Long Doan, and J. Scott Long
-d Distribution-Date: 20180926
+d Distribution-Date: 20181005
 f mecompare.sthlp
 f ah4_cme.dta
 f gss_cme.dta
