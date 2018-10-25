@@ -328,6 +328,41 @@ color p12bar				pink*.7
 color p13bar				sand*.8
 color p14bar				black
 
+* Confidence Intervals and other rarea plots
+color parea					gs13
+color parealine				gs13
+
+* Area plots
+color p1area				red
+color p2area				eltblue*.8
+color p3area				gs10
+color p4area				black*.9
+color p5area				cyan
+color p6area				purple*.8
+color p7area				gold*.8
+color p8area				dkgreen*.9
+color p9area				lavender*.9
+color p10area				navy*.8
+color p11area				dkgreen*.9
+color p12area				pink*.7
+color p13area				sand*.8
+color p14area				black
+
+color p1arealine			red
+color p2arealine			eltblue*.8
+color p3arealine			gs10
+color p4arealine			black*.9
+color p5arealine			cyan
+color p6arealine			purple*.8
+color p7arealine			gold*.8
+color p8arealine			dkgreen*.9
+color p9arealine			lavender*.9
+color p10arealine			navy*.8
+color p11arealine			dkgreen*.9
+color p12arealine			pink*.7
+color p13arealine			sand*.8
+color p14arealine			black
+
 * Pie slices
 color p1pie					red
 color p2pie					eltblue*.8
@@ -358,10 +393,6 @@ color ci2_line     			gs13
 color ci2_arealine 			gs13
 color ci2_area     			gs13
 color ci2_symbol   			gs13
-
-* Confidence Intervals and other rarea plots
-color parea					gs13
-color parealine				gs13
 
 * Histograms
 color histogram 			none
