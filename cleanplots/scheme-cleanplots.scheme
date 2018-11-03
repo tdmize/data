@@ -9,7 +9,7 @@
 
 * Trenton D. Mize
 * 2018-09-16
-#include s1mono
+#include s1color
 
 // Legend outside in lower right corner
 * 1 column; short signatures; no frame
