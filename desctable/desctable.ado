@@ -1,8 +1,12 @@
 * Author: Trenton Mize & Bianca Manago
 * desctable creates descriptive statistics tables in Excel
 
+*2018-11-12 : Now, if a var label does not exist the varname is used to label
+*	the relevant row. Also, added option to use varnames instead of labels
+
+
 capture program drop desctable
-*! desctable v1.0.3 Trenton Mize 2018-10-03
+*! desctable v1.0.4 Trenton Mize 2018-11-12
 program define desctable, rclass
 	version 14.1
 
@@ -12,7 +16,7 @@ program define desctable, rclass
 		DECimals(string) listwise title(string) NOTEs(string) ///
 		font(string) FONTSize(string) notesize(string) ///
 		txtindent(string) SINGleborder SHEETname(string) ///
-		group(varlist max=1) noborder]
+		group(varlist max=1) VARNAMEs noborder]
 
 		
 // Default to casewise handling of missing values unless listwise is specified		
@@ -256,7 +260,13 @@ if `numcats' >= 3 {
 ******************************************
 // Label the rows with var/value labels //				
 ******************************************
-
+if "`varnames'" == "" {
+	local uselabels = 1
+	}
+else {
+	local uselabels = 0
+	}	
+	
 local rownum = 5	// starting on Excel's 5th row so space for headings
 
 *Count categories to determine if var is continuous, binary, or nominal	
@@ -266,21 +276,32 @@ foreach v in `varlist' {
 
 *For continuous vars	
 if `numcats' == 1 {
-
-	local clab: variable label `v'
+	
+	qui ds `v', has(varlabel)
+	if "`r(varlist)'" !=  "" & `uselabels' == 1 {
+		local clab: variable label `v'
+		}
+	else {
+		local clab `v' 
+		}
 	qui putexcel B`rownum' = "`clab'", `lformat'
-
 	local ++rownum
 	}
 	
 
 *For binary vars
 if `numcats' == 2 {
-	
+
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
-	local blab: variable label `varname'
-	qui putexcel B`rownum' = "`blab'", `lformat'
 	
+	qui ds `varname', has(varlabel)
+	if "`r(varlist)'" !=  "" & `uselabels' == 1 {
+		local blab: variable label `varname'
+		}
+	else {
+		local blab `varname' 
+		}		
+	qui putexcel B`rownum' = "`blab'", `lformat'
 	local 	++rownum	
 	}
 	
@@ -288,23 +309,42 @@ if `numcats' == 2 {
 *For nominal (3+ category) vars
 if `numcats' >= 3 {
 
-	*Label the overall variable
 	local varname = substr("`v'", 3, .)		// Strip the i. prefix
-	local nomlab: variable label `varname'
-	qui putexcel B`rownum' = "`nomlab'", `lformat' italic underline
+
+	*Label the overall variable
+	qui ds `varname', has(varlabel)
+	if "`r(varlist)'" !=  "" & `uselabels' == 1 {
+		local nomlab: variable label `varname'
+		}
+	else {
+		local nomlab `varname' 
+		}		
 	
+	qui putexcel B`rownum' = "`nomlab'", `lformat' italic underline
 	local ++ rownum		// new row so each category is below
 	
 	*Label each individual category
 	qui levelsof `varname', local(levels)
-	local lbe : value label `varname'
-
-	foreach i of local levels {
-		local c`i' : label `lbe' `i'
-		qui putexcel B`rownum' = "    `c`i''", `lformat'
+	
+	qui ds `varname', has(vallabel)
+	if "`r(varlist)'" !=  "" {
+		local lbe : value label `varname'
+	
+		foreach i of local levels {
+			local c`i' : label `lbe' `i'
+			qui putexcel B`rownum' = "    `c`i''", `lformat'		
 		
-		local ++ rownum	
+			local ++ rownum	
+		}
 	}
+	else {
+		foreach i of local levels {
+			local c`i' "`i'"
+			qui putexcel B`rownum' = "    `c`i''", `lformat'	
+		
+			local ++ rownum	
+		}	
+	}	
 	}
 }	
 

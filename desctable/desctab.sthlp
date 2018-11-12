@@ -21,7 +21,7 @@
 
 {pstd}
 {cmd:desctable} produces a descriptive (summary) statistics table. {cmd:desctable} 
-treats continuous, binary, and nominal variables differently - providing 
+treats continuous, binary, and nominal variables differently -- providing 
 statistics and labeled output most appropriate for the measurement level 
 of the variable.
 
@@ -175,6 +175,12 @@ lines as the table top and bottom borders.
 where the table is saved. The default is to name the sheet "Descriptives Table"
 {p_end}
 
+{p2colset 5 18 19 0}
+{synopt:{opt varname:s}} labels the rows of the table with the variable names 
+rather than the variable labels. The default is to use the variable's label 
+if it exists.
+{p_end}
+
 {marker stats}
 {dlgtab:Group options}
 
@@ -189,22 +195,17 @@ variable.
 
 {title:Examples}
 
-{phang} sysuse nlsw88
+{phang} {stata sysuse nlsw88: sysuse nlsw88}
 
-{phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
-{phang2}	filename("descriptivesEX1") {p_end}
+{phang} {stata desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX1"): desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX1") } 
 
-{phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
-{phang2}	filename("descriptivesEX2") stats(mean freq sd min max iqr median) {p_end}
+{phang} {stata desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX2") stats(mean freq sd min max iqr median): desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX2") stats(mean freq sd min max iqr median)}
 
-{phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
-{phang2}	filename("descriptivesEX3") font("Helvetica") fontsize(13) {p_end}
+{phang} {stata desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX3") font("Helvetica") fontsize(13): desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX3") font("Helvetica") fontsize(13)}
 
-{phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, {p_end}
-{phang2}	filename("descriptivesEX4") decimals(3) {p_end}
+{phang} {stata desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX4") decimals(3): desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX4") decimals(3)}
 
-{phang} desctable wage age i.union i.collgrad tenure i.occupation hours, {p_end}
-{phang2}	filename("descriptivesEX5") group(race) {p_end}
+{phang} {stata desctable wage age i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX5") group(race): desctable wage age i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX5") group(race)}
 			
 {phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, /// {p_end}
 {phang2}	filename("descriptivesEX6") /// {p_end}
