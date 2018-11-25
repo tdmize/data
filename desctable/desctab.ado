@@ -4,7 +4,7 @@
 
 program define desctab, rclass
 
-    version 15.0
+    version 14.1
     desctable `*'
 
 end
