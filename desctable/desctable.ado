@@ -3,10 +3,11 @@
 
 *2018-11-12 : Now, if a var label does not exist the varname is used to label
 *	the relevant row. Also, added option to use varnames instead of labels
-
+*2018-12-02: Group option did not handle non-standard # gaps. This has been
+*	fixed and max width of table increased
 
 capture program drop desctable
-*! desctable v1.0.4 Trenton Mize 2018-11-12
+*! desctable v1.0.5 Trenton Mize 2018-12-02
 program define desctable, rclass
 	version 14.1
 
@@ -122,7 +123,8 @@ local missnum = r(N_incomplete)
 
 if `missnum' != 0 {
 
-	if strpos("`statlist'", "mi") {
+	if strpos("`statlist'", "mimean") |  strpos("`statlist'", "misemean") | ///
+			strpos("`statlist'", "misvy") {
 	
 	di in yellow "Sample size reported at the top of the table is # of total observations in the data."
 	di in yellow "Most statistics reported by {cmd:desctable} utilize only complete observations;"
@@ -358,16 +360,17 @@ if "`group'" == "" {
 	}
 
 else {
+
 	fvexpand i.`group'
 	local numgroups : word count `r(varlist)' 
 	local groupspec = `" & `group' == "'
 	local groupname = " `group' "
-
+	
 	forvalues i = 1/`numgroups' {
-		fvexpand i.`group'
+		qui levelsof `group', local(groupcats)
 		
-		local grp`i' 		: word `i' of `r(varlist)'
-		local grpnum`i'		= substr("`grp`i''", 1, 1)
+		local grp`i' 		: word `i' of `groupcats'
+		local grpnum`i'		: word `i' of `groupcats'
 	}
 }	
 
@@ -380,7 +383,6 @@ else {
 tempvar 	y
 qui gen 	`y' = runiform()
 
-
 *Set column #s (letters in Excel) based on number of stats/group 	
 local letters `" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "'
 local letters `"`letters' "R" "S" "T" "U" "V" "W" "X" "Y" "Z" "'
@@ -390,6 +392,12 @@ local letters `"`letters' "AU" "AV" "AW" "AX" "AY" "AZ" "'
 local letters `"`letters' "BA" "BB" "BC" "BD" "BE" "BF" "BG" "BH" "BI" "BJ" "'
 local letters `"`letters' "BK" "BL" "BM" "BN" "BO" "BP" "BQ" "BR" "BS" "BT" "'
 local letters `"`letters' "BU" "BV" "BW" "BX" "BY" "BZ" "'
+local letters `"`letters' "CA" "CB" "CC" "CD" "CE" "CF" "CG" "CH" "CI" "CJ" "'
+local letters `"`letters' "CK" "CL" "CM" "CN" "CO" "CP" "CQ" "CR" "CS" "CT" "'
+local letters `"`letters' "CU" "CV" "CW" "CX" "CY" "CZ" "'
+local letters `"`letters' "DA" "DB" "DC" "DD" "DE" "DF" "DG" "DH" "DI" "DJ" "'
+local letters `"`letters' "DK" "DL" "DM" "DN" "DO" "DP" "DQ" "DR" "DS" "DT" "'
+local letters `"`letters' "DU" "DV" "DW" "DX" "DY" "DZ" "'
 
 local rownum 	= 5	// starting on Excel's 5th row so space for headings
 
@@ -794,6 +802,7 @@ else {
 }
 }
 local rownum = `rownum' - `numrows'		// start back at first row
+di "." _cont	// add dot to output every time column is completed
 }
 }
 
@@ -823,7 +832,7 @@ if "`group'" == "" {
 
 	else {
 	local titletext = `" `title' "'
-	qui putexcel B3:D`rightcol'3 = "`titletext'",  ///
+	qui putexcel B3:`rightcol'3 = "`titletext'",  ///
 				merge left border(bottom, `lineset') ///
 				font("`fonttype'", "`fsize'") bold
 	}
@@ -838,7 +847,7 @@ if "`group'" != "" {
 
 	else {
 	local titletext = `" `title' "'
-	qui putexcel B2:D`rightcol'2 = "`titletext'",  ///
+	qui putexcel B2:`rightcol'2 = "`titletext'",  ///
 				merge left border(bottom, `lineset') ///
 				font("`fonttype'", "`fsize'") bold
 	}
@@ -852,7 +861,6 @@ local 			bottom = `numrows' + 4
 qui putexcel 	B`bottom':`rightcol'`bottom', border(bottom, `lineset')
 
 *If group( ) specified, add group name labels above corresponding stats
-	*Nosort option
 if "`noborder'" == "" {
 	local borderop = ", border(right, dotted)"
 	}
@@ -875,7 +883,7 @@ if "`group'" != "" {
 
 	local left 		: word `leftnum' of `letters'
 	local right 	: word `rightnum' of `letters'
-	
+
 	local c`i' : label `lbe' `i'
 	qui putexcel `left'3:`right'3 = "`c`i''", ///
 		underline merge hcenter font("`fonttype'", "`fsize'") 

@@ -76,7 +76,7 @@ statistics are available:
 {p2col :{ul:{bf:var}}{bf:iance}}Variance (c).{p_end}
 {p2col :{ul:{bf:med}}{bf:ian}}Median (c).{p_end}
 {p2col :{ul:{bf:min}}}Minimum (c).{p_end}
-{p2col :{ul:{bf:min}}}Maximum (c).{p_end}
+{p2col :{ul:{bf:max}}}Maximum (c).{p_end}
 {p2col :{ul:{bf:range}}}Range [max - min] (c). {p_end}
 {p2col :{ul:{bf:iqr}}}Interquartile range [75th percentile - 25th percentile] (c).{p_end}
 {p2col :{ul:{bf:cv}}}Coefficient of variation [sd/mean] (c).{p_end}
