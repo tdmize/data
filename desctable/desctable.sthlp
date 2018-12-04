@@ -197,20 +197,15 @@ variable.
 
 {phang} {stata sysuse nlsw88: sysuse nlsw88}
 
-{phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, 
-filename("descriptivesEX1")
+{phang} {stata desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX1")}
 
-{phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, 
-filename("descriptivesEX2") stats(mean freq sd min max iqr median)
+{phang} {stata desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX2") stats(mean freq sd min max iqr median)}
 
-{phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, 
-filename("descriptivesEX3") font("Helvetica") fontsize(13)
+{phang} {stata desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX3") font("Helvetica") fontsize(13)}
 
-{phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, 
-filename("descriptivesEX4") decimals(3)
+{phang} {stata desctable wage age i.race i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX4") decimals(3)}
 
-{phang} desctable wage age i.union i.collgrad tenure i.occupation hours, 
-filename("descriptivesEX5") group(race)
+{phang} {stata desctable wage age i.union i.collgrad tenure i.occupation hours, filename("descriptivesEX5") group(race)}
 			
 {phang} desctable wage age i.race i.union i.collgrad tenure i.occupation hours, /// {p_end}
 {phang2}	filename("descriptivesEX6") /// {p_end}
