@@ -23,7 +23,7 @@ Variable (Theta) After IRT Models{p_end}
 an IRT model. The latent variable is the independent variable; the variables 
 specifed in the {it:varlist} are the observed items which are the dependent 
 variables in an IRT model. If no {it:varlist} is specified, {cmd:irt_me} 
-calculates marginal effects for all of the observed items.
+calculates marginal effects for theta across all of the observed items.
 
 {marker required}
 {dlgtab:Required Option for gsem models}
@@ -78,10 +78,10 @@ columns in the table represent.
 {phang} {stata webuse masc1: webuse masc1}{p_end}	
 
 {phang} {stata irt 2pl q1 q2 q3 q4 q5: irt 2pl q1 q2 q3 q4 q5}{p_end}	
-{phang} {stata irt_me q1 q2 q3 q4 q5: irt_mes q1 q2 q3 q4 q5}{p_end}	
+{phang} {stata irt_me, help: irt_me, help}{p_end}	
 
 {phang} {stata gsem (Theta -> q1 q2 q3 q4 q5), logit: gsem (Theta -> q1 q2 q3 q4 q5), logit}{p_end}	
-{phang} {stata irt_me q1 q2 q3 q4 q5, latent(Theta): irt_mes q1 q2 q3 q4 q5, latent(Theta)}{p_end}	
+{phang} {stata irt_me, latent(Theta): irt_me, latent(Theta)}{p_end}	
 	
 
 {title:Authorship}

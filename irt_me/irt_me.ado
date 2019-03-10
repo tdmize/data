@@ -84,7 +84,7 @@ else {
 local 	num_rows : word count `items'	
 matrix  MEMs = J(`num_rows',5,-999)		// Create empty matrix
 matrix 	rownames MEMs = `items'		// Label rows with var names
-matrix 	colnames MEMs = PrStart PrEnd ME SE(ME) P>|z|
+matrix 	colnames MEMs = PrStart PrEnd "ME Est." "Std. Err." P>|z|
 local   mat_row = 1
 
 foreach v in `items' {
