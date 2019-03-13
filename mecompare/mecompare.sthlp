@@ -1,5 +1,5 @@
 {smcl}
-{* 2018-10-05 Trenton D Mize}{...}
+{* 2019-03-13 Trenton D Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -18,12 +18,12 @@ do-files that recreate the examples from the article:
 ah4_cme.dta
 gss_cme.dta
 cme_READ_ME_FIRST.do
-cmeGS-4_1-Mediation-LRM-Curvillinear.do
-cmeGS-4_2-Mediation-Logit-Happy.do
-cmeGS-4_3-Variable-Choice-Predictors.do
-cmeGS-4_4-Variable-Choice-Outcomes.do
-cmeGS-4_5-Model-Choice-Ologit-vs-Mlogit.do
-cmeGS-4_6-Group-Difference-SurveyYear.do 
+cmeIS-6_1-Mediation-LRM-Curvillinear.do
+cmeIS-6_2-Mediation-Logit-Happy.do
+cmeIS-6_3-Variable-Choice-Predictors.do
+cmeIS-6_4-Variable-Choice-Outcomes.do
+cmeIS-6_5-Model-Choice-Ologit-vs-Mlogit.do
+cmeIS-6_6-Group-Difference-SurveyYear.do 
 
 {pstd}
 For more information, see the 
@@ -31,8 +31,9 @@ For more information, see the
 
 {title:Authorship}
 
-{pstd} {cmd:mecompare} is written by Trenton D Mize (Department of Sociology, 
-Purdue University), Long Doan (Department of Sociology, University of Maryland), 
+{pstd} {cmd:mecompare} is written by 
+Trenton D Mize (Department of Sociology & Advanced Methodologies,Purdue University), 
+Long Doan (Department of Sociology, University of Maryland),  
 and J. Scott Long (Departments of Sociology & Statistics, Indiana University).
 Questions can be sent to tmize@purdue.edu {p_end}
 

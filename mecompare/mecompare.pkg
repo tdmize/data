@@ -6,9 +6,9 @@ f mecompare.sthlp
 f ah4_cme.dta
 f gss_cme.dta
 f cme__READ_ME_FIRST.do
-f cmeGS-4_1-Mediation-LRM-Curvillinear.do
-f cmeGS-4_2-Mediation-Logit-Happy.do
-f cmeGS-4_3-Variable-Choice-Predictors.do
-f cmeGS-4_4-Variable-Choice-Outcomes.do
-f cmeGS-4_5-Model-Choice-Ologit-vs-Mlogit.do
-f cmeGS-4_6-Group-Difference-SurveyYear.do 
+f cmeIS-6_1-Mediation-LRM-Curvillinear.do
+f cmeIS-6_2-Mediation-Logit-Happy.do
+f cmeIS-6_3-Variable-Choice-Predictors.do
+f cmeIS-6_4-Variable-Choice-Outcomes.do
+f cmeIS-6_5-Model-Choice-Ologit-vs-Mlogit.do
+f cmeIS-6_6-Group-Difference-SurveyYear.do 
