@@ -13,7 +13,7 @@ set 		linesize 80
 ****************************************************************        
 //  #1 Data management
 ****************************************************************        
-use gss_cme, clear
+use 	"https://tdmize.github.io/data/data/gss_cme", clear
 
 keep if year == 1986 | year == 2016
 

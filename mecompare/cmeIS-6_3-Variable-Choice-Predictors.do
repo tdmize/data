@@ -13,7 +13,7 @@ set 		linesize 80
 ***********************************************************************
 //  #1 Data management
 ***********************************************************************
-use gss_cme, clear
+use 	"https://tdmize.github.io/data/data/gss_cme", clear
 
 *listwise deletion
 drop if missing(samesexB, sexident, sexbehav, college, woman, race, age, year) 

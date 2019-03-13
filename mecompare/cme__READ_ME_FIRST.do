@@ -1,9 +1,10 @@
 // A General Framework for Comparing Predictions & 
-// Marginal Effects Across Models
+// Marginal Effects Across Models -- Sociological Methodology
 
 // Trenton D. Mize, Long Doan, and J. Scott Long
 
-* The datasets and do-files to recreate all examples in the article are 
+
+* The do-files to recreate all examples in the article are 
 * installed as part of the mecompare package available here:
 * 	www.trentonmize.com/software/mecompare
 
@@ -15,25 +16,24 @@
 
 ssc install fre, replace
 ssc install coefplot, replace
-net from "http://www.indiana.edu/~jslsoc/stata/"
-net install spost13_ado, replace force
+net install spost13_ado, ///
+	from("http://www.indiana.edu/~jslsoc/stata/") replace force
 net install cleanplots, from("https://tdmize.github.io/data/cleanplots") ///
 	replace force
 
-// The following files are downloaded by the mecompare package	
+// Two datasets are used for the example: ah4_cme gss_cme
+*	These are sourced in via url in the example do-files. Alternatively, 
+*	you can download them here: https://tdmize.github.io/data/data
 
-// Example datasets //
-* ah4_cme.dta
-* gss_cme.dta
 
-// Example do-files //
+// The following example do-files are downloaded by the mecompare package	
 
-* cmeGS-4_1-Mediation-LRM-Curvillinear.do
-* cmeGS-4_2-Mediation-Logit-Happy.do
-* cmeGS-4_3-Variable-Choice-Predictors.do
-* cmeGS-4_4-Variable-Choice-Outcomes.do
-* cmeGS-4_5-Model-Choice-Ologit-vs-Mlogit.do
-* cmeGS-4_6-Group-Difference-SurveyYear.do 
+* cmeIS-6_1-Mediation-LRM-Curvillinear.do
+* cmeIS-6_2-Mediation-Logit-Happy.do
+* cmeIS-6_3-Variable-Choice-Predictors.do
+* cmeIS-6_4-Variable-Choice-Outcomes.do
+* cmeIS-6_5-Model-Choice-Ologit-vs-Mlogit.do
+* cmeIS-6_6-Group-Difference-SurveyYear.do 
 
 
 

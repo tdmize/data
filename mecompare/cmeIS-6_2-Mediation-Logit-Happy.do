@@ -13,8 +13,7 @@ set 		linesize 80
 ***********************************************************************
 //  #1 Data management
 ***********************************************************************
-
-use gss_cme, clear
+use 	"https://tdmize.github.io/data/data/gss_cme", clear
 
 drop if year < 2000
 drop if employed != 1

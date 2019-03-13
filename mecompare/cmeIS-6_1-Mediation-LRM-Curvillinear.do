@@ -12,8 +12,7 @@ set 		linesize 80
 ****************************************************************
 // #1: Data management and descriptive statistics
 ****************************************************************
-
-use ah4_cme, clear
+use 	"https://tdmize.github.io/data/data/ah4_cme", clear
 
 *listwise deletion 
 drop if missing(depsympB, income, inc10, age, woman, race, ///
