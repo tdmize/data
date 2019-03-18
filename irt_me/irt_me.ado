@@ -1,11 +1,11 @@
-*! irt_me v1.0.1 Trenton Mize 2019-03-06
+*! irt_me v1.0.1 Trenton Mize 2019-03-18
 program define irt_me, rclass
 	version 14.1
 
 	syntax [varlist(default=none)] [if] [in], ///
 		[MODel(string) ///		* these are optional options
 		LATent(string) DECimals(numlist >0 <9 integer) ///	
-		title(string) start(string) end(string) help]
+		title(string) start(string) end(string) range help]
 
 *Check the model
 if "`model'" == "" {
@@ -30,20 +30,6 @@ else {
 	local dec = `"`decimals'"'
 	}
 	
-if "`start'" == "" {
-	local snum = "-0.5"
-	}
-else {
-	local snum = `" `start' "'
-	}
-
-if "`end'" == "" {
-	local enum = "0.5"
-	}
-else {
-	local enum = `" `end' "'
-	}
-
 if "`model'" != "" {	// restore model if irt/gsem not in memory
 	qui est restore `model'	
 	}
@@ -78,6 +64,40 @@ else {
 		}
 	else {
 		local lvar = `" `latent' "'
+		}
+	}
+	
+*Predict the latent variable if range option specified
+if "`range'" != "" {
+	if "`e(cmd2)'" == "irt" {
+		tempvar 	latentpr 
+		qui predict	`latentpr', latent	
+		}
+	else {
+		tempvar 	latentpr 
+		qui predict `latentpr', latent("`lvar'")	
+		}
+	}	
+	
+*Set the starting and ending values for predictions	
+if "`range'" != "" {
+	qui sum `latentpr', d
+	local snum = "`r(p1)'"
+	local enum = "`r(p99)'"
+	}
+else {
+	if "`start'" == "" {
+		local snum = "-0.5"
+		}
+	else {
+		local snum = `" `start' "'
+		}
+
+	if "`end'" == "" {
+		local enum = "0.5"
+		}
+	else {
+		local enum = `" `end' "'
 		}
 	}
 	
@@ -127,7 +147,10 @@ foreach v in `items' {
 	local 	++mat_row
 	}
 
-local 	sizeME = `enum' - `snum'	
+local 	sizeME 	= `enum' - `snum'	
+local 	sizeME 	: di %5.3f `sizeME'
+local 	snum 	: di %5.3f `snum'
+local 	enum 	: di %5.3f `enum'
 
 matlist MEMs, format(%10.`dec'f) ///
 	title("Marginal Effects of + `sizeME' Increase in Latent Variable (theta) N=`N'") 	

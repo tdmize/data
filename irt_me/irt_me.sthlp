@@ -64,6 +64,13 @@ marginal effect estimate of a centered +1 unit change.
 {p_end}
 
 {p2colset 5 18 19 0}
+{synopt:{opt range}} calculates marginal effects across the trimmed range 
+of the predicted values of the latent variable theta. Predictions are made 
+at the 1st percentile of theta (start) and at the 99th percentile of theta 
+(end)
+{p_end}
+
+{p2colset 5 18 19 0}
 {synopt:{opt title(string)}} changes the title of the table of results. 
 A default title is automatically included.
 {p_end}
