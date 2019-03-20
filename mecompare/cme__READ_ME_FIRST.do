@@ -1,5 +1,5 @@
 // A General Framework for Comparing Predictions & 
-// Marginal Effects Across Models -- Sociological Methodology
+// Marginal Effects Across Models -- Sociological Methodology 2019
 
 // Trenton D. Mize, Long Doan, and J. Scott Long
 
@@ -21,19 +21,19 @@ net install spost13_ado, ///
 net install cleanplots, from("https://tdmize.github.io/data/cleanplots") ///
 	replace force
 
-// Two datasets are used for the example: ah4_cme gss_cme
+// Two datasets are used for the example: ah4_cme & gss_cme
 *	These are sourced in via url in the example do-files. Alternatively, 
 *	you can download them here: https://tdmize.github.io/data/data
 
 
 // The following example do-files are downloaded by the mecompare package	
 
-* cmeIS-6_1-Mediation-LRM-Curvillinear.do
-* cmeIS-6_2-Mediation-Logit-Happy.do
-* cmeIS-6_3-Variable-Choice-Predictors.do
-* cmeIS-6_4-Variable-Choice-Outcomes.do
-* cmeIS-6_5-Model-Choice-Ologit-vs-Mlogit.do
-* cmeIS-6_6-Group-Difference-SurveyYear.do 
+* cmeS-6_1-Mediation-LRM-Curvillinear.do
+* cmeS-6_2-Mediation-Logit-Happy.do
+* cmeS-6_3-Variable-Choice-Predictors.do
+* cmeS-6_4-Variable-Choice-Outcomes.do
+* cmeS-6_5-Model-Choice-Ologit-vs-Mlogit.do
+* cmeS-6_6-Group-Difference-SurveyYear.do 
 
 
 
