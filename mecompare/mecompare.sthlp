@@ -10,20 +10,21 @@ marginal effects across models using seemingly unrelated estimation. {p_end}
 {title:Overview}
 
 {pstd}
-{cmd:mecompare} is a companion package to Mize, Doan, and Long's article 
-"A General Framework for Comparing Predictions and Marginal Effects Across
-Models." The {cmd:mecompare} package downloads the following datasets and 
-do-files that recreate the examples from the article:
+{cmd:mecompare} is a companion package to Mize, Doan, and Long's 2019 
+Sociological Methodology article "A General Framework for Comparing 
+Predictions and Marginal Effects Across Models." The {cmd:mecompare} 
+package downloads the following datasets and do-files that recreate 
+the examples from the article:
 
 ah4_cme.dta
 gss_cme.dta
 cme_READ_ME_FIRST.do
-cmeIS-6_1-Mediation-LRM-Curvillinear.do
-cmeIS-6_2-Mediation-Logit-Happy.do
-cmeIS-6_3-Variable-Choice-Predictors.do
-cmeIS-6_4-Variable-Choice-Outcomes.do
-cmeIS-6_5-Model-Choice-Ologit-vs-Mlogit.do
-cmeIS-6_6-Group-Difference-SurveyYear.do 
+cmeS-6_1-Mediation-LRM-Curvillinear.do
+cmeS-6_2-Mediation-Logit-Happy.do
+cmeS-6_3-Variable-Choice-Predictors.do
+cmeS-6_4-Variable-Choice-Outcomes.do
+cmeS-6_5-Model-Choice-Ologit-vs-Mlogit.do
+cmeS-6_6-Group-Difference-SurveyYear.do 
 
 {pstd}
 For more information, see the 
