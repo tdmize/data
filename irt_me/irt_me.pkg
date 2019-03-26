@@ -1,7 +1,7 @@
 v 3
 d irt_me - calculates marginal effects for IRT models
 d Trenton D. Mize, Purdue University
-d Distribution-Date: 20190319
+d Distribution-Date: 20190325
 f irt_me.ado
 f irt_me.sthlp
 
