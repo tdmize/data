@@ -3,8 +3,8 @@
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
-{p2col:{cmd:irt_me} {hline 2}}Calculates Marginal Effects for the Latent 
-Variable (Theta) After IRT Models{p_end}
+{p2col:{cmd:irt_me} {hline 2}}Calculates marginal effects for the latent 
+variable (Theta) after IRT models{p_end}
 {p2colreset}{...}
 
 
@@ -87,7 +87,7 @@ columns in the table represent.
 {phang} {stata irt 2pl q1 q2 q3 q4 q5: irt 2pl q1 q2 q3 q4 q5}{p_end}	
 {phang} {stata irt_me, help: irt_me, help}{p_end}	
 
-{phang} {stata gsem (Theta -> q1 q2 q3 q4 q5), logit: gsem (Theta -> q1 q2 q3 q4 q5), logit}{p_end}	
+{phang} {stata gsem (Theta -> q1 q2 q3 q4 q5, logit), var(Theta@1): gsem (Theta -> q1 q2 q3 q4 q5, logit), var(Theta@1)}{p_end}	
 {phang} {stata irt_me, latent(Theta): irt_me, latent(Theta)}{p_end}	
 	
 
