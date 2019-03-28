@@ -51,6 +51,11 @@ for the statistics. The default is 3. Any integer between 1 - 8 is allowed.
 {p_end}
 
 {p2colset 5 18 19 0}
+{synopt:{opt sort}} orders the rows of the table based on the values of the 
+y* standardized coefficients. 
+{p_end}
+
+{p2colset 5 18 19 0}
 {synopt:{opt title(string)}} changes the title of the table of results. 
 A default title is automatically included.
 {p_end}

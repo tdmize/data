@@ -6,7 +6,7 @@ program define irt_coef, rclass
 	syntax [varlist(default=none)] [if] [in], ///
 		[MODel(string) ///		* these are optional options
 		LATent(string) DECimals(numlist >0 <9 integer) ///	
-		title(string) help]
+		title(string) sort help]
 	
 *Check the model
 if "`model'" != "" {	// restore model if irt/gsem not in memory
@@ -103,8 +103,6 @@ if `exitprog' == 1 {
 
 local 	num_rows : word count `items'					
 matrix 	irttab = J(`num_rows',4,-999)	// Create empty matrix
-matrix 	rownames irttab = `items'		// Label rows with var names
-matrix 	colnames irttab = "Std Coef" Coef "Std. Err." P>|z|
 local   i = 1							// Matrix row start point
 
 foreach v in `items' {
@@ -125,7 +123,14 @@ foreach v in `items' {
 
 	local ++i
 	}
+	
+if "`sort'" != "" {		// Sort by std. coef
+	mata : st_matrix("irttab", sort(st_matrix("irttab"), 1))
+	}
 
+matrix 	rownames irttab = `items'		// Label rows with var names
+matrix 	colnames irttab = "Std Coef" Coef "Std. Err." P>|z|
+	
 matlist irttab, format(%10.`dec'f) title("`title'") 		
 
 if "`help'" != "" {
