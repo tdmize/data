@@ -52,8 +52,8 @@ Questions can be sent to tmize@purdue.edu {p_end}
 {title:References}
 
 {pstd} The entropy statistic is calculated using the formula shown in 
-Collins and Lanza (2009) page ##. {p_end}
+Collins and Lanza (2010) page 75. {p_end}
 
-{pstd} Collins, Linda M. and Stephanie T. Lanza. 2009. 
+{pstd} Collins, Linda M. and Stephanie T. Lanza. 2010. 
 {it:Latent Class and Latent Transition Analysis}. Wiley.{p_end}
 
