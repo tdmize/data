@@ -249,6 +249,11 @@ yesno extend_axes_full_high no
 * White background for all plots
 color background             white
 
+*Textboxes
+color box           		gs15
+color textbox       		gs15
+color mat_label_box 		gs15
+
 * Default for all other non-specified objects
 * NOTE: CIs in marginsplot is based on this
 color p1					red*1.2
