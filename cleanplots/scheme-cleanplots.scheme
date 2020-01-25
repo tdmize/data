@@ -249,7 +249,7 @@ yesno extend_axes_full_high no
 * White background for all plots
 color background             white
 
-*Textboxes
+* Textboxes
 color box           		gs15
 color textbox       		gs15
 color mat_label_box 		gs15
