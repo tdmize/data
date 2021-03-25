@@ -153,7 +153,7 @@ if "`sheetname'" == "" {
 	}
 
 else {
-	local nametext = `" `sheetname' "'
+	local nametext = `"`sheetname'"'
 	qui putexcel set "`filename'.xlsx", sheet("`nametext'") replace
 	}
 
