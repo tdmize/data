@@ -135,7 +135,9 @@ return scalar b_coef  = `bcoef'
 return scalar ind2tot = `toteff'
 return scalar ind2dir = `ratio'
 return scalar tot2dir = `t2d'
-
+return scalar szstat = `szstat'
+return scalar g1zstat = `g1zstat'
+return scalar g2zstat = `g2zstat'
 
 end
 

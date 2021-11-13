@@ -18,16 +18,22 @@ help for {hi:sgmediation2}
 {p 4 4 2}
 The purpose of the Sobel-Goodman tests are to test whether a mediator carries 
 the influence of an IV to a DV. See 
-{browse "https://www.trentonmize.com/software/sgmediation2":www.trentonmize.com/software/sgmediation2 } 
+{browse "https://www.trentonmize.com/software/sgmediation2":www.trentonmize.com/software/sgmediation2} 
 for full details, summarized briefly below.
 
 {p 4 4 2}
- A variable may be considered a mediator to the extent to which it carries the influence of 
- a given focal independent variable (IV) to a given dependent variable (DV). Generally speaking, 
- mediation can be said to occur when (1) the IV significantly affects the mediator, (2) the 
- IV significantly affects the DV in the absence of the mediator, (3) the mediator has a 
- significant unique effect on the DV, and (4) the effect of the IV on the DV shrinks upon 
- the addition of the mediator to the model.
+The commonly used approach to mediation based on Baron and Kenny (1986) 
+suggests that a variable may be considered a mediator to 
+the extent to which it carries the influence of a focal independent variable (IV) 
+to a given dependent variable (DV). Generally speaking, mediation can be said 
+to occur when (1) the IV significantly affects the mediator, (2) the IV 
+significantly affects the DV in the absence of the mediator, (3) the mediator 
+has a significant unique effect on the DV, and (4) the effect of the IV on 
+the DV shrinks upon the addition of the mediator to the model. Most tests 
+focus only on #4 (opinions vary).
+
+{p 4 4 2}
+Some limitations of this approach are discussed below along with one alternative approach.
  
 {title:Required options}
 {p2colset 5 18 19 0}
@@ -64,7 +70,7 @@ Allows the user to specify any other options that are allowed
 with {help regress}. {p_end}
 {p2colset 5 18 19 0}
 {synopt:{opt q:uietly}}  
-Suppresses the individual regression output.{p_end}
+Suppresses the individual regression output and only shows the summary tables.{p_end}
 {p2colset 5 18 19 0}
 {synopt:{opt dec:imals(#)}} changes the number of decimal places reported 
 in the final table of statistics. The default is 3. Any integer between 1 - 8 is allowed.
@@ -73,25 +79,95 @@ in the final table of statistics. The default is 3. Any integer between 1 - 8 is
 
 {title:Examples}
 
-{phang} {stata sysuse nlsw88: sysuse nlsw88}
+{phang} use "https://tdmize.github.io/data/data/cda_ah4" {p_end}
 
-{phang} {stata sgmediation2 wage, mv(hours) iv(age)} {p_end}
+{phang}	drop if missing(health, edyrs, income, race, woman, age) {p_end}
+
+{phang} sgmediation2 health, iv(edyrs) mv(income) {p_end}
 
 {phang} *Add control variables {p_end}
-{phang} {stata sgmediation2 wage, mv(hours) iv(age) cv(i.collgrad i.race)} {p_end}
+{phang} sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age) {p_end}
 
-{phang} *Cluster robust variance estimates {p_end}
-{phang} {stata sgmediation2 wage, mv(hours) iv(age) vce(cluster occupation)}
+{phang} *Add survey weights already set with svyset {p_end}
+{phang} sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age) prefix(svy:) {p_end}
+
+{phang} *Obtain cluster robust variance estimates for clustering on occcat {p_end}
+{phang} sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age) vce(cluster occcat)
 {p_end}
 
 {title:Author}
 
 {pstd}
-sgmediation2 is an adaptation of the sgmediation command. sgmediation2 is written and maintained by Trenton D. Mize. Please send any requests for help or suggestions for additions to the command to tmize@purdue.edu
+{cmd:sgmediation2} is an adaptation (with permission) of the {cmd:sgmediation} 
+command. {cmd:sgmediation2} is written and maintained by Trenton D. Mize. 
+Please send any requests for help or suggestions for additions to the 
+command to tmize@purdue.edu
 
 {pstd}
-The original sgmediation command was written by Phil Ender of the UCLA
+The original {cmd:sgmediation} command was written by Phil Ender of the UCLA
 Statistical Consulting Group.
+
+{title:Stored results}
+
+{pstd}
+sgmediation2 returns the table of Sobel-Goodman tests, the tests of 
+effects, and several scalars as:
+
+{synopt:{bf:r(sgtests)}}
+Matrix of the table of Sobel-Goodman tests of mediation.
+
+{synopt:{bf:r(effects)}}
+Matrix of the table of indirect, direct, and total effects.
+
+{synopt:{bf:r(g1zstat)}}
+z-statistic on Aroian test.
+
+{synopt:{bf:r(g2zstat)}} 
+z-statistic on Goodman test.
+
+{synopt:{bf:r(szstat)}}
+z-statistic on Sobel test.
+
+{synopt:{bf:r(tot2dir)}}
+Ratio of total to direct effect.
+
+{synopt:{bf:r(ind2dir)}}
+Ratio of indirect to direct effect.
+
+{synopt:{bf:r(ind2tot)}}
+Ratio of indirect to total effect.
+
+{synopt:{bf:r(b_coef)}}
+Coefficient on b path.
+
+{synopt:{bf:r(a_coef)}}
+Coefficient on a path.
+
+{synopt:{bf:r(tot_eff)}}
+Total effect.
+
+{synopt:{bf:r(dir_eff)}}
+Direct effect.
+
+{synopt:{bf:r(ind_eff)}}             
+Indirect effect.
+
+{title:Limitations of the Sobel-Goodman approach to mediation}
+
+{pstd}
+There are many limitations to this approach to mediation (more than I discuss here). 
+A few of note:
+
+{phang}1. Only continuous or binary focal independent variables (IV) can be examined.{p_end}
+{phang}2. Only continuous or binary mediating variables (MV) can be examined.{p_end}
+{phang}3. Multiple mediating variables (MVs) cannot be easily incorporated.{p_end}
+{phang}4. Limited to tests of a single coefficient. E.g. There is no clear way to test if the effect of age is mediated if both age and age^2 coefficients are included in the models.{p_end}
+{phang}5. Limited to linear regression models.{p_end}
+{phang}6. A specialized approach appropriate only for mediation and not other cross-model comparisons.{p_end}
+
+{pstd}
+These limitations (and some others) were the motivation of my article {it:A General Framework for Comparing Predictions and Marginal Effects} {browse "https://doi.org/10.1177%2F0081175019852763":(Mize, Doan, and Long 2019)}. See that article and the {browse "https://www.trentonmize.com/software/mecompare":associated Stata files} if you are interested.
+
 
 {title:References}
 
@@ -103,3 +179,4 @@ Statistical Consulting Group.
 measures. {it:Multivariate Behavioral Research}, {it:30}(1), 41-62.{p_end}
 {p 4 8 2}Preacher, K. J., & Hayes, A. F. (2004).  SPSS and SAS procedures for estimating indirect effects in simple 
 mediation models. {it:Behavior Research Methods, Instruments, & Computers}, {it:36}(4), 717-731.{p_end}
+{p 4 8 2}Mize, Trenton D., Long Doan, and J. Scott Long. 2019. "A General Framework for Comparing Predictions and Marginal Effects Across Models" {it:Sociological Methodology}, {it:49}(1)152-189.{p_end}
