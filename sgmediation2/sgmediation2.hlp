@@ -9,16 +9,15 @@ help for {hi:sgmediation2}
 {p 8 16 2}{cmd:sgmediation2}
   {it:depvar} [{cmd:if} {it:exp}] [{cmd:in} {it:range}]
   {cmd:,}
-  {cmd:mv:(}{it:mediator_var}{cmd:)}
+  {cmd:mv(}{it:mediator_var}{cmd:)}
   {cmd:iv(}{it:focal_iv}{cmd:)}
   [options]
 
 {title:Description}
 
 {p 4 4 2}
-The purpose of the Sobel-Goodman tests are to test whether a mediator carries 
-the influence of an IV to a DV. See 
-{browse "https://www.trentonmize.com/software/sgmediation2":www.trentonmize.com/software/sgmediation2} 
+Sobel-Goodman tests provide a statistical test of mediation in linear regression 
+models. See {browse "https://www.trentonmize.com/software/sgmediation2":www.trentonmize.com/software/sgmediation2} 
 for full details, summarized briefly below.
 
 {p 4 4 2}
@@ -30,7 +29,8 @@ to occur when (1) the IV significantly affects the mediator, (2) the IV
 significantly affects the DV in the absence of the mediator, (3) the mediator 
 has a significant unique effect on the DV, and (4) the effect of the IV on 
 the DV shrinks upon the addition of the mediator to the model. Most tests 
-focus only on #4 (opinions vary).
+focus only on #4 (opinions vary). {cmd:sgmediation2} provides information on all 
+four steps.
 
 {p 4 4 2}
 Some limitations of this approach are discussed below along with one alternative approach.
@@ -73,7 +73,7 @@ with {help regress}. {p_end}
 Suppresses the individual regression output and only shows the summary tables.{p_end}
 {p2colset 5 18 19 0}
 {synopt:{opt dec:imals(#)}} changes the number of decimal places reported 
-in the final table of statistics. The default is 3. Any integer between 1 - 8 is allowed.
+in the final tables of statistics. The default is 3. Any integer between 1 - 8 is allowed.
 {p_end}
 
 
@@ -119,13 +119,13 @@ Matrix of the table of Sobel-Goodman tests of mediation.
 {synopt:{bf:r(effects)}}
 Matrix of the table of indirect, direct, and total effects.
 
-{synopt:{bf:r(g1zstat)}}
+{synopt:{bf:r(ar_zstat)}}
 z-statistic on Aroian test.
 
-{synopt:{bf:r(g2zstat)}} 
+{synopt:{bf:r(g_zstat)}} 
 z-statistic on Goodman test.
 
-{synopt:{bf:r(szstat)}}
+{synopt:{bf:r(s_zstat)}}
 z-statistic on Sobel test.
 
 {synopt:{bf:r(tot2dir)}}
@@ -150,7 +150,7 @@ Total effect.
 Direct effect.
 
 {synopt:{bf:r(ind_eff)}}             
-Indirect effect.
+Indirect effect (a X b)
 
 {title:Limitations of the Sobel-Goodman approach to mediation}
 
@@ -173,10 +173,18 @@ These limitations (and some others) were the motivation of my article {it:A Gene
 
 {p 4 8 2}Aroian, L. A. (1944). The probability function of the product of two normally distributed variables. 
 {it: Annals of Mathematical Statistics}, {it: 18}, 265-271.{p_end}
-{p 4 8 2}MacKinnon, D. P., & Dwyer, J. H. (1993). Estimating mediated effects in prevention studies. 
-{it: Evaluation Review}, {it: 17}, 144-158.{p_end}
-{p 4 8 2}MacKinnon, D. P., Warsi, G., & Dwyer, J. H. (1995). A simulation study of mediated effect 
-measures. {it:Multivariate Behavioral Research}, {it:30}(1), 41-62.{p_end}
-{p 4 8 2}Preacher, K. J., & Hayes, A. F. (2004).  SPSS and SAS procedures for estimating indirect effects in simple 
-mediation models. {it:Behavior Research Methods, Instruments, & Computers}, {it:36}(4), 717-731.{p_end}
-{p 4 8 2}Mize, Trenton D., Long Doan, and J. Scott Long. 2019. "A General Framework for Comparing Predictions and Marginal Effects Across Models" {it:Sociological Methodology}, {it:49}(1)152-189.{p_end}
+
+{p 4 8 2}Baron, R. M., & Kenny, D. A. (1986). The moderator–mediator variable distinction in social psychological research: Conceptual, strategic, and statistical considerations. {it:Journal of Personality and Social Psychology}, 51(6), 1173.{p_end}
+
+{p 4 8 2}Goodman, L. A. (1960). On the exact variance of products. {it:Journal of the American Statistical Association}, 55, 708–713.{p_end}
+
+{p 4 8 2}MacKinnon, D. P., & Dwyer, J. H. (1993). Estimating mediated effects in prevention studies. {it: Evaluation Review}, {it: 17}, 144-158.{p_end}
+
+{p 4 8 2}MacKinnon, D. P., Warsi, G., & Dwyer, J. H. (1995). A simulation study of mediated effect measures. {it:Multivariate Behavioral Research}, {it:30}(1), 41-62.{p_end}
+
+{p 4 8 2}MacKinnon, D. P., Lockwood, C. M., Hoffman, J. M., West, S. G., & Sheets, V. (2002). A comparison of methods to test mediation and other intervening variable effects. {it:Psychological Methods}, 7(1), 83.{p_end}
+
+{p 4 8 2}Preacher, K. J., & Hayes, A. F. (2004).  SPSS and SAS procedures for estimating indirect effects in simple mediation models. {it:Behavior Research Methods, Instruments, & Computers}, {it:36}(4), 717-731.{p_end}
+
+{p 4 8 2}Mize, T. D., Doan, L., & Long, J. S. (2019). A general framework for comparing predictions and marginal effects across models. {it:Sociological Methodology}, 49(1), 152-189.
+{p_end}
