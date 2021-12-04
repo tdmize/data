@@ -95,6 +95,14 @@ in the final tables of statistics. The default is 3. Any integer between 1 - 8 i
 {phang} sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age) vce(cluster occcat)
 {p_end}
 
+{phang} *Use bootstrapping to obtain standard errors and confidence intervals {p_end}
+{phang} bootstrap r(ind_eff) r(dir_eff) r(tot_eff), reps(1000): sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age)
+{p_end}
+
+{phang} *Obtain bias-corrected and percentile confidence intervals {p_end}
+{phang} estat bootstrap, bc percentile
+{p_end}
+
 {title:Author}
 
 {pstd}

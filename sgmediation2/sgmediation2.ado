@@ -94,7 +94,7 @@ matlist sgtests, ///
 	title("Sobel-Goodman Mediation Tests") format(%10.`dec'f) twidth(20)
 
 matrix  effects = J(5,4,.)
-mat 	rownames effects = a_coefficient b_coefficient Indirect_effect_aXb Direct_effect Total_effect
+mat 	rownames effects = a_coefficient b_coefficient Indirect_effect_aXb Direct_effect_c' Total_effect_c
 mat 	colnames effects = Est Std_err z P>|z|
 mat 	effects [1,1] = `acoef'
 mat 	effects [1,2] = `ase'
