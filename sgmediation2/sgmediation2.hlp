@@ -9,8 +9,8 @@ help for {hi:sgmediation2}
 {p 8 16 2}{cmd:sgmediation2}
   {it:depvar} [{cmd:if} {it:exp}] [{cmd:in} {it:range}]
   {cmd:,}
-  {cmd:mv(}{it:mediator_var}{cmd:)}
   {cmd:iv(}{it:focal_iv}{cmd:)}
+  {cmd:mv(}{it:mediator_var}{cmd:)}
   [options]
 
 {title:Description}
@@ -22,18 +22,37 @@ for full details, summarized briefly below.
 
 {p 4 4 2}
 The commonly used approach to mediation based on Baron and Kenny (1986) 
-suggests that a variable may be considered a mediator to 
-the extent to which it carries the influence of a focal independent variable (IV) 
-to a given dependent variable (DV). Generally speaking, mediation can be said 
-to occur when (1) the IV significantly affects the mediator, (2) the IV 
-significantly affects the DV in the absence of the mediator, (3) the mediator 
-has a significant unique effect on the DV, and (4) the effect of the IV on 
-the DV shrinks upon the addition of the mediator to the model. Most tests 
-focus only on #4 (opinions vary). {cmd:sgmediation2} provides information on all 
-four steps.
+suggests that a variable may be considered a mediator to the extent to 
+which it carries the influence of a focal independent variable (IV) to a 
+given dependent variable (DV). In this framework, mediation can be said to 
+occur when (1) the IV significantly affects the mediator, (2) the IV 
+significantly affects the DV in the absence of the mediator, (3) the 
+mediator has a significant unique effect on the DV, and (4) the effect of 
+the IV on the DV shrinks upon the addition of the mediator to the model. 
 
 {p 4 4 2}
-Some limitations of this approach are discussed below along with one alternative approach.
+Others (e.g. Preacher and Hayes 2004) suggest that only two requirements 
+need be met: (1) the IV has a significant effect before the mediator is 
+added to the model, and (2) the effect of the IV shrinks upon the addition 
+of the mediator to the model (i.e. same requirement as #4 above). 
+Simplifying even further, many now suggest (e.g. Zhao, Lynch, and Chen 2010) 
+that the only needed requirement is that the effect of the IV shrinks upon 
+the addition of the mediator to the model (AKA there is a significant 
+indirect effect; see below for details) because mediation can occur even 
+in the absence of a direct effect of the IV. 
+
+{p 4 4 2}
+{cmd:sgmediation2} provides tests of all of the various requirements discussed 
+above to facilitate most any test desired. I personally agree that the 
+test that the effect of the IV shrinks upon the addition of the mediator 
+to the model (i.e. the indirect effect) is of most central interest. 
+But as Zhao et al. (2010) detail -- the individual tests outlined by 
+Baron and Kenny (1986) are still quite useful to determine the specific 
+nature of mediation found.
+
+{p 4 4 2}
+Some limitations of this general approach to mediation are discussed below 
+along with one alternative approach.
  
 {title:Required options}
 {p2colset 5 18 19 0}
@@ -85,21 +104,21 @@ in the final tables of statistics. The default is 3. Any integer between 1 - 8 i
 
 {phang} sgmediation2 health, iv(edyrs) mv(income) {p_end}
 
-{phang} *Add control variables {p_end}
+{phang} {it:*Add control variables} {p_end}
 {phang} sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age) {p_end}
 
-{phang} *Add survey weights already set with svyset {p_end}
+{phang} {it:*Add survey weights already set with svyset} {p_end}
 {phang} sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age) prefix(svy:) {p_end}
 
-{phang} *Obtain cluster robust variance estimates for clustering on occcat {p_end}
+{phang} {it:*Obtain cluster robust variance estimates for clustering on occcat} {p_end}
 {phang} sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age) vce(cluster occcat)
 {p_end}
 
-{phang} *Use bootstrapping to obtain standard errors and confidence intervals {p_end}
+{phang} {it:*Use bootstrapping to obtain standard errors and confidence intervals} {p_end}
 {phang} bootstrap r(ind_eff) r(dir_eff) r(tot_eff), reps(1000): sgmediation2 health, iv(edyrs) mv(income) cv(i.race i.woman age)
 {p_end}
 
-{phang} *Obtain bias-corrected and percentile confidence intervals {p_end}
+{phang} {it:*Obtain bias-corrected and percentile confidence intervals based on the bootstrapped samples} {p_end}
 {phang} estat bootstrap, bc percentile
 {p_end}
 
@@ -195,4 +214,7 @@ These limitations (and some others) were the motivation of my article {it:A Gene
 {p 4 8 2}Preacher, K. J., & Hayes, A. F. (2004).  SPSS and SAS procedures for estimating indirect effects in simple mediation models. {it:Behavior Research Methods, Instruments, & Computers}, {it:36}(4), 717-731.{p_end}
 
 {p 4 8 2}Mize, T. D., Doan, L., & Long, J. S. (2019). A general framework for comparing predictions and marginal effects across models. {it:Sociological Methodology}, 49(1), 152-189.
+{p_end}
+
+{p 4 8 2}Zhao, X., Lynch Jr, J. G., & Chen, Q. (2010). Reconsidering Baron and Kenny: Myths and truths about mediation analysis. {it:Journal of Consumer Research}, 37(2), 197-206.
 {p_end}

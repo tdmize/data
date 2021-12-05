@@ -1,7 +1,7 @@
 /* Sobel-Goodman mediation tests */
 // Original author: Phil Ender UCLA
 // Revision author: Trenton Mize (tmize@purdue.edu)
-// Last date revised: 2021-11-14
+// Last date revised: 2021-12-05
 program define sgmediation2, rclass
 version 11.0
 syntax varlist(max=1) [if] [in], iv(varlist numeric max=1) ///
