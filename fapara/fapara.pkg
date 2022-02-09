@@ -1,0 +1,6 @@
+v 3
+d fapara - Parallel analysis for pca and factor analysis
+d Trenton D. Mize, Purdue University
+d Distribution-Date: 20220209
+f fapara.ado
+f fapara.sthlp
