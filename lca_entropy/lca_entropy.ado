@@ -28,19 +28,21 @@ else {
 	local dec = `"`decimals'"'
 	}	
 
-local 		N = e(N)	// Store lca sample 
+/*
 tempvar 	lca_sample 
 qui gen 	`lca_sample' = 1 if e(sample) 	// Store lca sample
+*/
 
+local 		N = e(N)						// Store lca sample size 
 matrix 		classmat = e(lclass_k_levels)	// save matrix with class #
 local 		numclass 	= classmat[1,1]
 
-predict 	__prpprob*, classposteriorpr
+predict 	__prpprob* if e(sample), classposteriorpr
 forvalues c = 1/`numclass' {
 	gen __sumpprob`c' = -__prpprob`c' * ln(__prpprob`c')
 	}
-egen 		__sumpostprALL = rowtotal(__sumpprob*)
-qui sum 	__sumpostprALL, meanonly
+egen 		__sumpostprALL = rowtotal(__sumpprob*) 
+qui sum 	__sumpostprALL, meanonly	
 scalar 		LCA_Entropy = 1 - (`r(sum)') / (`N'*ln(`numclass'))
 
 drop 		__prpprob* __sumpprob* __sumpostprALL
