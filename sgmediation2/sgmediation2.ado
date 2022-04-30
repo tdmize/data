@@ -22,7 +22,7 @@ else {
 	
 display
 `quietly' {
- display in green "Model with dv regressed on iv (path {&tau})"
+ display in green "Model with dv regressed on iv (path c)"
  di in white "`prefix' regress `varlist' `iv' `cv', vce(`vce') `options'"
  `prefix' regress `varlist' `iv' `cv' if `touse', vce(`vce') `options'
  
@@ -41,7 +41,7 @@ display
 	local apval = 2*(1-normal(abs(`acoef'/`ase')))
 	
  display
- display in green "Model with dv regressed on mediator and iv (paths b and {&tau}')"
+ display in green "Model with dv regressed on mediator and iv (paths b and c')"
  di in white "`prefix' regress `varlist' `mv' `iv' `cv', vce(`vce') `options'"
  `prefix' regress `varlist' `mv' `iv' `cv' if `touse', vce(`vce') `options'
 
