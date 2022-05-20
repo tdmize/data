@@ -16,8 +16,7 @@
 
 ssc install fre, replace
 ssc install coefplot, replace
-net install spost13_ado, ///
-	from("http://www.indiana.edu/~jslsoc/stata/") replace force
+net install	"https://jslsoc.sitehost.iu.edu/stata/spost13_ado", replace
 net install cleanplots, from("https://tdmize.github.io/data/cleanplots") ///
 	replace force
 
