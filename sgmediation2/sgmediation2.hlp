@@ -74,8 +74,8 @@ in the list.{p_end}
 Allows the user to specify survey weights and/or multiple imputation estimates 
 by requesting the relevant prefix you would use with {help regress}. 
 Specify {it:svy:} for the survey weights defined by {help svyset} to be used. 
-Specify {it:mi est:} for multiple imputation estimates to be used as defined in 
-{help mi set}. Specify {it:mi est: svy:} for both survey weights and multiple imputation 
+Specify {it:mi est, post:} for multiple imputation estimates to be used as defined in 
+{help mi set}. Specify {it:mi est, post: svy:} for both survey weights and multiple imputation 
 estimates as defined in {help mi svyset}. {p_end}
 {p2colset 5 18 19 0}
 {synopt:{opt vce( )}}  

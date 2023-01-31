@@ -1,4 +1,4 @@
 v 3
-d balanceplot - calculates and plots standardized imbalance statistics
+d sgmediation2 - calculates and plots standardized imbalance statistics
 d Trenton D. Mize, Purdue University
-p balanceplot command for imbalance statistics
+p sgmediation2 Sobel-Goodman tests of mediation for linear regression models
