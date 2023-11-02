@@ -38,8 +38,11 @@ of the mediator to the model (i.e. same requirement as #4 above).
 Simplifying even further, many now suggest (e.g. Zhao, Lynch, and Chen 2010) 
 that the only needed requirement is that the effect of the IV shrinks upon 
 the addition of the mediator to the model (AKA there is a significant 
-indirect effect; see below for details) because mediation can occur even 
-in the absence of a direct effect of the IV. 
+indirect effect) because mediation can occur even in the absence of a 
+direct effect of the IV. Yet another approach suggests using the steps 
+given by Baron and Kenny (1986) but determining mediation 
+as whether or not the effects in steps #1 and #3 are both significant 
+(labeled the a and b paths; e.g., Yzerbyt et al. 2018).
 
 {p 4 4 2}
 {cmd:sgmediation2} provides tests of all of the various requirements discussed 
@@ -214,6 +217,9 @@ These limitations (and some others) were the motivation of my article {it:A Gene
 {p 4 8 2}Preacher, K. J., & Hayes, A. F. (2004).  SPSS and SAS procedures for estimating indirect effects in simple mediation models. {it:Behavior Research Methods, Instruments, & Computers}, {it:36}(4), 717-731.{p_end}
 
 {p 4 8 2}Mize, T. D., Doan, L., & Long, J. S. (2019). A general framework for comparing predictions and marginal effects across models. {it:Sociological Methodology}, 49(1), 152-189.
+{p_end}
+
+{p 4 8 2}Yzerbyt, V., Muller, D., Batailler, C., & Judd, C. M. (2018). New recommendations for testing indirect effects in mediational models: The need to report and test component paths. {it:Journal of personality and social psychology}, 115(6), 929.
 {p_end}
 
 {p 4 8 2}Zhao, X., Lynch Jr, J. G., & Chen, Q. (2010). Reconsidering Baron and Kenny: Myths and truths about mediation analysis. {it:Journal of Consumer Research}, 37(2), 197-206.
