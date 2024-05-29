@@ -1,5 +1,6 @@
 capture program drop irt_me
 *! irt_me v1.0.1 Trenton Mize 2019-03-27
+*! Update to error out for probit models
 program define irt_me, rclass
 	version 14.1
 
@@ -69,9 +70,9 @@ else {
 		}
 	}
 	
-*For now, only allowing binary logit or probit	
+*For now, only allowing IRT supported models + continuous and count
 local numitems : word count `items'
-local suplinks "logit probit"
+local suplinks "logit"
 local supBfams "bernoulli binomial"
 local nomfam   "multinomial"
 local supCfams "poisson nbreg nbinomial"
@@ -113,7 +114,7 @@ forvalues i = 1/`numitems' {
 	else {
 		local exitprog = 1
 		di as err "{cmd:irt_me} supports the following models: regress, logit, " /*
-		*/ "probit, ologit, oprobit, poisson, and nbreg. Model `i' is a " /*
+		*/ "ologit, poisson, and nbreg. Model `i' is a " /*
 		*/ "{it:`link`i''} with family {it:`family`i''}"
 		continue, break
 		}

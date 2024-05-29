@@ -25,6 +25,12 @@ specifed in the {it:varlist} are the observed items which are the dependent
 variables in an IRT model. If no {it:varlist} is specified, {cmd:irt_me} 
 calculates marginal effects for theta across all of the observed items.
 
+{pstd}
+{cmd:irt_me} supports all models that can be estimated using the Stata 
+{cmd:irt} commands and also models for continuous and count items  
+({cmd:regress}, {cmd:poisson}, and {cmd:nbreg}). A mix of different item 
+types is also allowed (e.g., a mix of binary and ordinal items). 
+
 {marker required}
 {dlgtab:Required Option for gsem models}
 
