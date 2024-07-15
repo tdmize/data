@@ -83,9 +83,16 @@ columns in the table represent.
 	
 {title:Authorship}
 
-{pstd} {cmd:irt_coef} is written by Trenton D Mize (Department of Sociology & 
-Advanced Methodologies, Purdue University). 
+{pstd} {cmd:irt_coef} is written by Trenton D Mize (Departments of Sociology 
+& Statistics [by courtesy] & The Methodology Center at Purdue University). 
 Questions can be sent to tmize@purdue.edu {p_end}
+
+{title:Citation}
+
+{pstd} Please cite the use of irt_coef as: {p_end}
+
+Mize, Trenton D. 2024. "irt_coef: Stata command for y*-standardized 
+coefficients in item response theory models." https://www.trentonmize.com/software/irt_coef
 
 {title:References}
 
