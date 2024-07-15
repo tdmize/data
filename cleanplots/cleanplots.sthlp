@@ -43,6 +43,15 @@ Stata's default graphic scheme is {cmd:s2color}. To change back to the default:
 
 {title:Authorship}
 
-{pstd} {cmd:cleanplots} is written by Trenton D Mize (Department of Sociology, 
-Purdue University). Questions can be sent to tmize@purdue.edu {p_end}
+{pstd} {cmd:cleanplots} is written by Trenton D Mize (Departments of Sociology 
+& Statistics [by courtesy] & The Methodology Center at Purdue University). 
+Questions can be sent to tmize@purdue.edu {p_end}
 
+{title:Citation}
+
+{pstd} In general, I do not think the use of a graphics scheme requires citation. 
+So for most cases, feel free to use cleanplots without citation. 
+But, if you need/want a citation you can cite cleanplots as: {p_end}
+
+Mize, Trenton D. 2017. "cleanplots: Stata graphics scheme for easy and 
+effective data visualizations." https://www.trentonmize.com/software/cleanplots 
