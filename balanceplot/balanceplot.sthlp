@@ -137,17 +137,13 @@ is 10. Specify a larger width if more decimal places are requested with {opt dec
 
 {title:Examples}
 
-{phang} sysuse auto
+{phang} {stata sysuse nlsw88: sysuse nlsw88}
 
-{phang} balanceplot price mpg trunk weight length displacement 
-			gear_ratio, group(foreign) {p_end}
+{phang} {stata balanceplot wage age i.married i.collgrad i.south tenure ttl_exp, group(union): balanceplot wage age i.married i.collgrad i.south tenure ttl_exp, group(union)} {p_end}
 
-{phang} balanceplot price mpg trunk weight length displacement 
-			gear_ratio, group(rep78) base(3) ref(4) ref2(5) {p_end}
+{phang} {stata balanceplot wage age i.married i.collgrad i.south tenure ttl_exp, group(race) base(1) ref(2) ref2(3): balanceplot wage age i.married i.collgrad i.south tenure ttl_exp, group(race) base(1) ref(2) ref2(3)} {p_end}
 
-{phang} balanceplot price mpg trunk weight length displacement 
-			gear_ratio, group(rep78) base(3) ref(4) ref2(5) 
-			graphop(xlab(-200(25)200)) {p_end}
+{phang} {stata balanceplot wage age i.married i.collgrad i.south tenure ttl_exp, group(race) base(1) ref(2) ref2(3) graphop(xlab(-75(25)75)): balanceplot wage age i.married i.collgrad i.south tenure ttl_exp, group(race) base(1) ref(2) ref2(3) graphop(xlab(-75(25)75))} {p_end}
 
 			
 {title:Comments}

@@ -1,6 +1,6 @@
 v 3
 d balanceplot - calculates and plots standardized imbalance statistics
 d Trenton D. Mize, Purdue University
-d Distribution-Date: 20180403
+d Distribution-Date: 20240714
 f balanceplot.ado
 f balanceplot.sthlp
