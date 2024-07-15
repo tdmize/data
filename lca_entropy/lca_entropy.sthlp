@@ -45,9 +45,16 @@ for the entropy statistic. The default is 3. Any integer between 1 - 5 is allowe
 
 {title:Authorship}
 
-{pstd} {cmd:irt_me} is written by Trenton D Mize (Department of Sociology & 
-Advanced Methodologies, Purdue University). 
+{pstd} {cmd:irt_me} is written by Trenton D Mize (Departments of Sociology 
+& Statistics [by courtesy] & The Methodology Center at Purdue University). 
 Questions can be sent to tmize@purdue.edu {p_end}
+
+{title:Citation}
+
+{pstd} Please cite use of lca_entropy as: {p_end}
+
+	Mize, Trenton D. 2024 "lca_entropy: Stata command for entropy fit statistics 
+	for latent class analysis." https://www.trentonmize.com/software/lca_entropy 
 
 {title:References}
 
