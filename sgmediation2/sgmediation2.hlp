@@ -129,13 +129,22 @@ in the final tables of statistics. The default is 3. Any integer between 1 - 8 i
 
 {pstd}
 {cmd:sgmediation2} is an adaptation (with permission) of the {cmd:sgmediation} 
-command. {cmd:sgmediation2} is written and maintained by Trenton D. Mize. 
-Please send any requests for help or suggestions for additions to the 
-command to tmize@purdue.edu
+command. {cmd:sgmediation2} is written and maintained by Trenton D. Mize 
+(Departments of Sociology & Statistics [by courtesy] & The Methodology Center 
+at Purdue University). Please send any requests for help or suggestions for 
+additions to the command to tmize@purdue.edu
 
 {pstd}
 The original {cmd:sgmediation} command was written by Phil Ender of the UCLA
 Statistical Consulting Group.
+
+{title:Citation}
+
+{pstd} 
+Please cite use of the sgmediation2 command as: {p_end}
+
+Mize, Trenton D. 2022. "sgmediation2: Sobel-Goodman tests of mediation in Stata." 
+https://www.trentonmize.com/software/sgmediation2
 
 {title:Stored results}
 
