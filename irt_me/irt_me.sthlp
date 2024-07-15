@@ -99,7 +99,13 @@ columns in the table represent.
 
 {title:Authorship}
 
-{pstd} {cmd:irt_me} is written by Trenton D Mize (Department of Sociology & 
-Advanced Methodologies, Purdue University). 
+{pstd} {cmd:irt_me} is written by Trenton D Mize (Departments of Sociology & 
+Statistics [by courtesy] & The Methodology Center at Purdue University). 
 Questions can be sent to tmize@purdue.edu {p_end}
 
+{title:Citation}
+
+{pstd} Please cite the use of irt_me as: {p_end}
+
+	Mize, Trenton D. 2024. "Stata command for marginal effects from item 
+	response theory models." https://www.trentonmize.com/software/irt_me 
