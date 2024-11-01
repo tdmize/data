@@ -307,9 +307,7 @@ borrow from Long and Freese's (2014) SPost13 command {help mchange}.
 {title:Authorship}
 
 {pstd} {cmd:mecompare} and {cmd:melincom} are written by Trenton D Mize 
-(Department of Sociology & Advanced Methodoligies, Purdue University), 
-Long Doan (Department of Sociology, University of Maryland), 
-and J. Scott Long (Departments of Sociology & Statistics, Indiana University). 
+(Departments of Sociology & Statistics [by courtesy], Purdue University). 
 Questions can be sent to tmize@purdue.edu {p_end}
 
 {title:References}
