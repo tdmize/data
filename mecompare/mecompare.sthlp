@@ -70,7 +70,8 @@ after a {cmdab:mecomp:are} command has been run.
 {dlgtab:Required Option}
 
 {p2colset 5 18 19 0}
-{synopt:{opt mod:els(list)}} is required. {cmdab:mecomp:are} is limited to one 
+{synopt:{opt mod:els(list)}} is required with a list of stored model estimates 
+to use. {cmdab:mecomp:are} is limited to one 
 or two models. The model(s) must have been estimated and saved using 
 {help estimates store} before running {cmd:mecompare}. 
 {p_end}
@@ -99,7 +100,7 @@ compare marginal effects for models fit separately for racial category #1 and #3
 {marker stats}
 {dlgtab:Statistics to include in the table}
 {p2colset 8 25 25 0}
-{synopt:{opt stat:istics(list)}}select statistics to display. The default 
+{synopt:{opt stat:istics(list)}}selects statistics to display. The default 
 is to include the estimate, se, and pvalue. The following statistics can be 
 included in {it:list}.
 {p_end}
@@ -141,11 +142,11 @@ variables, of which changes of (1) age + sd, (2) income + 5, and (3) polviews
 
 {p2line}
 
-{synopt:{opt center:ed}}By default changes for continuous independent variables 
+{synopt:{opt center:ed}}By default, changes for continuous independent variables 
 are for an increase of these amounts from the value of the independent variable. 
 That is, they are {bf:uncentered} changes. Centered changes are computed by 
 calculating changes from half the value below to half the value above;
-e.g. [mean - SD/2] to [mean + SD/2].
+e.g., [mean - SD/2] to [mean + SD/2].
 {p_end}
 
 {marker start}
@@ -282,7 +283,7 @@ only contain labels (no statistics) have values of {bf:.z}
 
 {phang}	{stata est store medmod: est store medmod} {p_end}
 
-{phang} {stata mecompare age i.collgrad i.race hours, models(basemod medmod): mecompar age i.collgrad i.race hours, models(basemod medmod)} {p_end}
+{phang} {stata mecompare age i.collgrad i.race hours, models(basemod medmod): mecompare age i.collgrad i.race hours, models(basemod medmod)} {p_end}
 
 {phang} {stata mecompare age i.collgrad i.race hours, models(basemod medmod) amount(sd): mecompare age i.collgrad i.race hours, models(basemod medmod) amount(sd)} {p_end}
 
@@ -294,7 +295,7 @@ only contain labels (no statistics) have values of {bf:.z}
 {title:Comments}
 
 {pstd} {cmdab:mecomp:are} implements the methods described in Mize, Doan, 
-and Long's article "A General Framework for Comparing Predictions and Marginal 
+and Long's 2019 article "A General Framework for Comparing Predictions and Marginal 
 Effects Across Models".
 
 {pstd} {cmdab:mecomp:are} uses seemingly unrelated estimation to combine the 
