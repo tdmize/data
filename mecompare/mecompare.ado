@@ -3,7 +3,11 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v0.1.1 Trenton Mize 2019-03-18
+*! mecompare v0.1.2 Trenton Mize 2024-11-08
+
+*Revision notes
+* - version 2024-11-08 revised group specs to be more flexible
+
 program define mecompare, rclass 
 	version 15.1
 
@@ -125,6 +129,7 @@ if "`weight'" != "" {
 *List of supported models which is double-checked below
 local supmods "regress logit probit mlogit ologit poisson nbreg"
 	
+	
 ****************************************************************************
 // If 1 model, restore the estimates and store information
 ****************************************************************************
@@ -196,8 +201,7 @@ if "`varlist'" == "" { // If no vars listed, calculate MEs for all IVs
 else {
 	local list_ivs "`varlist'"
 	}
-		
-di  "`list_ivs'"  // Remove later; error checking		
+	
 }
 
 ****************************************************************************
@@ -255,12 +259,12 @@ else {
 
 *if group( ); store if statement; strip the if statement for cmdline local 
 if "`group'" != "" {
-	local groupif = substr("`cmdline`i''", strpos("`cmdline`i''", "if") + 2, .) 
+	local group`i'if = substr("`cmdline`i''", strpos("`cmdline`i''", "if") + 2, .) 
 	local cmdline`i' = substr("`cmdline`i''", 1, strpos("`cmdline`i''", "if") - 1) 
 	}
-	local group`i'ifvar : word 1 of `groupif'
-	local group`i' 		: word 3 of `groupif'	
-	
+	qui levelsof `group' if `group`i'if'
+	local group`i' = `r(levels)'
+
 *Store just the IVs for later use
 local 	numivs`i' : word count `cmdline`i''	
 local 	ivs`i' " "
@@ -272,6 +276,7 @@ forvalues b = 3/`numivs`i'' {
 } // End of looping through each of the two models
 
 // Check the group options; set group specific labels and info //
+/*
 if "`group'" != "" {
 	if "`group'" != "`group1ifvar'" & "`group'" != "`group2ifvar'" {
 	local gmod1 : word 1 of `models'
@@ -285,6 +290,8 @@ if "`group'" != "" {
 	exit
 	}
 }
+*/
+
 * Set group specs 
 if "`group'" != "" & "`mod1name'" == "" & "`mod2name'" == "" {
 	local fv = strpos("`group'", ".") + 1 		// find where . is if factor
@@ -392,14 +399,17 @@ if "`group'" == "" {
  
 *if group() is specified, create DV that selects on group's obs.
 if "`group'" != "" {
-	forvalues v = 1/2 {
-		tempvar 		`dv`v''grp`v'
-		qui clonevar 	``dv`v''grp`v'' = `dv`v''
-		qui replace 	``dv`v''grp`v'' = . if `group' != `group`v''
-		local dv`v'		``dv`v''grp`v''
-		}
-}
+		capture drop 	`dv1'_grp`group1'
+		qui clonevar 	`dv1'_grp`group1' = `dv1'
+		qui replace 	`dv1'_grp`group1' = . if `group' != `group1'
+		capture drop 	`dv2'_grp`group2'
+		qui clonevar 	`dv2'_grp`group2' = `dv2'
+		qui replace 	`dv2'_grp`group2' = . if `group' != `group2'
+		local dv1		`dv1'_grp`group1'
+		local dv2		`dv2'_grp`group2'
+	}
 	
+di 	
 *Include model specs. in output
 di 		_newline(1)
 if "`group'" != "" {
