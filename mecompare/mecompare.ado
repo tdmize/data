@@ -275,22 +275,6 @@ forvalues b = 3/`numivs`i'' {
 
 } // End of looping through each of the two models
 
-// Check the group options; set group specific labels and info //
-/*
-if "`group'" != "" {
-	if "`group'" != "`group1ifvar'" & "`group'" != "`group2ifvar'" {
-	local gmod1 : word 1 of `models'
-	local gmod2 : word 2 of `models'
-	di as err "The grouping variable specified in the {opt group( )} " /*
-	*/ "option does not match the grouping variable specified via if " /*
-	*/ "statements on the saved models. The variable in the {opt group( )} " /*
-	*/ "option is {it:`group'}; the grouping variable from model `gmod1' is " /*
-	*/ "{it:`group1ifvar'}; from model `gmod2' is {it:`group2ifvar'}. See " /*
-	*/ "{help mecompare##group} for details on specifying groups"
-	exit
-	}
-}
-*/
 
 * Set group specs 
 if "`group'" != "" & "`mod1name'" == "" & "`mod2name'" == "" {
@@ -468,6 +452,20 @@ if "`group'" == "" {
 	*/ "deletion across the models resulting in N_mecompare = `N1'"
 	}
 }
+*Error out if group selection resulted in different sample than original models
+if "`group'" != "" {
+	if `Nsav1' != `N1' | `Nsav2' != `N2' {
+	di _newline(1)
+	di in red "Sample size varies across original models and the model fit " /*
+	*/ "by {cmd:mecompare}. The groups selected by {cmd:mecompare} are " /*
+	*/" {it:`group' == `group1'} and {it:`group' == `group2'} but the original models " /*
+	*/ "use {it:`group1if'} and {it:`group2if'} to select observations. A single grouping " /*
+	*/ "variable that selects observations is required for {cmd:mecompare}. " /*
+	*/ "See {help mecompare##group} for details on specifying groups."
+	exit
+	}
+}
+
 }	// End of two model-specific options
 
 ****************************************************************************

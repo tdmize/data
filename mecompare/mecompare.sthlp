@@ -80,14 +80,18 @@ or two models. The model(s) must have been estimated and saved using
 {dlgtab:Group options}
 
 {p2colset 5 18 19 0}
-{synopt:{opt group(groupvar)}} specifies that models be fit separately over  
-groups of {it: groupvar}. The grouping variable can contain more than two 
-groups, but only two groups can be compared at a time with {cmdab:mecomp:are}. 
-When the {opt group( )} option is specified, the models specified in the 
-{opt models( )} option must have been fit separately across groups using an 
-{cmd:if} statement. {cmdab:mecomp:are} uses the {cmd:if} statement to determine 
-which groups to calculate marginal effects over. E.g. The following would 
-compare marginal effects for models fit separately for racial category #1 and #3:
+{synopt:{opt group(groupvar)}} specifies that the two models being compared 
+were fit separately over two categories of {it: groupvar}; {cmdab:mecomp:are} will 
+then calculate proper marginal effects for each group. The grouping variable 
+can contain more than two groups, but only two groups can be compared at a 
+time with {cmdab:mecomp:are}. When the {opt group( )} option is specified, 
+the models specified in the {opt models( )} option must have been fit separately 
+across groups using an {cmd:if} statement. {cmdab:mecomp:are} uses the {cmd:if} 
+statement to determine which groups to calculate marginal effects over. Only a 
+single grouping variable can be specified in the original models and no additional 
+sample selections (such as an {cmd:in} statement) are allowed. 
+E.g. The following would compare marginal effects for models fit separately 
+for racial category #1 and #3:
 
 {pstd}logit employed age i.college if race == 1 {p_end}
 {pstd}est store white_mod {p_end}
