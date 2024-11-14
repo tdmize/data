@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v0.1.3 Trenton Mize 2024-11-08
+*! mecompare v0.1.3 Trenton Mize 2024-11-13
 
 *Revision notes
 * - version 2024-11-08 group specs now more flexible / error out if issue
