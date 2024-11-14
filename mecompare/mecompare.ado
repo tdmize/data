@@ -261,9 +261,10 @@ else {
 if "`group'" != "" {
 	local group`i'if = substr("`cmdline`i''", strpos("`cmdline`i''", "if") + 2, .) 
 	local cmdline`i' = substr("`cmdline`i''", 1, strpos("`cmdline`i''", "if") - 1) 
-	}
 	qui levelsof `group' if `group`i'if'
 	local group`i' = `r(levels)'
+	}
+
 
 *Store just the IVs for later use
 local 	numivs`i' : word count `cmdline`i''	
