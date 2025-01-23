@@ -1,0 +1,4 @@
+v 1
+d meinequality - Marginal effects inequality statistics
+d Bing Han & Trenton D. Mize, Purdue University
+p meinequality command for marginal effects inequality statistics
