@@ -1,5 +1,6 @@
 // Inequality stats for nominal independent variable's effects
-*Current Version: 2025-01-21; Author: Bing Han and Trenton D. Mize
+capture program drop meinequality
+*! meinequality v1.0.1 Bing Han & Trenton Mize 2025-01-22
 
 program define meinequality, rclass
 	
