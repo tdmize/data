@@ -1,5 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
-*Current Version: 2025-01-21; Author: Bing Han and Trenton D. Mize
+capture program drop totalme
+*! totalme v1.0.1 Bing Han & Trenton Mize 2025-01-22
 
 program define totalme, rclass
 	
