@@ -1,6 +1,6 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.0.1 Bing Han & Trenton Mize 2025-01-22
+*! meinequality v1.0.1 Bing Han & Trenton Mize 2025-02-04
 
 program define meinequality, rclass
 	
@@ -9,17 +9,18 @@ version 15
 syntax 	varlist(fv) [fweight pweight iweight] , ///
 		[MODels(string) ///
 		WEIghted ///
-		UNWEIghted ///
+		UNWeighted ///
 		all /// 
+		ATMEANs ///
 		GROUPs ///
 		GROUPNames(string) /// 
 		DECimals(integer 3) /// 
 		title(string) /// 
 		ci /// 
 		LABWidth(numlist >19 integer) /// 
-		Details /// 
+		DETAILs /// 
 		COMMANDs /// 
-		LEVELs(integer 3) /// 
+		LEVEL(integer 95) /// 		doesn't do anything yet
 		] 	
 		
 ****************************************************************************
@@ -56,15 +57,22 @@ else {
 	local dec = `decimals'
 }
 
-if "`levels'" == "" {
+if "`level'" == "" {
 	local cilevel = 95
 	local ll_spec "95% LL" 
 	local ul_spec "95% UL"		
 }
 else {
-	local cilevels = `levels'
-	local ll_spec "`levels'% LL" 
-	local ul_spec "`levels'% UL"
+	local cilevels = `level'
+	local ll_spec "`level'% LL" 
+	local ul_spec "`level'% UL"
+}
+	
+if "`atmeans'" == "" {
+	local atmeans ""
+}
+else {
+	local atmeans "atmeans"
 }
 	
 ****************************************************************************
@@ -103,13 +111,13 @@ if "`groupnames'" != "" & "`groups'" == "" {
 	exit	
 }
 
-if "`groupnames'" != "" {
+if "`groupnames'" == "" {
 	local mod1name : word 1 of `models'
 	local mod2name : word 2 of `models'
 }
 else {
-	local mod1name : word 1 of "`groupnames'"
-	local mod2name : word 2 of "`groupnames'"
+	local mod1name : word 1 of `groupnames'
+	local mod2name : word 2 of `groupnames'
 }
 
 local mod1lab = substr("`mod1name'",1,10)
@@ -155,7 +163,7 @@ quietly est restore `mod1'
 local cmd_m1 "`e(cmd)'"
 local cmdline_m1 "`e(cmdline)'"
 local vcetype1	= "`e(vce)'"
-tempvar mod1samp
+qui tempvar mod1samp
 qui gen `mod1samp' = e(sample)
 local Nsav1 = e(N)
 local mod1dv = 	"`e(depvar)'"
@@ -209,7 +217,7 @@ if `nummods' == 2 {
 	local cmd_m2 "`e(cmd)'"
 	local cmdline_m2 "`e(cmdline)'"
 	local vcetype2	= "`e(vce)'"
-	tempvar mod2samp
+	qui tempvar mod2samp
 	qui gen `mod2samp' = e(sample)
 	local Nsav2 = e(N)	
 	local mod2dv = 	"`e(depvar)'"
@@ -233,16 +241,17 @@ if `nummods' == 2 {
 	*Error out if group number is not consistent with the e(sample)
 	if "`groups'" != "" & (`Nsav1_ovlp'!=`Nsav1') {
 		di _newline(1)
-		di as err "{opt groups} option does not support overlapped samples across groups. " /*
-		*/ "See {help meinequality##groups} for details."
+		di as err "{opt groups} option does not support partially overlapping " /*
+		*/ "samples. With the {opt groups} option, samples must be entirely " /*
+		*/ "distinct across models. See {help meinequality##groups} for details."
 		exit		
 	}
 		
 	*Error out if command1 != command2
 	if "`cmd_m1'" != "`cmd_m2'" {
 		di _newline(1)
-		di as err "`mod1' is a {cmd:`cmd_m1'}; `mod2' is a {cmd:`cmd_m2'}. " ///
-		"{cmd:meinequality} doesn't support different models."
+		di as err "`mod1' is a {cmd:`cmd_m1'}; `mod2' is a {cmd:`cmd_m2'}. " /*
+		*/ "{cmd:meinequality} doesn't support different models."
 	exit
 	}
 	
@@ -482,18 +491,18 @@ else if `nummods' == 2 {
 		capture drop `mod1dv'_COPY1
 		capture drop `mod2dv'_COPY2
 
-		clonevar `mod1dv'_COPY1 = `mod1dv' 
-		replace `mod1dv'_COPY1 = . if me_inequality_mod_samp != 1
+		qui clonevar `mod1dv'_COPY1 = `mod1dv' 
+		qui replace `mod1dv'_COPY1 = . if me_inequality_mod_samp != 1
 		local mod1dv_use = "`mod1dv'_COPY1"
-		clonevar `mod2dv'_COPY2 = `mod2dv'
-		replace `mod2dv'_COPY2 = . if me_inequality_mod_samp != 2
+		qui clonevar `mod2dv'_COPY2 = `mod2dv'
+		qui replace `mod2dv'_COPY2 = . if me_inequality_mod_samp != 2
 		local mod2dv_use = "`mod2dv'_COPY2"
 		
 	}
 	else if "`mod1dv'" == "`mod2dv'" & "`groups'" == "" {
 		
 		capture drop `mod2dv'_COPY2
-		clonevar `mod2dv'_COPY2 = `mod2dv'
+		qui clonevar `mod2dv'_COPY2 = `mod2dv'
 		
 		local mod1dv_use = "`mod1dv'"
 		local mod2dv_use = "`mod2dv'_COPY2"
@@ -605,7 +614,7 @@ forvalues ithvar=1/`numvars' {
 	
 	if `nummods' == 1 & `mod1cats' < 3 {
 		
-		`quietly' `margins' `nomvar', post	
+		`quietly' `margins' `nomvar', `atmeans' post	
 		qui est store meineq_margins
 	
 	** Different Calculations
@@ -702,12 +711,13 @@ forvalues ithvar=1/`numvars' {
 		
 		** Calculate the margins for the nominal variables in the gsem model
 		if "`groups'" != "" {
-			`quietly' `margins' `nomvar', `mimarginsspec' over(me_inequality_mod_samp) post					
+			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' ///
+								over(me_inequality_mod_samp) post					
 			local mod_samp_spec1 "1.me_inequality_mod_samp#"
 			local mod_samp_spec2 "2.me_inequality_mod_samp#"
 		}
 		else {
-			`quietly' `margins' `nomvar', `mimarginsspec' post
+			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post
 			local mod_samp_spec1 ""
 			local mod_samp_spec2 ""
 		}
@@ -796,8 +806,8 @@ forvalues ithvar=1/`numvars' {
 			matrix `newmatwgt' = `newmatwgt' \ `rt'	
 		
 			matrix rownames `newmatwgt' = ///
-				"`nomvar' ME Ineq.:Model 1 (`mod1')" ///
-				"`nomvar' ME Ineq.:Model 2 (`mod2')" ///
+				"`nomvar' ME Ineq.:Model 1 (`mod1lab')" ///
+				"`nomvar' ME Ineq.:Model 2 (`mod2lab')" ///
 				"`nomvar' ME Ineq.:Cross-Model Diff."
 			matrix `newmatall' = `newmatall' \ `newmatwgt'
 			matrix drop `newmatwgt'
@@ -886,8 +896,8 @@ forvalues ithvar=1/`numvars' {
 			matrix `newmatmean' = `newmatmean' \ `rt'
 
 			matrix rownames `newmatmean' = ///
-				"`nomvar' Unwgt ME Ineq.:Model 1 (`mod1')" ///
-				"`nomvar' Unwgt ME Ineq.:Model 2 (`mod2')" ///
+				"`nomvar' Unwgt ME Ineq.:Model 1 (`mod1lab')" ///
+				"`nomvar' Unwgt ME Ineq.:Model 2 (`mod2lab')" ///
 				"`nomvar' Unwgt ME Ineq.:Cross-Model Diff."
 			
 			matrix `newmatall' = `newmatall' \ `newmatmean'
@@ -905,7 +915,7 @@ forvalues ithvar=1/`numvars' {
 
 	else if `nummods' == 1 & `mod1cats' >= 3 {
 
-		`quietly' `margins' `nomvar', `mimarginsspec' post	
+		`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post	
 		qui est store meineq_margins
 		
 		qui levelsof 	`mod1dv'
@@ -1032,12 +1042,13 @@ forvalues ithvar=1/`numvars' {
 	else if `nummods' == 2 & `mod1cats' >= 3 {
 
 		if "`groups'" != "" {
-			`quietly' `margins' `nomvar', `mimarginsspec' over(me_inequality_mod_samp) post					
+			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' ///
+								over(me_inequality_mod_samp) post					
 			local mod_samp_spec1 "1.me_inequality_mod_samp#"
 			local mod_samp_spec2 "2.me_inequality_mod_samp#"
 		}
 		else {
-			`quietly' `margins' `nomvar', `mimarginsspec' post	
+			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post	
 			local mod_samp_spec1 ""
 			local mod_samp_spec2 ""
 		}
@@ -1149,8 +1160,8 @@ forvalues ithvar=1/`numvars' {
 				matrix `newmatwgt' = `newmatwgt' \ `rt'	
 			
 				matrix rownames `newmatwgt' = ///
-					"`nomvar' ME Ineq.:`mod1' Pr(`out_`dvlevel'')" ///
-					"`nomvar' ME Ineq.:`mod2' Pr(`out_`dvlevel'')" ///
+					"`nomvar' ME Ineq.:`mod1lab' Pr(`out_`dvlevel'')" ///
+					"`nomvar' ME Ineq.:`mod2lab' Pr(`out_`dvlevel'')" ///
 					"`nomvar' ME Ineq.:Diff. Pr(`out_`dvlevel'')"
 				matrix `newmatall' = `newmatall' \ `newmatwgt'
 				matrix drop `newmatwgt'
@@ -1251,8 +1262,8 @@ forvalues ithvar=1/`numvars' {
 				matrix `newmatmean' = `newmatmean' \ `rt'
 
 				matrix rownames `newmatmean' = ///
-					"`nomvar' Unwgt ME Ineq.:`mod1' Pr(`out_`dvlevel'')" ///
-					"`nomvar' Unwgt ME Ineq.:`mod2' Pr(`out_`dvlevel'')" ///
+					"`nomvar' Unwgt ME Ineq.:`mod1lab' Pr(`out_`dvlevel'')" ///
+					"`nomvar' Unwgt ME Ineq.:`mod2lab' Pr(`out_`dvlevel'')" ///
 					"`nomvar' Unwgt ME Ineq.:Diff. Pr(`out_`dvlevel'')"
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'	
@@ -1269,11 +1280,6 @@ forvalues ithvar=1/`numvars' {
 *********************************************************
 // format final table of stats 
 *********************************************************
-
-**drop variables
-capture qui drop me_inequality_mod_samp 
-capture qui drop `mod1dv'_COPY1
-capture qui drop `mod2dv'_COPY2
 
 ** special situation: change the order of the rows
 if `nummods' == 1 & `mod1cats' < 3 & "`all'"!="" {
