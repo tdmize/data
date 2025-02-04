@@ -258,20 +258,39 @@ The matrix has columns corresponding to the displayed results.
 {marker examples}
 {title:Examples}
 
-{pstd} use	"https://tdmize.github.io/data/data/cda_gss", clear {p_end}
-{phang} {stata drop if missing(healthR, race4, age, woman, parent, married, faminc, degree)} {p_end}
-{phang} {stata drop if year < 2000  | year > 2021} {p_end}
-{phang} {stata mlogit healthR i.race4 c.age i.woman i.parent i.married i.degree} {p_end}
-{phang} {stata est store mod52c} {p_end}
+{phang} use "https://tdmize.github.io/data/data/cda_gss", clear {p_end}
+	
+** Single model **
+{phang} {stata mlogit 		healthR i.race4 c.age i.woman} {p_end}
+	
+*Continuous and Binary IVs
+{phang} {stata totalme 		age woman} {p_end}
+{phang} {stata totalme 		age woman, amount(sd)} {p_end}
+{phang} {stata totalme 		age woman, amount(sd) center} {p_end}
+{phang} {stata totalme 		age woman, start(age=20) amount(10)} {p_end}
 
-{phang} {stata totalme married, models(mod52c)} {p_end}
-{phang} {stata totalme age, models(mod52c) amount(34) centered} {p_end}
-{phang} {stata totalme married age, amount(34) centered models(mod52c)} {p_end}
-{phang} {stata totalme married parent, models(mod52c)} {p_end}
-
-{phang} {stata mlogit healthR i.race4 c.age i.woman i.parent i.married c.faminc i.degree} {p_end}
-{phang} {stata est store mod52d} {p_end}
-{phang} {stata totalme college, models(mod52e_base mod52e_com)} {p_end} 
+*Nominal IV (ME inequalities calculated)
+{phang} {stata totalme 		race4} {p_end}
+{phang} {stata totalme 		race4, unweighted} {p_end}
+	
+	
+** Compare across two models on same sample **
+{phang} {stata mlogit 		healthR i.college if faminc < ., vce(robust)} {p_end}
+{phang} {stata est store 	basemod} {p_end}
+{phang} {stata mlogit 		healthR i.college c.faminc, vce(robust)} {p_end}
+{phang} {stata est store 	medmod} {p_end}
+	
+{phang} {stata totalme 		college, models(basemod medmod)} {p_end}
+	
+	
+** Compare across distinct samples/groups for two models **
+{phang} {stata ologit 		class i.college if woman == 0, vce(robust)} {p_end}
+{phang} {stata est store 	menmod} {p_end}
+{phang} {stata ologit 		class i.college if woman == 1, vce(robust)} {p_end}
+{phang} {stata est store 	wommod} {p_end}
+	
+{phang} {stata totalme 		college, models(menmod wommod) group} {p_end}
+	
 
 {title:Comments}
 
