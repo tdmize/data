@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.0.1 Bing Han & Trenton Mize 2025-01-22
+*! totalme v1.0.1 Bing Han & Trenton Mize 2025-02-04
 
 program define totalme, rclass
 	
@@ -12,6 +12,7 @@ syntax 	varlist(fv) [fweight pweight iweight] , ///
 		GROUPNames(string) /// 
 		amount(string) ///
 		CENTERed ///
+		ATMEANs ///
 		start(string) ///
 		WEIghted ///
 		UNWEIghted /// 
@@ -22,7 +23,7 @@ syntax 	varlist(fv) [fweight pweight iweight] , ///
 		title(string) /// 
 		ci /// 
 		LABWidth(numlist >19 integer) /// 
-		LEVELs(integer 3) ///
+		LEVEL(integer 3) ///				doesn't do anything yet
 		] 
 		
 ****************************************************************************
@@ -69,6 +70,14 @@ else {
 	local ll_spec "`levels'% LL" 
 	local ul_spec "`levels'% UL"
 }
+
+if "`atmeans'" == "" {
+	local atmeans ""
+}
+else {
+	local atmeans "atmeans"
+}
+
 
 ****************************************************************************
 // Set options for different # of models
@@ -429,18 +438,18 @@ else if `nummods' == 2 {
 		capture drop `mod1dv'_COPY1
 		capture drop `mod2dv'_COPY2
 
-		clonevar `mod1dv'_COPY1 = `mod1dv' 
-		replace `mod1dv'_COPY1 = . if total_me_mod_samp != 1
+		qui clonevar `mod1dv'_COPY1 = `mod1dv' 
+		qui replace `mod1dv'_COPY1 = . if total_me_mod_samp != 1
 		local mod1dv_use = "`mod1dv'_COPY1"
-		clonevar `mod2dv'_COPY2 = `mod2dv'
-		replace `mod2dv'_COPY2 = . if total_me_mod_samp != 2
+		qui clonevar `mod2dv'_COPY2 = `mod2dv'
+		qui replace `mod2dv'_COPY2 = . if total_me_mod_samp != 2
 		local mod2dv_use = "`mod2dv'_COPY2"
 		
 	}
 	else if "`mod1dv'" == "`mod2dv'" & "`groups'" == "" {
 		
 		capture drop `mod2dv'_COPY2
-		clonevar `mod2dv'_COPY2 = `mod2dv'
+		qui clonevar `mod2dv'_COPY2 = `mod2dv'
 		
 		local mod1dv_use = "`mod1dv'"
 		local mod2dv_use = "`mod2dv'_COPY2"
@@ -673,9 +682,8 @@ if `numcontvars' != 0 {
 			*need to remove = so that, e.g. age=50 and age = 50 are treated same
 			local start 		= subinstr("`start'", "=", " ", .) 
 			local hasiv 		= strpos("`start'", "`v'")
-			local hasatmeans 	= strpos("`start'", "atmeans")
 				
-			if `hasiv' == 0  & `hasatmeans' == 0 {	// asoberved
+			if `hasiv' == 0  {	// asoberved
 			
 				if "`amount`cnum''" == "one" {	
 					if "`centered'" == "" {
@@ -713,52 +721,7 @@ if `numcontvars' != 0 {
 						local endval 	"`v'=gen(`v' + `halfamt')"				
 						}
 					}
-			}
-			
-			if `hasiv' == 0 & `hasatmeans' != 0 {	// start change at mean
-				qui sum `v' if `totalme_sample' == 1
-				local meanv = r(mean)
-				local sd = r(sd)	
-				local halfsd = `sd' / 2		
-				
-				if "`amount`cnum''" == "one" {	
-					if "`centered'" == "" {
-						local startval 	"`v'=`meanv'"	
-						local endval 	"`v'=`meanv' + 1"				
-						}
-					if "`centered'" != "" {
-						local startval 	"`v'=`meanv' - .5"	
-						local endval 	"`v'=`meanv' + .5"				
-						}
-					}
-				else if "`amount`cnum''" == "sd" {	
-					if "`centered'" == "" {
-						local endat 	= `meanv' + `sd'
-						local startval 	"`v'=`meanv'"
-						local endval 	"`v'=`endat'"				
-						}
-					if "`centered'" != "" {
-						local startat 	= `meanv' - `halfsd'
-						local endat 	= `meanv' + `halfsd'
-						local startval 	"`v'=`startat'"
-						local endval 	"`v'=`endat'"					
-						}
-					}
-				else {	
-					local halfamt = `amount`cnum'' / 2
-					
-					if "`centered'" == "" {
-						local endamt 	= `meanv' + `amount`cnum''
-						local startval 	"`v'=`meanv'"	
-						local endval 	"`v'=`endamt'"				
-						}
-					if "`centered'" != "" {
-						local startat 	= `meanv' - `halfamt'
-						local endat 	= `meanv' + `halfamt'		
-						local startval 	"`v'=`startat'"	
-						local endval 	"`v'=`endat'"				
-						}
-					}
+				local startlab ""
 			}
 				
 			if `hasiv'!= 0 {	// start change at specified value
@@ -811,8 +774,9 @@ if `numcontvars' != 0 {
 						local endval 	"`v'=`endat'"				
 						}
 					}	
+					local startlab "start (`startnum')"
 				}
-			*Set labels for table
+			*Set labels for table	
 			if "`centered'" == "" {
 				local centerlab ""
 				}
@@ -820,13 +784,13 @@ if `numcontvars' != 0 {
 				local centerlab " (centered)"
 				}
 			if "`amount`cnum''" == "one" {
-				local change`v' "+ 1`centerlab'"
+				local change`v' "`startlab' + 1`centerlab'"
 				}
 			else if "`amount`cnum''" == "sd" {
-				local change`v' "+ SD`centerlab'"
+				local change`v' "`startlab' + SD`centerlab'"
 				}
 			else {
-				local change`v' "+ `amount`cnum''`centerlab'"
+				local change`v' "`startlab' + `amount`cnum''`centerlab'"
 				}	
 			local 	mspec`i' at(`startval') at(`endval')
 			local 	++cnum	
@@ -1037,7 +1001,7 @@ if `numnomvars' != 0 {
 		
 		if `nummods' == 1 {
 				
-			`quietly' `margins' `nomvar', `mimarginsspec' post	
+			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post	
 			qui est store totalme_margins
 			
 			qui levelsof 	`mod1dv'
@@ -1157,12 +1121,13 @@ if `numnomvars' != 0 {
 		else if `nummods' == 2 {
 
 			if "`groups'" != "" {
-				`quietly' `margins' `nomvar', `mimarginsspec' over(total_me_mod_samp) post	
+				`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' ///
+							over(total_me_mod_samp) post	
 				local mod_samp_spec1 "1.total_me_mod_samp#"
 				local mod_samp_spec2 "2.total_me_mod_samp#"
 			}
 			else {
-				`quietly' `margins' `nomvar', `mimarginsspec' post	
+				`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post	
 				local mod_samp_spec1 ""
 				local mod_samp_spec2 ""
 			}
@@ -1367,11 +1332,6 @@ if `numnomvars' != 0 {
 // format final table of stats 
 *********************************************************
 
-**drop variables
-capture qui drop total_me_mod_samp 
-capture qui drop `mod1dv'_COPY1
-capture qui drop `mod2dv'_COPY2
-
 if `numcontvars' != 0 {
 	** remove the first row (dots as place holder)
 	local numcols = colsof(`newmatconivs')
@@ -1417,7 +1377,7 @@ if `nummods' == 2 {
 	
 *Final table	
 matlist `newmatall', format(%10.`decimals'f) ///
-	title("`title'(`samp_info')") twidth(`twidth')	
+	title("`title' (`samp_info')") twidth(`twidth')	
 
 	
 end 		

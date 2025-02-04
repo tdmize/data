@@ -70,8 +70,9 @@ model estimations are supported.
 	{help totalme##groups:Required option if fitting models over two distinct samples}
 	{help totalme##amount:Amount of change to compute for continuous variables}
 	{help totalme##start:Setting starting values of variables in varlist}
+	{help totalme##covariates:Setting values of the covariates}
 	{help totalme##weighted:Weighting options for ME inequality for nominal IVs}
-	{help totalme##sample weights:Setting sample weights}
+	{help totalme##sample weights:Setting sample weights and multiple imputation estimates}
 	{help totalme##options:Optional options for formatting, reporting, missing data, etc.}
 	{help totalme##matrices:Saved estimates and matrices}
 	{help totalme##examples:Examples}
@@ -140,11 +141,18 @@ e.g. [mean - SD/2] to [mean + SD/2].
 {synopt:{opt start(list)}}By default, the observed values of the focal independent 
 variables specified in the {it:varlist} are used as the starting points for 
 calculating the marginal effects (i.e., the margins default of {it:asobserved} is 
-used; see {help margins}). The means of the focal independent variables 
-can instead be used by specifying {opt start(atmeans)}. Other starting values 
-can be specified within the {opt start( )} option, e.g. start(age=20). Multiple 
-focal independent variables can be listed in {opt start( )}, 
-e.g. start(age=20 income=100)
+used; see {help margins}). Other starting values can be specified within the 
+{opt start( )} option, e.g. start(age=20). Multiple focal independent variables 
+can be listed in {opt start( )}, e.g. start(age=20 income=100)
+{p_end}
+
+{marker covariates}
+{dlgtab:Setting values of covariates}
+{p2colset 8 25 25 0}
+{synopt:{opt atmeans}}By default, the observed values of the other variables 
+in the model are used for calculating the marginal effects (i.e., the margins 
+default of {it:asobserved} is used; see {help margins}). Alternatively, the 
+covariates can be set to their sample means with the {opt atmeans} option.
 {p_end}
 
 {marker Weighted}
@@ -177,17 +185,21 @@ total {it:ME inequalities}.
 {p_end}
 
 {marker sampleweights}
-{dlgtab:Sample weight options}
+{dlgtab:Sample weights and multiple imputation estimation options}
+
+{p2colset 5 18 19 0}  
+{synopt:{opt mi and svy}} For single model applications, the {command: mi} and 
+{command: svy} prefixes are supported. 
+Specify these options on your model itself, not with {cmdab:totalme}.
+When {command: mi} is specified, the user-written package {it: mimrgns} 
+is used to estimate the marginal effects (users need to install {it: mimrgns} separately).
 
 {p2colset 5 18 19 0}
-{synopt:{opt [weight]}} specifies weights for the two-model comparison. 
-The {opt models(list)} option must be specified when using {command: weight} 
-and {command: fweight}, {command: pweight}, and {command: iweight} are supported. 
-For single-model estimation, include the weight specification directly in your model. 
-The {command: mi} and {command: svy} prefixes are also supported for single-model 
-total ME calculations but not for two-model comparisons. When {command: mi} is 
-specified, the user-written package {it: mimrgns} will be used to calculate 
-mean inequality (users need to install {it: mimrgns} separately).
+{synopt:{opt [weight]}} specifies weights to use when two models are compared. 
+Because {bf:gsem} is used for the estimation, the {bf:svy} prefix cannot be 
+applied. The {opt models(list)} option must be specified when using 
+{bf: [weight]}. {command: fweight}, {command: pweight}, and {command: iweight} 
+are supported. 
 
 {marker options}
 {dlgtab:Additional Optional Options}
@@ -232,7 +244,7 @@ which are the constituent parts of the {it:total ME} calculation.
 {pstd} {cmdab:totalme} uses {cmdab:margins} to estimate the marginal effects 
 which make up the Total ME. In the two-model case, {cmdab:gsem} is used to 
 combine the model estimates. These results are stored and 
-can be restored after {cmdab:totalme} ({help estimates restore}).  
+can be restored after {cmdab:totalme} (see {help estimates restore}).  
 The {cmdab:gsem} model results are stored as {it:totalme_gsem}. The {cmdab:margins} 
 results which contain the predictions that are the constituent pieces of the 
 marginal effects {cmdab:totalme} calculates are stored as {it:totalme_margins}.
