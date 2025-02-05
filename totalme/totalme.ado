@@ -111,7 +111,7 @@ if "`groupnames'" != "" & "`groups'" == "" {
 	exit	
 }
 
-if "`groupnames'" != "" {
+if "`groupnames'" == "" {
 	local mod1name : word 1 of `models'
 	local mod2name : word 2 of `models'
 }
