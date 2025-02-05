@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.0.1 Bing Han & Trenton Mize 2025-02-04
+*! totalme v1.0.2 Bing Han & Trenton Mize 2025-02-04
 
 program define totalme, rclass
 	
@@ -116,8 +116,8 @@ if "`groupnames'" != "" {
 	local mod2name : word 2 of `models'
 }
 else {
-	local mod1name : word 1 of "`groupnames'"
-	local mod2name : word 2 of "`groupnames'"
+	local mod1name : word 1 of `groupnames'
+	local mod2name : word 2 of `groupnames'
 }
 
 local mod1lab = substr("`mod1name'",1,10)
@@ -946,8 +946,8 @@ if `numcontvars' != 0 {
 			matrix `newmatconivs_temp' = `newmatconivs_temp' \ `rt'
 		
 			matrix rownames `newmatconivs_temp' = ///
-				"`v':Model 1 (`mod1')" ///
-				"`v':Model 2 (`mod2')" ///
+				"`v':Model 1 (`mod1lab')" ///
+				"`v':Model 2 (`mod2lab')" ///
 				"`v':Cross-Model Diff."
 			
 			matrix `newmatconivs' = `newmatconivs' \ `newmatconivs_temp'
@@ -1227,8 +1227,8 @@ if `numnomvars' != 0 {
 				matrix `newmatwgt' = `newmatwgt' \ `rt'	
 			
 				matrix rownames `newmatwgt' = ///
-					"`nomvar' total ME Ineq.:Model 1 (`mod1')" ///
-					"`nomvar' total ME Ineq.:Model 2 (`mod2')" ///
+					"`nomvar' total ME Ineq.:Model 1 (`mod1lab')" ///
+					"`nomvar' total ME Ineq.:Model 2 (`mod2lab')" ///
 					"`nomvar' total ME Ineq.:Cross-Model Diff."
 				matrix `newmatall' = `newmatall' \ `newmatwgt'
 				matrix drop `newmatwgt'				
@@ -1314,8 +1314,8 @@ if `numnomvars' != 0 {
 				matrix `newmatmean' = `newmatmean' \ `rt'	
 
 				matrix rownames `newmatmean' = ///
-					"`nomvar' toal Unwgt MEIneq:Model 1 (`mod1')" ///
-					"`nomvar' toal Unwgt MEIneq:Model 2 (`mod2')" ///
+					"`nomvar' toal Unwgt MEIneq:Model 1 (`mod1lab')" ///
+					"`nomvar' toal Unwgt MEIneq:Model 2 (`mod2lab')" ///
 					"`nomvar' toal Unwgt MEIneq:Cross-Model Diff."
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'	
