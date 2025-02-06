@@ -56,9 +56,10 @@ cross-model comparisons via the {bf:models( )} option.
 {title:Table of contents}
 
 	{help meinequality##weighted:Setting weighted/unweighted calculations}
+	{help meinequality##covariates:Setting values of the covariates}
 	{help meinequality##models:Required option for two model comparison}
 	{help meinequality##groups:Required option if fitting models over two distinct samples}
-	{help meinequality##sampleweights:Setting sample weights}
+	{help meinequality##sampleweights:Setting sample weights and multiple imputation estimates}
 	{help meinequality##options:Optional options for formatting, reporting, missing data, etc.}
 	{help meinequality##matrices:Saved estimates and matrices}
 	{help meinequality##examples:Examples}
@@ -90,6 +91,15 @@ nominal variable in the sample.
 inequality measures.
 {p_end}
 
+{marker covariates}
+{dlgtab:Setting values of covariates}
+{p2colset 5 18 19 0}
+{synopt:{opt atmeans}}By default, the observed values of the other variables 
+in the model are used for calculating the marginal effects (i.e., the margins 
+default of {it:asobserved} is used; see {help margins}). Alternatively, the 
+covariates can be set to their sample means with the {opt atmeans} option.
+{p_end}
+
 {marker Models}
 {dlgtab:Models Option}
 
@@ -117,16 +127,19 @@ separately across distinct samples (e.g., distinct groups in data).
 {marker sampleweights}
 {dlgtab:Sample weights and multiple imputation estimation options}
 
+{p2colset 5 18 19 0}  
+{synopt:{opt mi and svy}} For single model application, the {command: mi} and 
+{command: svy} prefixes are supported for ME Inequality calculations. 
+Specify these options on your model itself, not with {cmdab:meineq:uality}.
+When {command: mi} is specified, the user-written package {it: mimrgns} 
+is used to estimate the marginal effects (users need to install {it: mimrgns} separately).
+
 {p2colset 5 18 19 0}
 {synopt:{opt [weight]}} specifies weights to use when two models are compared. 
 Because {bf:gsem} is used for the estimation, the {bf:svy} prefix cannot be 
 applied. The {opt models(list)} option must be specified when using 
 {bf: [weight]}. {command: fweight}, {command: pweight}, and {command: iweight} 
-are supported. The {command: mi} and {command: svy} prefixes are supported for 
-single-model ME Inequality calculations but not for two-model comparisons. 
-Specify these options on your model itself, not with {cmdab:meineq:uality}.
-When {command: mi} is specified, the user-written package {it: mimrgns} 
-will be used to calculate mean inequality (users need to install {it: mimrgns} separately).
+are supported. 
 
 {marker options}
 {dlgtab:Additional Optional Options}
@@ -156,7 +169,8 @@ The default is "ME Inequality Estimates".
 {p2colset 5 18 19 0}
 {synopt:{opt groupn:ames(string)}} specifies the row names in the table 
 corresponding to the ME Inequality for Model 1 and Model 2. Two group names 
-must be provided. The {opt groups} option is required when using 
+must be provided; there can be no spaces in each group name. 
+The {opt groups} option is required when using 
 {opt groupn:ames(string)}. By default, the rows are named based on the 
 stored estimate names specified in the {opt models(list)} option. 
 Note that names longer than 10 characters will be truncated in the output.
@@ -194,21 +208,36 @@ The matrix has columns corresponding to the displayed results.
 {marker examples}
 {title:Examples}
 
-{pstd} use "https://tdmize.github.io/data/data/cda_gss", clear {p_end}
-{phang} {stata keep if year == 2021} {p_end}
-{phang} {stata drop if missing(wages, race4)} {p_end}
-{phang} {stata reg wages i.race4 c.age i.woman} {p_end}
-{phang} {stata meinequality race4} {p_end}
-{phang} {stata meinequality race4, unweighted} {p_end}
-{phang} {stata meinequality race4, all} {p_end}
+{phang} {stata sysuse 			nlsw88, clear} {p_end}
 
-{phang} {stata drop if missing(healthR, college, race4, age, woman, parent, married, faminc, degree)} {p_end}
-{phang} {stata mlogit healthR i.college i.race4 c.age i.woman i.parent i.married, vce(robust)} {p_end}
-{phang} {stata est store base} {p_end}
-{phang} {stata mlogit healthR i.college i.race4 c.age i.woman i.parent i.married c.faminc, vce(robust)} {p_end}
-{phang} {stata est store med} {p_end}
-{phang} {stata meinequality race4 college, models(base med) all} {p_end}
+*Single model
+{phang} {stata reg 				wage i.race c.age i.married} {p_end}
 
+{phang} {stata meinequality 	race} {p_end}
+{phang} {stata meinequality 	race, unweighted} {p_end}
+
+*Compare across two models on same sample
+{phang} {stata logit 			union i.race, vce(robust)} {p_end}
+{phang} {stata est store 		basemod} {p_end}
+{phang} {stata logit 			union i.race c.age i.married, vce(robust)} {p_end}
+{phang} {stata est store 		medmod} {p_end}
+
+{phang} {stata meinequality 	race, models(basemod medmod)} {p_end}
+
+*Compare across distinct samples/groups for two models
+{phang} {stata logit 			union i.race c.age if married == 0, vce(robust)} {p_end}
+{phang} {stata est store 		notmar} {p_end}
+{phang} {stata logit 			union i.race c.age if married == 1, vce(robust)} {p_end}
+{phang} {stata est store 		marry} {p_end}
+
+{phang} {stata meinequality 	race, models(notmar marry) group} {p_end}	
+
+*Nominal or ordinal outcome models
+{phang} {stata mlogit 			industry i.race c.age} {p_end}
+
+{phang} {stata meinequality 	race} {p_end}
+	
+	
 {title:Comments}
 
 {pstd} {cmdab:meineq:uality} implements the methods described in Mize and Han's 
