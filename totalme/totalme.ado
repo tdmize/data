@@ -84,7 +84,7 @@ else {
 ****************************************************************************		
 	
 *List of supported models
-local supmods 	"logit probit mlogit ologit oprobit gologit2"
+local supmods 	"logit probit mlogit ologit oprobit"
 			
 *Check # of models
 local nummods: word count `models'
@@ -196,7 +196,7 @@ if "`cmd_m1'" == "mi estimate" {
 if strpos("`supmods'","`cmd_m1'") == 0 {
 	di as err "`mod1' is a {cmd:`cmd_m1'}. {cmd:totalme} " /* 
 	*/ "only supports the following estimation commands: " /*
-	*/ "logit, probit, mlogit, ologit, oprobit, and gologit2."
+	*/ "logit, probit, mlogit, ologit, and oprobit."
 	exit
 }
 	
