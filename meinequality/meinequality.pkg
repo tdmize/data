@@ -1,7 +1,7 @@
 v 3
 d meinequality - Marginal effects inequality statistics
 d Bing Han & Trenton D. Mize, Purdue University
-d Distribution-Date: 20250203
+d Distribution-Date: 20250205
 f meinequality.ado
 f meinequality.sthlp
 f meineq.ado
