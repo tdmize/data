@@ -3,9 +3,10 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v0.1.3 Trenton Mize 2024-11-13
+*! mecompare v0.1.4 Trenton Mize 2025-02-13
 
 *Revision notes
+* - v0.1.4 adds support for gologit2 for one model case
 * - version 2024-11-08 group specs now more flexible / error out if issue
 
 program define mecompare, rclass 
@@ -127,7 +128,7 @@ if "`weight'" != "" {
 	}
 	
 *List of supported models which is double-checked below
-local supmods "regress logit probit mlogit ologit poisson nbreg"
+local supmods "regress logit probit mlogit ologit oprobit gologit2 poisson nbreg"
 	
 	
 ****************************************************************************
@@ -156,8 +157,9 @@ else {
 	*/ "regress, logit, probit, mlogit, ologit, poisson, nbreg"
 	exit
 	}
-
-if "`e(cmd)'" == "ologit" {		// Set num of cats for preds
+	
+// Set num of cats for preds
+if "`e(cmd)'" == "ologit" | "`e(cmd)'" == "oprobit" | "`e(cmd)'" == "gologit2" {		
 	local mod1cats = e(k_cat)
 	}
 else if "`e(cmd)'" == "mlogit" {
@@ -234,11 +236,12 @@ if strpos("`supmods'","`e(cmd`i')'") { // check if a supported model
 else {
 	di as err "`mod`i'' is a {cmd:`cmd`i''}. {cmd:mecompare} only " /*
 	*/ "supports the following estimation commands: " /*
-	*/ "regress, logit, probit, mlogit, ologit, poisson, nbreg"
+	*/ "regress, logit, probit, mlogit, ologit, oporbit, gologit2, poisson, nbreg"
 	exit
 	}
-			
-if "`e(cmd)'" == "ologit" {		// Set num of cats for preds
+
+// Set num of cats for preds	
+if "`e(cmd)'" == "ologit" | "`e(cmd)'" == "oprobit" | "`e(cmd)'" == "gologit2" {		
 	local mod`i'cats = e(k_cat)
 	}
 else if "`e(cmd)'" == "mlogit" {
@@ -316,6 +319,11 @@ if "`cmd1'" != "`cmd2'" {
 		"`cmd1'" == "poisson" & "`cmd2'" == "nbreg" | ///
 		"`cmd1'" == "nbreg" & "`cmd2'" == "poisson" | ///
 		"`cmd1'" == "mlogit" & "`cmd2'" == "ologit" | ///
+		"`cmd1'" == "mlogit" & "`cmd2'" == "oprobit" | ///
+		"`cmd1'" == "ologit" & "`cmd2'" == "oprobit" | ///		
+		"`cmd1'" == "gologit2" & "`cmd2'" == "oprobit" | ///		
+		"`cmd1'" == "gologit2" & "`cmd2'" == "ologit" | ///		
+		"`cmd1'" == "gologit2" & "`cmd2'" == "mlogit" | ///		
 		"`cmd1'" == "ologit" & "`cmd2'" == "mlogit" {
 		local combo_ok = 1	
 		}			
@@ -331,7 +339,7 @@ if "`cmd1'" != "`cmd2'" {
 } 
 
 *Error out if different # of categories across m/ologit models	
-if "`cmd1'" == "ologit" | "`cmd1'" == "mlogit" {
+if "`cmd1'" == "ologit" | "`cmd1'" == "mlogit" | "`cmd1'" == "oprobit" | "`cmd1'" == "gologit2" {
 	if `mod1cats' != `mod2cats' {
 	di _newline(1)
 	di as err "Number of outcome categories differs across models `mod1' " /*
@@ -1261,7 +1269,10 @@ if "`group'" != "" & "`amount'" == "sd" {
 	di in white "NOTE: SD's are based on all `N' observations across both groups."
 	}				
 
-	
+if `nummods' == 1 {
+	qui est restore `mod1'
+	}
+
 end		
 	
 	
