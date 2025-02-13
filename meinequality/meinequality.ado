@@ -1,6 +1,8 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.0.1 Bing Han & Trenton Mize 2025-02-04
+*! meinequality v1.0.2 Bing Han & Trenton Mize 2025-02-13
+
+*TM: v1.0.2 adds support for gologit2 for one model case
 
 program define meinequality, rclass
 	
@@ -80,8 +82,8 @@ else {
 ****************************************************************************
 
 *List of supported models
-local supmods 	"regress logit probit poisson nbreg mlogit ologit oprobit"
-local onmods 	"mlogit ologit oprobit"
+local supmods 	"regress logit probit poisson nbreg mlogit ologit oprobit gologit2"
+local onmods 	"mlogit ologit oprobit gologit2"
 			
 *Check # of models
 local nummods: word count `models'
@@ -201,7 +203,7 @@ if strpos("`supmods'","`cmd_m1'") == 0 {
 }
 	
 *Save the number of categories for ologit and mlogit
-if "`cmd_m1'" == "ologit" | "`cmd_m1'" == "oprobit" {	
+if "`cmd_m1'" == "ologit" | "`cmd_m1'" == "oprobit" | "`cmd_m1'" == "gologit2" {	
 	local mod1cats = e(k_cat)
 	}
 else if "`cmd_m1'" == "mlogit" {
@@ -255,7 +257,7 @@ if `nummods' == 2 {
 	exit
 	}
 	
-	if "`e(cmd)'" == "ologit" {	
+	if "`e(cmd)'" == "ologit" | "`e(cmd)'" == "oprobit" {	
 		local mod2cats = e(k_cat)
 	}
 	else if "`e(cmd)'" == "mlogit" {
@@ -266,7 +268,7 @@ if `nummods' == 2 {
 		}
 	
 	*Error out if different # of categories across m/ologit models	
-	if "`cmd1'" == "ologit" | "`cmd1'" == "mlogit" {
+	if "`cmd1'" == "ologit" | "`cmd1'" == "oprobit" | "`cmd1'" == "mlogit" {
 		if `mod1cats' != `mod2cats' {
 		di _newline(1)
 		di as err "Numbers of outcome categories differ across models `mod1' " /*
