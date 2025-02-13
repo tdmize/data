@@ -1,6 +1,8 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.0.2 Bing Han & Trenton Mize 2025-02-04
+*! totalme v1.0.3 Bing Han & Trenton Mize 2025-02-13
+
+*TM: v1.0.3 adds support for gologit2 for single model case
 
 program define totalme, rclass
 	
@@ -84,7 +86,7 @@ else {
 ****************************************************************************		
 	
 *List of supported models
-local supmods 	"logit probit mlogit ologit oprobit"
+local supmods 	"logit probit mlogit ologit oprobit gologit2"
 			
 *Check # of models
 local nummods: word count `models'
@@ -201,7 +203,7 @@ if strpos("`supmods'","`cmd_m1'") == 0 {
 }
 	
 *Save the number of categories for ologit and mlogit
-if "`cmd_m1'" == "ologit" | "`cmd_m1'" == "oprobit" {	
+if "`cmd_m1'" == "ologit" | "`cmd_m1'" == "oprobit" | "`cmd_m1'" == "gologit2" {	
 	local mod1cats = e(k_cat)
 	local div1 = 2
 	}
