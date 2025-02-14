@@ -1,6 +1,5 @@
 v 3
-d cleanplots - graphing scheme
-d Clean default plots with marginsplot and other common graphs
+d cleanplots - graphing scheme for clean default plots
 d Trenton D. Mize, Purdue University
 d Distribution-Date: 20250201
 f scheme-cleanplots.scheme
