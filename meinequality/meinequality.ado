@@ -198,7 +198,7 @@ if strpos("`supmods'","`cmd_m1'") == 0 {
 	di _newline(1)
 	di as err "`mod1' is a {cmd:`cmd_m1'}. {cmd:meinequality} " /* 
 	*/ "only supports the following estimation commands: " /*
-	*/ "regress, logit, probit, mlogit, ologit, oprobit, poisson, nbreg."
+	*/ "regress, logit, probit, mlogit, ologit, oprobit, gologit2, poisson, nbreg."
 	exit
 }
 	
@@ -257,6 +257,15 @@ if `nummods' == 2 {
 	exit
 	}
 	
+	if "`e(cmd)'" == "gologit2" { // can't use gsem for gologit2	
+		di _newline(1)
+		di as err "{cmd:gologit2} is not supported for comparing across two " /*
+		*/ "models. {cmd:meinequality} uses {cmd:gsem} to combine model " /*
+		*/ "estimates and {cmd:gologit2} estimates cannot be replicated with {cmd:gsem}."
+		exit		
+	}
+	
+	
 	if "`e(cmd)'" == "ologit" | "`e(cmd)'" == "oprobit" {	
 		local mod2cats = e(k_cat)
 	}
@@ -268,11 +277,12 @@ if `nummods' == 2 {
 		}
 	
 	*Error out if different # of categories across m/ologit models	
-	if "`cmd1'" == "ologit" | "`cmd1'" == "oprobit" | "`cmd1'" == "mlogit" {
+	if "`cmd_m1'" == "ologit" | "`cmd_m1'" == "oprobit" | ///
+	   "`cmd_m1'" == "mlogit" | "`cmd_m1'" == "oprobit" {
 		if `mod1cats' != `mod2cats' {
 		di _newline(1)
 		di as err "Numbers of outcome categories differ across models `mod1' " /*
-		*/ "and `mod2'. {cmd:meinequality} can only be used with `cmd1' when the " /*
+		*/ "and `mod2'. {cmd:meinequality} can only be used with `cmd_m1' when the " /*
 		*/ "number of outcome categories is the same across both models."
 		exit
 		}	
@@ -410,7 +420,7 @@ if `nummods' == 2 {
 		*/ "least one of the models specified in the {it:models( )} " /*
 		*/ "option. We strongly recommend refitting the models with " /*
 		*/ "vce(robust) to ensure the {cmd:meinequality} results match " /*
-		*/ "those from the first ({cmd:`cmd1'}) and second ({cmd:`cmd2'}) " /*
+		*/ "those from the first ({cmd:`cmd_m1'}) and second ({cmd:`cmd_m2'}) " /*
 		*/ "models exactly. See {help vce_option} for details on vce(robust)."
 		}	
 	

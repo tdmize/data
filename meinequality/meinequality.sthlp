@@ -48,9 +48,10 @@ the average pairwise absolute difference without considering the relative freque
 {pstd}
 {cmdab:meineq:uality} supports the following estimation commands: 
 {cmdab:regress}, {cmdab:logit}, {cmdab:probit}, {cmdab:mlogit}, 
-{cmdab:ologit}, {cmdab:oprobit}, {cmdab:poisson}, and {cmdab:nbreg}. 
+{cmdab:ologit}, {cmdab:oprobit}, {cmdab:gologit2}, {cmdab:poisson}, and {cmdab:nbreg}. 
 The same estimation method must be used for both models when performing 
-cross-model comparisons via the {bf:models( )} option.
+cross-model comparisons via the {bf:models( )} option. {cmdab:gologit2} is only 
+supported for the one model case.
 {p_end}
 
 {title:Table of contents}
