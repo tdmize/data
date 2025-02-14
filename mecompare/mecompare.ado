@@ -236,10 +236,16 @@ if strpos("`supmods'","`e(cmd`i')'") { // check if a supported model
 else {
 	di as err "`mod`i'' is a {cmd:`cmd`i''}. {cmd:mecompare} only " /*
 	*/ "supports the following estimation commands: " /*
-	*/ "regress, logit, probit, mlogit, ologit, oporbit, gologit2, poisson, nbreg"
+	*/ "regress, logit, probit, mlogit, ologit, oprobit, gologit2, poisson, nbreg"
 	exit
 	}
-
+if "`e(cmd)'" == "gologit2" { // gologit2 not possible with gsem
+	di as err "{cmd:gologit2} is not supported by {cmd:mecompare} with two " /*
+	*/ "models. {cmd:mecompare} uses {cmd:gsem} to combine model estimates and " /*
+	*/ "{cmd:gologit2} cannot currently be replicated with {cmd:gsem}."
+	exit
+	}	
+	
 // Set num of cats for preds	
 if "`e(cmd)'" == "ologit" | "`e(cmd)'" == "oprobit" | "`e(cmd)'" == "gologit2" {		
 	local mod`i'cats = e(k_cat)
@@ -321,9 +327,6 @@ if "`cmd1'" != "`cmd2'" {
 		"`cmd1'" == "mlogit" & "`cmd2'" == "ologit" | ///
 		"`cmd1'" == "mlogit" & "`cmd2'" == "oprobit" | ///
 		"`cmd1'" == "ologit" & "`cmd2'" == "oprobit" | ///		
-		"`cmd1'" == "gologit2" & "`cmd2'" == "oprobit" | ///		
-		"`cmd1'" == "gologit2" & "`cmd2'" == "ologit" | ///		
-		"`cmd1'" == "gologit2" & "`cmd2'" == "mlogit" | ///		
 		"`cmd1'" == "ologit" & "`cmd2'" == "mlogit" {
 		local combo_ok = 1	
 		}			

@@ -1,5 +1,5 @@
 {smcl}
-{* 2018-10-06 Trenton D Mize}{...}
+{* 2025-02-14 Trenton D Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -44,7 +44,8 @@ with factor syntax.
 
 {pstd}
 {cmdab:mecomp:are} supports the following estimation commands: regress, logit, 
-probit, mlogit, ologit, poisson, nbreg.
+probit, mlogit, ologit, oprobit, poisson, nbreg. gologit2 is supported in the 
+one model case but cannot be used with two models.
 
 {pstd}
 For non-standard tests of the marginal effects, {help melincom} can be 
