@@ -257,14 +257,14 @@ if `nummods' == 2 {
 	exit
 	}
 	
-	if "`e(cmd)'" == "gologit2" { // can't use gsem for gologit2	
+	*Can't use gsem for gologit2
+	if "`cmd_m1'" == "gologit2" | "`cmd_m2'" == "gologit2" { 	
 		di _newline(1)
 		di as err "{cmd:gologit2} is not supported for comparing across two " /*
 		*/ "models. {cmd:meinequality} uses {cmd:gsem} to combine model " /*
 		*/ "estimates and {cmd:gologit2} estimates cannot be replicated with {cmd:gsem}."
 		exit		
 	}
-	
 	
 	if "`e(cmd)'" == "ologit" | "`e(cmd)'" == "oprobit" {	
 		local mod2cats = e(k_cat)
