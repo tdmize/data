@@ -56,11 +56,12 @@ variables simultaneously.
 
 {pstd}
 {cmdab:totalme} supports the following estimation commands: 
-{cmd:logit}, {cmd:probit}, {cmd:mlogit}, {cmd:ologit}, and {cmd:oprobit}. 
+{cmd:logit}, {cmd:probit}, {cmd:mlogit}, {cmd:ologit}, {cmd:oprobit}, {cmd:gologit2}. 
+{cmd:gologit2} is not supported for two models. 
 When two models are specified, cross-model comparisons of the equality of the 
 {it:total MEs} are automatically calculated. In the two-model case, the models can 
-be the same or different types of modelse. That is, any two combinations of the supported 
-model estimations are supported. 
+be the same or different types of models. That is, any two combinations of the supported 
+model estimations are possible. 
 {p_end}
 
 
