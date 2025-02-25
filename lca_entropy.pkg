@@ -2,6 +2,6 @@ v 3
 d lca_entropy - calculates an entropy statistic for LCA models
 d Trenton D. Mize, Purdue University
 d Distribution-Date: 20240714
-f lca_entropy.ado
-f lca_entropy.sthlp
+f lca_entropy/lca_entropy.ado
+f lca_entropy/lca_entropy.sthlp
 

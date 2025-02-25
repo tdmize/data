@@ -2,6 +2,6 @@ v 3
 d cleanplots - graphing scheme for clean default plots
 d Trenton D. Mize, Purdue University
 d Distribution-Date: 20250201
-f scheme-cleanplots.scheme
-f cleanplots.sthlp
-f colorpalette_cleanplots.ado
+f cleanplots/scheme-cleanplots.scheme
+f cleanplots/cleanplots.sthlp
+f cleanplots/colorpalette_cleanplots.ado
