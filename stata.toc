@@ -2,7 +2,7 @@ v 3
 d 2025-02-25
 d Stata packages for marginal effects, IRT models, mediation, and more
 d Trenton D. Mize, Purdue University
-d Details and examples for each package at https://www.trentonmize.com/software
+d Details and examples for each package at www.trentonmize.com/software
 
 p balanceplot 	: plots of standardized imbalance statistics
 p cleanplots 	: graphing graph scheme for clean default plots
