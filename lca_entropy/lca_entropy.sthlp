@@ -42,6 +42,10 @@ for the entropy statistic. The default is 3. Any integer between 1 - 5 is allowe
 {phang} {stata gsem ( -> accident play insurance stock), logit lclass(C 2): gsem ( -> accident play insurance stock), logit lclass(C 2)}{p_end}	
 {phang} {stata lca_entropy: lca_entropy}{p_end}	
 
+{title:Returns}
+
+{pstd}
+The entropy statistics is returned as r(entropy).{p_end}	
 
 {title:Authorship}
 

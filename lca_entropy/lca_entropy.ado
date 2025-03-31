@@ -1,5 +1,8 @@
 capture program drop lca_entropy
-*! lca_entropy v1.0.1 Trenton Mize 2019-04-09
+*! lca_entropy v1.0.2 Trenton Mize 2025-03-31
+
+*v1.0.2 adds a r return for the stat
+
 program define lca_entropy, rclass
 	version 14.1
 
@@ -48,5 +51,8 @@ scalar 		LCA_Entropy = 1 - (`r(sum)') / (`N'*ln(`numclass'))
 drop 		__prpprob* __sumpprob* __sumpostprALL
 
 di 		"Entropy = " %6.`dec'f LCA_Entropy
+
+return scalar entropy = LCA_Entropy
+
 
 end
