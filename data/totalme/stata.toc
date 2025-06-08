@@ -1,4 +1,0 @@
-v 1
-d totalme - Total marginal effects estimates
-d Bing Han & Trenton D. Mize, Purdue University
-p totalme command for total marginal effects estimates
