@@ -1,4 +1,0 @@
-v 3
-d balanceplot - calculates and plots standardized imbalance statistics
-d Trenton D. Mize, Purdue University
-p balanceplot command for imbalance statistics
