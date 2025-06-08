@@ -1,4 +1,0 @@
-v 3
-d mecompare_exs - Example .do and .dta files for Comparing Marginal Effects paper
-d Trenton D. Mize, Long Doan, and J. Scott Long
-p mecompare_exs examples for comparing marginal effects
