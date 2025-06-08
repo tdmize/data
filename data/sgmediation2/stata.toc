@@ -1,0 +1,4 @@
+v 3
+d sgmediation2 - Sobel-Goodman tests of mediation for linear regression models
+d Trenton D. Mize, Purdue University
+p sgmediation2 Sobel-Goodman tests of mediation for linear regression models

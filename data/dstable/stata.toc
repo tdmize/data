@@ -1,0 +1,4 @@
+v 3
+d dstable - creates descriptive statistics tables
+d Trenton D. Mize, Purdue University and Bianca Manago, Vanderbilt University
+p dstable command for descriptive statistics table

@@ -1,0 +1,7 @@
+v 3
+d irt_coef - calculates y* standardized coefficients for IRT models
+d Trenton D. Mize, Purdue University
+d Distribution-Date: 20240714
+f irt_coef/irt_coef.ado
+f irt_coef/irt_coef.sthlp
+

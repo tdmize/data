@@ -1,0 +1,6 @@
+v 3
+d usedmv - downloads Data & Model Visualization Workshop datasets from web
+d Trenton D. Mize, Purdue University
+d Distribution-Date: 20180328
+f usedmv.ado
+f usedmv.sthlp
