@@ -1,4 +1,0 @@
-v 3
-d fapara - Parallel analysis for pca and factor analysis
-d Trenton D. Mize, Purdue University
-p fapara command for parallel analysis in pca and factor analysis
