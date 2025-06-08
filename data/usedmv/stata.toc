@@ -1,4 +1,0 @@
-v 3
-d usedmv - downloads Data & Model Visualization Workshop datasets from web
-d Trenton D. Mize, Purdue University
-p usedmv command to download DMV data
