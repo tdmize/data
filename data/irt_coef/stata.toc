@@ -1,4 +1,0 @@
-v 3
-d irt_coef - calculates y* standardized coefficients for IRT models
-d Trenton D. Mize, Purdue University 
-p irt_coef command for y* standardized coefficients after IRT models
