@@ -1,4 +1,0 @@
-v 3
-d lca_entropy - calculates an entropy statistic for LCA models
-d Trenton D. Mize, Purdue University 
-p lca_entropy command for entropy statistics for LCA models
