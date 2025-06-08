@@ -1,6 +1,0 @@
-v 3
-d dstable - creates descriptive statistics tables
-d Trenton D. Mize, Purdue University and Bianca Manago, Vanderbilt Unversity
-d Distribution-Date: 20180904
-f dstable.ado
-f dstable.sthlp
