@@ -1,5 +1,5 @@
 {smcl}
-{* 2025-01-13 Bing Han, Trenton D. Mize}{...}
+{* 2025-05-14 Bing Han, Trenton D. Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -11,9 +11,8 @@ and nominal independent variables. The total marginal effects statistic is the s
 the absolute values of all marginal effects for an independent on all levels of 
 the dependent variable, divided by two. For nominal independent variables, 
 Total ME inequality ({bf:Total} {bf:M}arginal {bf:E}ffects {bf:Inequality}) 
-is calculated , with both weighted and unweighted estimates supported 
-(see {cmdab:meineq:uality} for more details). The command supports estimation for one or two models. 
-For two models, the command performs cross-model comparisons of the {it:totalMEs}. {p_end}
+is calculated, with both weighted and unweighted estimates supported 
+(see {cmdab:meineq:uality} for more details). The command supports estimation for one or two models. For two models, the command performs cross-model comparisons of the {it:totalMEs}. {p_end}
 {p2colreset}{...}
 
 {title:General Syntax}
@@ -28,8 +27,7 @@ For two models, the command performs cross-model comparisons of the {it:totalMEs
 {cmdab:totalme} computes the Total Marginal Effect (ME) for independent variables 
 in nominal and ordinal outcome models. The total ME is a summary measure 
 for the overall effect of an indepenent varaible by summing the absolute values of 
-all marginal effects for that independent variable across all outcome levels, divided by two. 
-The command calculates the Total ME for a single model or performs cross-model 
+all marginal effects for that independent variable across all outcome levels, divided by two. The command calculates the Total ME for a single model or performs cross-model 
 comparisons of the {it:total MEs} using Seemingly Unrelated Estimation (SUEST) 
 to combine the estimates from two models.
 {p_end}
@@ -41,7 +39,7 @@ summarizes the total effect on each level of the dependent variable.
 The Total ME statistic is then calculated as the sum of all marginal effects 
 for that independent variable (using absolute values) divided by two. 
 For nominal independent variables, Marginal Effects Inequality 
-({bf:M}arginal {bf:E}ffects {bf:Inequality}) is first calculated to 
+(see {cmdab:meineq:uality}) is first calculated to 
 summarize the total effect on each level of the dependent variable. 
 ME Inequality represents the (weighted/unweighted) sum of all marginal effects, 
 which are pairwise comparisons of predictions for categories of the nominal 
@@ -73,9 +71,11 @@ model estimations are possible.
 	{help totalme##start:Setting starting values of variables in varlist}
 	{help totalme##covariates:Setting values of the covariates}
 	{help totalme##weighted:Weighting options for ME inequality for nominal IVs}
+	{help meinequality##by/over:Estimations for subpopulations}
 	{help totalme##sample weights:Setting sample weights and multiple imputation estimates}
 	{help totalme##options:Optional options for formatting, reporting, missing data, etc.}
 	{help totalme##matrices:Saved estimates and matrices}
+	{help meinequality##bootstrap:Boostrap standard errors}
 	{help totalme##examples:Examples}
 	
 {title:Options}
@@ -185,6 +185,20 @@ the total number of pairwise comparisons.
 total {it:ME inequalities}.
 {p_end}
 
+{marker by/over}
+{dlgtab:Subpopulation estimation options}
+
+{p2colset 5 18 19 0}
+{synopt:{opt by(varname)}} estimates total ME for each level of the specified nominal variable (including binary variables), using the full sample. This is equivalent 
+to the {help margins} option at( ). For each level, the estimation is based on the entire sample with the subpopulation variable hypothetically set to that level, while all other variables are held at their observed values or full-sample means (if the 
+{it:atmeans} option is specified). The subpopulation variable must be nominal 
+and must also be included as a covariate in the model.
+{p_end}
+
+{p2colset 5 18 19 0}
+{synopt:{opt over(varname)}} estimates total ME separately for each level of the specified nominal variable, using only the subsample of observations that have that specific value. This option uses the {opt over()} option from the {help margins} command to compute marginal effects within each group-specific subsample; see {help margins##over:[margins] over} option. Importantly, if the groups differ in the distribution of other variables, these differences are not adjusted for: the "means" used in the -atmeans- option are calculated only within each group defined by the value of the nominal variable.
+{p_end}
+
 {marker sampleweights}
 {dlgtab:Sample weights and multiple imputation estimation options}
 
@@ -206,6 +220,11 @@ are supported.
 {dlgtab:Additional Optional Options}
 
 {p2colset 5 18 19 0}
+{synopt:{opt level:s(#)}} sets the confidence level for reported confidence intervals. 
+The default is {cmd:level(95)}. Acceptable values range from 10 to 99. 
+{p_end}
+
+{p2colset 5 18 19 0}
 {synopt:{opt dec:imals(#)}} changes the number of decimal places reported 
 in the table. The default is 3. Any integer between 0 - 7 is allowed.
 {p_end}
@@ -223,7 +242,7 @@ effects. The default is 24. Any integer between 20 - 32 is allowed.
 {p_end}
 
 {p2colset 5 18 19 0}
-{synopt:{opt title(sting)}} changes title of the output table. The default is "Total ME Estimates".
+{synopt:{opt title(string)}} changes title of the output table. The default is "Total ME Estimates".
 {p_end}
 
 {p2colset 5 18 19 0}
@@ -251,8 +270,23 @@ results which contain the predictions that are the constituent pieces of the
 marginal effects {cmdab:totalme} calculates are stored as {it:totalme_margins}.
 {p_end}
 
-{pstd} {cmdab:totalme} saves the current table to the matrix {opt _totalme}. 
-The matrix has columns corresponding to the displayed results.
+{pstd} The command saves estimation results that can be retrieved using {cmd:return list}, 
+including scalars for each estimated inequality score and a matrix containing all results. 
+{cmdab:totalme} saves the current table to the matrix {opt r(table)}. 
+The matrix has columns corresponding to the displayed results. 
+{p_end}
+
+{marker bootstrap}
+{dlgtab:Bootstrap standard errors}
+
+{p2colset 5 18 19 0}
+{pstd} Users can use the {helpb bootstrap} command to estimate standard 
+errors for {cmd:totalme}. This can be particularly useful when the model encounters 
+convergence issues or when standard errors are otherwise unavailable or unreliable. When using {cmd:bootstrap}, 
+you should wrap the {cmd:totalme} command inside the {cmd:bootstrap} prefix to obtain
+bootstrap-based standard errors for the inequality measures. See {help bootstrap} for 
+more information on syntax and options. Note that when using {cmd:bootstrap}, 
+the estimation results and stored values will reflect the bootstrap replications rather than the analytical estimates.
 {p_end}
 
 
@@ -291,7 +325,15 @@ The matrix has columns corresponding to the displayed results.
 {phang} {stata est store 	wommod} {p_end}
 	
 {phang} {stata totalme 		college, models(menmod wommod) group} {p_end}
-	
+
+** Bootstrap example **
+{phang} {stata capture program drop boot_tot} {p_end}
+{phang} {stata program define boot_tot, rclass} {p_end}
+{phang2} {stata mlogit healthR i.race4 c.age i.woman, base(1)} {p_end}
+{phang2} {stata totalme race4} {p_end}
+{phang2} {stata return scalar w_tot = r(tmwm11)} {p_end}
+{phang} {stata end} {p_end}
+{pstd} bootstrap w_mei=r(w_tot), reps(1000): boot_tot {p_end}	
 
 {title:Comments}
 

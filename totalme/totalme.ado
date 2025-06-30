@@ -1,8 +1,12 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.0.3 Bing Han & Trenton Mize 2025-02-13
+*! totalme v1.0.3 Bing Han & Trenton Mize 2025-06-18
 
 *TM: v1.0.3 adds support for gologit2 for single model case
+*BH: makes level option work
+*    return scalar and tables 
+* 	 add by and over options
+
 
 program define totalme, rclass
 	
@@ -25,7 +29,9 @@ syntax 	varlist(fv) [fweight pweight iweight] , ///
 		title(string) /// 
 		ci /// 
 		LABWidth(numlist >19 integer) /// 
-		LEVEL(integer 3) ///				doesn't do anything yet
+		LEVEL(integer 95) ///
+		by(string) ///
+		over(string) ///
 		] 
 		
 ****************************************************************************
@@ -62,15 +68,15 @@ else {
 	local dec = `decimals'
 }
 
-if "`levels'" == "" {
-	local cilevel = 95
+if "`level'" == "" {
+	local level = 95
 	local ll_spec "95% LL" 
 	local ul_spec "95% UL"		
 }
 else {
-	local cilevels = `levels'
-	local ll_spec "`levels'% LL" 
-	local ul_spec "`levels'% UL"
+	local level = `level'
+	local ll_spec "`level'% LL" 
+	local ul_spec "`level'% UL"
 }
 
 if "`atmeans'" == "" {
@@ -153,8 +159,8 @@ if `nummods' == 1 | `nummods' == 2 {
 	}
 }
 else if `nummods' == 0 {
-	quietly est store mod1
-	local mod1 mod1
+	quietly est store totalme_mod1
+	local mod1 totalme_mod1
 	local nummods = 1
 }
 
@@ -412,6 +418,95 @@ if `nummods' == 2 {
 		}	
 	
 } // end: check for two-model situation
+
+
+
+****************************************************************************
+// Check by over varaibles
+****************************************************************************
+
+** check the by/over options
+if "`by'" != "" & "`over'" != "" {
+	di _newline(1)
+	di as err "{opt by()} and {opt over()} option cannot be specified at the same time."
+	exit	
+}
+
+if "`by'" != "" | "`over'" != "" {
+
+	** check numbers of by/over var
+	local numbyvar : word count `by'
+	local numovervar : word count `over'
+
+	if `numbyvar' > 1 {
+		di _newline(1)
+		di as err "Invalid number of variables specified in {opt by()} option. " /*
+		*/ "{opt by()} can only be used with one variable."
+		exit	
+	}
+
+	if `numovervar' > 1 {
+		di _newline(1)
+		di as err "Invalid number of variables specified in {opt over()} option. " /*
+		*/ "{opt over()} can only be used with one variable."
+		exit	
+	}
+
+	** check if by/over var is nominal variable
+	if "`by'" != "" {
+		local byvar "`by'"
+		local byovervar "`by'"
+		if strpos("`byvar'", "i.") == 0 {
+			local i_byvar i.`byvar'
+		}
+		else {
+			local i_byvar `byvar'
+		}		
+		if strpos("`cmdline_m1'","`i_byvar'") == 0 { 
+			di _newline(1)
+			di as err "Variable `byvar' not found in the model. " /*
+			*/ "Only nominal variable can be specified in {opt by()} option." /*	
+			*/ "Check if i. prefix is used for the nominal variable in the model." 
+			exit
+		}
+		
+		local byvarspec "`byvar'#"
+	}
+
+	if "`over'" != "" {
+		local overvar "`over'"	
+		local byovervar "`over'"
+		if strpos("`overvar'", "i.") == 0 {
+			local i_overvar i.`overvar'
+		}
+		else {
+			local i_overvar `overvar'
+			local overvar = subinstr("`overvar'", "i.","",.)
+		}	
+		if strpos("`cmdline_m1'","`i_overvar'") == 0 { 
+			di _newline(1)
+			di as err "Variable `overvar' not found in the model. " /*
+			*/ "Only nominal variable can be specified in {opt over()} option." /*	
+			*/ "Check if i. prefix is used for the nominal variable in the model." 
+			exit
+		}
+		local overvarspec "over(`overvar')"
+	}
+
+	** all levels of the by/over variable
+
+	qui 	levelsof 		`byovervar'
+	local 	byoverlvl 		`r(levels)'
+	local 	numbyoverlvl	`r(r)'	
+	local  	labname : value label `byovervar'	
+	
+}
+
+else{
+	
+	local numbyoverlvl = 1
+	
+}
  	
 ****************************************************************************
 // Model specification
@@ -534,6 +629,7 @@ else if `nummods' == 2 {
 	
 }	// End of model specification
 
+
 ****************************************************************************
 // Check independent variables
 ****************************************************************************
@@ -630,6 +726,11 @@ if `numamounts' > 1 & `numamounts' != `numpconvars' {
 	*/ "{it:`contvars'} -- but `numamounts' amounts specified in {opt amount( )}"
 	exit
 	}
+	
+** return scalars
+
+return scalar n_mods = `nummods'
+return scalar n_vars = `numvars'	
 
 ****************************************************************************
 // Calculation of total ME: prep
@@ -645,16 +746,18 @@ local newmatconivs "matrix_con_ivs"
 matrix `newmatconivs' = J(1, 6, .)
 
 ** temp list for matrix and estimations
-tempname newmatmean newmatwgt newmatall newmatall_m newmatall_uw 
+tempname newmatmean newmatwgt newmatall newmatall_m newmatall_uw rtable
 
 local newmatall "full_matrix"
 local newmatall_w "weighted_null_matrix"
 local newmatall_uw "unweighted_null_matrix"
+local rtable "rtable"
 
 ** generate a nullmat for all 
 matrix `newmatall' = J(1, 6, .)
 matrix `newmatall_w' = J(1, 6, .)
 matrix `newmatall_uw' = J(1, 6, .)
+matrix `rtable' = J(1, 6, .)
 
 ****************************************************************************
 // Calculation of total ME: continuous / binary IVs
@@ -673,9 +776,28 @@ if `numcontvars' != 0 {
 
 	forvalues i = 1/ `numcontvars' {
 				
-		local 	v : word `i' of `conivs'
-		fvexpand i.`v'
-		local 	numcats : word count `r(varlist)' 
+		local v : word `i' of `conivs'
+		local ifinteger = mod(`v', 1)
+
+		if `ifinteger' != 0 {
+			local numcats = 3 
+		}
+		else {
+			fvexpand i.`v'
+			local numcats : word count `r(varlist)' 	
+		}
+			
+		**set for by/over options
+		forvalues m = 1/`numbyoverlvl' {
+		
+		if `numbyoverlvl' > 1 {
+			local bolvl: word `m' of `byoverlvl'
+			local bolvlspec "_`bolvl'"
+			local temp_bolvlname: label `labname' `bolvl'
+			local bolvlname = abbrev("`temp_bolvlname'",13) 
+			local bolvlnamespec "(`bolvlname')"
+			local bospec "#`bolvl'.`byovervar'"
+		} 
 
 		// Continuous IVs //
 		if `numcats' > 2 {
@@ -846,40 +968,42 @@ if `numcontvars' != 0 {
 		
 		if `nummods' == 1 {
 			
-			`quietly' `margins', `mrgspec' `atmeans' post  
+			`quietly' `margins' `byvar', `mrgspec' `overvarspec' `atmeans' post  
 			qui est store totalme_margins
 			
 			local 	term_base 0
 
 			if `mod1cats' == 1 { 
-				local term_base abs(_b[2._at] - _b[1._at])
+				local term_base abs(_b[2._at`bospec'] - _b[1._at`bospec'])
 			}
 			
 			else {
 				forvalues i = 1/`mod1cats' {			
 					local part1 ///
-					+ abs(_b[`i'._predict#2._at] - _b[`i'._predict#1._at])	
+					+ abs(_b[`i'._predict#2._at`bospec'] - _b[`i'._predict#1._at`bospec'])	
 					local term_base `term_base' `part1'	
 				}	
 			}
 			**save terms for comparison
 			local contrast`v' (`term_base')/`div1' 
 			
-			**test if wgt_base could be calculated; if not *1000
-			capture `quietly' nlcom conivs_nlcom: (`term_base')/`div1' 
+			**test if nlcom could be calculated; if not *1000
+			capture `quietly' nlcom conivs_nlcom: (`term_base')/`div1', level(`level')
 			if _rc!=0 {
-				`quietly' nlcom conivs_nlcom_1000: ((`term_base')/`div1')*1000, post
-				`quietly' nlcom conivs_nlcom: _b[conivs_nlcom_1000] / 1000	
+				`quietly' nlcom conivs_nlcom_1000: ((`term_base')/`div1')*1000, level(`level') post
+				`quietly' nlcom conivs_nlcom: _b[conivs_nlcom_1000] / 1000, level(`level')	
 			}
+			
+			return scalar tmcm1`numcontvars'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatconivs_temp' = nullmat(`newmatconivs_temp') \ `rt'
-			matrix rownames `newmatconivs_temp' = "`v':`change`v''" 
+			matrix rownames `newmatconivs_temp' = "`v'`bolvlnamespec':`change`v''" 
 			matrix `newmatconivs' = `newmatconivs' \ `newmatconivs_temp'
 			matrix drop `newmatconivs_temp'
 			quietly est restore `mod1' // restore the mod for next estimation
-			
+						
 		} // end: continuous or binary IVs for 1 model
 	
 		************************************************************************
@@ -890,12 +1014,16 @@ if `numcontvars' != 0 {
 					
 			** Calculate the margins for the nominal variables in the gsem model
 			if "`groups'" != "" {
-				`quietly' `margins', `mrgspec' `mimarginsspec' `atmeans' over(total_me_mod_samp) post	
+				`quietly' `margins' `byvar', `mrgspec' `mimarginsspec' ///
+				over(total_me_mod_samp `overvar') `atmeans' post	
+				
 				local mod_samp_spec1 "#1.total_me_mod_samp"
 				local mod_samp_spec2 "#2.total_me_mod_samp"
 			}
 			else {
-				`quietly' `margins', `mrgspec' `mimarginsspec' `atmeans' post	
+				`quietly' `margins' `byvar', `mrgspec' `mimarginsspec' ///
+				`overvarspec' `atmeans' post	
+				
 				local mod_samp_spec1 ""
 				local mod_samp_spec2 ""
 			}
@@ -907,26 +1035,28 @@ if `numcontvars' != 0 {
 
 			forvalues i = 1/`mod1cats' {	
 				local part1 ///
-				+ abs(_b[`i'._predict#2._at`mod_samp_spec1'] ///
-				- _b[`i'._predict#1._at`mod_samp_spec1'])	
+				+ abs(_b[`i'._predict#2._at`mod_samp_spec1'`bospec'] ///
+				- _b[`i'._predict#1._at`mod_samp_spec1'`bospec'])	
 				local term_base `term_base' `part1'	
 			}
 
 			forvalues i = 1/`mod2cats' {				
 				local i2 = `i' + `mod1cats'
 				local part2 ///
-				+ abs(_b[`i2'._predict#2._at`mod_samp_spec2'] ///
-				- _b[`i2'._predict#1._at`mod_samp_spec2'])	
+				+ abs(_b[`i2'._predict#2._at`mod_samp_spec2'`bospec'] ///
+				- _b[`i2'._predict#1._at`mod_samp_spec2'`bospec'])	
 				local term_com `term_com' `part2'	
 			}
 			
 			** total me in base model
 			qui est restore totalme_margins
-			capture `quietly' nlcom conivs_nlcom_base: (`term_base')/`div1' 
+			capture `quietly' nlcom conivs_nlcom_base: (`term_base')/`div1', level(`level')
 			if _rc!=0 {
-				`quietly' nlcom conivs_nlcom_base_1000: ((`term_base')/`div1')*1000, post
-				`quietly' nlcom conivs_nlcom_base: _b[conivs_nlcom_base_1000] / 1000	
+				`quietly' nlcom conivs_nlcom_base_1000: ((`term_base')/`div1')*1000, level(`level') post
+				`quietly' nlcom conivs_nlcom_base: _b[conivs_nlcom_base_1000] / 1000, level(`level')
 			}
+			
+			return scalar tmcm1`numcontvars'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -934,11 +1064,13 @@ if `numcontvars' != 0 {
 			
 			** total me in comparison model
 			qui est restore totalme_margins
-			capture `quietly' nlcom conivs_nlcom_com: (`term_com')/`div2' 
+			capture `quietly' nlcom conivs_nlcom_com: (`term_com')/`div2', level(`level')
 			if _rc!=0 {
-				`quietly' nlcom conivs_nlcom_com_1000: ((`term_com')/`div2')*1000, post
-				`quietly' nlcom conivs_nlcom_com: _b[conivs_nlcom_com_1000] / 1000	
+				`quietly' nlcom conivs_nlcom_com_1000: ((`term_com')/`div2')*1000, level(`level') post
+				`quietly' nlcom conivs_nlcom_com: _b[conivs_nlcom_com_1000] / 1000, level(`level')
 			}
+	
+			return scalar tmcm2`numcontvars'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -946,21 +1078,25 @@ if `numcontvars' != 0 {
 			
 			*test total me in two models
 			qui est restore totalme_margins
-			capture `quietly' nlcom conivs_nlcom_change: [((`term_base')/`div1') - ((`term_com')/`div2')]
+			capture `quietly' nlcom conivs_nlcom_change: [((`term_base')/`div1') ///
+			- ((`term_com')/`div2')], level(`level')
 			if _rc!=0 {
-				`quietly' nlcom conivs_nlcom_change_1000: [((`term_base')/`div1')*1000 - ((`term_com'/`div2'))*1000], post
-				`quietly' nlcom conivs_nlcom_change: _b[conivs_nlcom_change_1000]/1000	
+				`quietly' nlcom conivs_nlcom_change_1000: [((`term_base')/`div1')*1000 ///
+				- ((`term_com'/`div2'))*1000], level(`level') post
+				`quietly' nlcom conivs_nlcom_change: _b[conivs_nlcom_change_1000]/1000, level(`level')
 			}
+			
+			return scalar tmcd`numcontvars' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatconivs_temp' = `newmatconivs_temp' \ `rt'
 		
 			matrix rownames `newmatconivs_temp' = ///
-				"`v':Model 1 (`mod1lab')" ///
-				"`v':Model 2 (`mod2lab')" ///
-				"`v':Cross-Model Diff."
-			
+				"`v',`change`v'' `bolvlnamespec':Model 1 (`mod1lab')" ///
+				"`v',`change`v'' `bolvlnamespec':Model 2 (`mod2lab')" ///
+				"`v',`change`v'' `bolvlnamespec':Cross-Model Diff."
+							
 			matrix `newmatconivs' = `newmatconivs' \ `newmatconivs_temp'
 			matrix drop `newmatconivs_temp'
 			
@@ -968,9 +1104,11 @@ if `numcontvars' != 0 {
 			
 		} // end: continuous or binary IVs for 2 model
 
-	}
 	
-}
+		}	// end by/over option
+	} // end: continuous vars
+	
+} // end: if continuous variables
 
 
 ****************************************************************************
@@ -1005,6 +1143,18 @@ if `numnomvars' != 0 {
 		
 		** # of comparison groups
 		local nc = ((`r(r)')*(`r(r)'-1)/2)
+		
+		**set for by/over options
+		forvalues m = 1/`numbyoverlvl' {
+		
+		if `numbyoverlvl' > 1 {
+			local bolvl: word `m' of `byoverlvl'
+			local bolvlspec "_`bolvl'"
+			local temp_bolvlname: label `labname' `bolvl'
+			local bolvlname = abbrev("`temp_bolvlname'",13) 
+			local bolvlnamespec "(`bolvlname')"
+			local bospec "`bolvl'.`byovervar'#"
+		}
 						
 		************************************************************************
 		// Calculation of total ME: 1 Model
@@ -1012,7 +1162,8 @@ if `numnomvars' != 0 {
 		
 		if `nummods' == 1 {
 				
-			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post	
+			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' ///
+			`atmeans' post	
 			qui est store totalme_margins
 			
 			qui levelsof 	`mod1dv'
@@ -1046,8 +1197,8 @@ if `numnomvars' != 0 {
 								local multiplier = (`p_i'+`p_j') / (`numlevels' - 1)
 								local part1 ///
 								+ ( `multiplier' * ///
-								abs(_b[`predictspec'`ilevel'.`nomvar'] ///
-								- _b[`predictspec'`jlevel'.`nomvar']))		
+								abs(_b[`predictspec'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`predictspec'`bospec'`jlevel'.`nomvar']))		
 								local term_base `term_base' `part1'	
 							}
 						}			
@@ -1057,18 +1208,20 @@ if `numnomvars' != 0 {
 				}
 				
 				qui est restore totalme_margins
-				capture `quietly' nlcom wgt_base_all: (`term_base_all')/`div1' 
+				capture `quietly' nlcom wgt_base_all: (`term_base_all')/`div1', level(`level')
 				if _rc!=0 {
-					`quietly' nlcom wgt_base_all_1000: ((`term_base_all')/`div1')*1000, post
-					`quietly' nlcom wgt_base_all: _b[wgt_base_all_1000] / 1000
+					`quietly' nlcom wgt_base_all_1000: ((`term_base_all')/`div1')*1000, level(`level') post
+					`quietly' nlcom wgt_base_all: _b[wgt_base_all_1000] / 1000, level(`level')
 				}				
+				
+				return scalar tmwm1`numnomvars'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatwgt' = nullmat(`newmatwgt') \ `rt'
 				
 				**set the row names 
-				matrix rownames `newmatwgt' = "`nomvar': total ME Ineq." 
+				matrix rownames `newmatwgt' = "`nomvar'`bolvlnamespec': total ME Ineq." 
 				matrix `newmatall' = `newmatall' \ `newmatwgt'
 				matrix drop `newmatwgt'
 				
@@ -1094,8 +1247,8 @@ if `numnomvars' != 0 {
 							if `i' < `j' {
 								local jlevel: word `j' of `nlevel'
 								local part1 ///
-								+ abs(_b[`predictspec'`ilevel'.`nomvar'] ///
-								- _b[`predictspec'`jlevel'.`nomvar'])
+								+ abs(_b[`predictspec'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`predictspec'`bospec'`jlevel'.`nomvar'])
 								local term_base `term_base' `part1'
 							}
 						}	
@@ -1107,17 +1260,19 @@ if `numnomvars' != 0 {
 				local contrast`nomvar' (`term_base')/`div1'
 				
 				qui est restore totalme_margins
-				capture `quietly' nlcom mean_base_all: (`term_base_all')/`div1'
+				capture `quietly' nlcom mean_base_all: (`term_base_all')/`div1', level(`level')
 				if _rc!=0 {
-					`quietly' nlcom mean_base_all_1000: ((`term_base_all')/`div1')*1000, post
-					`quietly' nlcom mean_base_all: _b[mean_base_all_1000] / 1000
+					`quietly' nlcom mean_base_all_1000: ((`term_base_all')/`div1')*1000, level(`level') post
+					`quietly' nlcom mean_base_all: _b[mean_base_all_1000] / 1000, level(`level')
 				}	
+				
+				return scalar tmuwm1`numnomvars'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = nullmat(`newmatmean') \ `rt'
 				**set the row names	
-				matrix rownames `newmatmean' = "`nomvar': Unwgt total ME Ineq." 		
+				matrix rownames `newmatmean' = "`nomvar'`bolvlnamespec': Unwgt total ME Ineq." 		
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'
 			
@@ -1132,13 +1287,14 @@ if `numnomvars' != 0 {
 		else if `nummods' == 2 {
 
 			if "`groups'" != "" {
-				`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' ///
-							over(total_me_mod_samp) post	
+				`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `atmeans' ///
+							over(total_me_mod_samp `overvar') post	
 				local mod_samp_spec1 "1.total_me_mod_samp#"
 				local mod_samp_spec2 "2.total_me_mod_samp#"
 			}
 			else {
-				`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post	
+				`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' ///
+				`atmeans' post	
 				local mod_samp_spec1 ""
 				local mod_samp_spec2 ""
 			}
@@ -1167,8 +1323,8 @@ if `numnomvars' != 0 {
 								local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
 								local part1 ///
 								+ ( `multiplier' * ///
-									abs(_b[`dvnum'._predict#`mod_samp_spec1'`ilevel'.`nomvar'] ///
-									- _b[`dvnum'._predict#`mod_samp_spec1'`jlevel'.`nomvar']))
+									abs(_b[`dvnum'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+									- _b[`dvnum'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar']))
 								local term_base `term_base' `part1'
 							}
 						}	
@@ -1194,8 +1350,8 @@ if `numnomvars' != 0 {
 								local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
 								local part2 ///
 								+ ( `multiplier' * ///
-									abs(_b[`dvnum2'._predict#`mod_samp_spec2'`ilevel'.`nomvar'] ///
-									- _b[`dvnum2'._predict#`mod_samp_spec2'`jlevel'.`nomvar']))
+									abs(_b[`dvnum2'._predict#`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
+									- _b[`dvnum2'._predict#`mod_samp_spec2'`bospec'`jlevel'.`nomvar']))
 								local term_com `term_com' `part2'
 							}		
 						}	
@@ -1204,43 +1360,51 @@ if `numnomvars' != 0 {
 				}
 				
 				qui est restore totalme_margins
-				capture `quietly' nlcom wgt_base_all: (`term_base_all')/`div1'
+				capture `quietly' nlcom wgt_base_all: (`term_base_all')/`div1', level(`level')
 				if _rc!=0 {
-					`quietly' nlcom wgt_base_all_1000: ((`term_base_all')/`div1')*1000, post
-					`quietly' nlcom wgt_base_all: _b[wgt_base_all_1000] / 1000
+					`quietly' nlcom wgt_base_all_1000: ((`term_base_all')/`div1')*1000, level(`level') post
+					`quietly' nlcom wgt_base_all: _b[wgt_base_all_1000] / 1000, level(`level')
 				}
+				
+				return scalar totalme_nom_wgt_mod1_`numnomvars'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatwgt' = nullmat(`newmatwgt') \ `rt'					
 				
 				qui est restore totalme_margins
-				capture `quietly' nlcom wgt_com_all: (`term_com_all')/`div2'
+				capture `quietly' nlcom wgt_com_all: (`term_com_all')/`div2', level(`level')
 				if _rc!=0 {
-					`quietly' nlcom wgt_com_all_1000: ((`term_com_all')/`div2')*1000, post
-					`quietly' nlcom wgt_com_all: _b[wgt_com_all_1000] / 1000	
+					`quietly' nlcom wgt_com_all_1000: ((`term_com_all')/`div2')*1000, level(`level') post
+					`quietly' nlcom wgt_com_all: _b[wgt_com_all_1000] / 1000, level(`level')	
 				}
 				
+				return scalar totalme_nom_wgt_mod2_`numnomvars'`bolvlspec' = r(table)[1,1]
+								
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatwgt' = `newmatwgt' \ `rt'
 				
 				*test of Weighted amount of inequality in two models
 				qui est restore totalme_margins
-				capture `quietly' nlcom wgt_change_all: [((`term_base_all')/`div1') - ((`term_com_all')/`div2')]
+				capture `quietly' nlcom wgt_change_all: [((`term_base_all')/`div1') ///
+				- ((`term_com_all')/`div2')], level(`level')
 				if _rc!=0 {
-					`quietly' nlcom wgt_change_all_1000: [((`term_base_all')/`div1') - ((`term_com_all')/`div2')]*1000, post
-					`quietly' nlcom wgt_change_all: _b[wgt_change_all_1000] / 1000	
+					`quietly' nlcom wgt_change_all_1000: [((`term_base_all')/`div1') ///
+					- ((`term_com_all')/`div2')]*1000, level(`level') post
+					`quietly' nlcom wgt_change_all: _b[wgt_change_all_1000] / 1000, level(`level')
 				}
 				
+				return scalar totalme_nom_wgt_diff_`numnomvars' = r(table)[1,1]				
+			
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatwgt' = `newmatwgt' \ `rt'	
 			
 				matrix rownames `newmatwgt' = ///
-					"`nomvar' total ME Ineq.:Model 1 (`mod1lab')" ///
-					"`nomvar' total ME Ineq.:Model 2 (`mod2lab')" ///
-					"`nomvar' total ME Ineq.:Cross-Model Diff."
+					"`nomvar'`bolvlnamespec' total ME Ineq.:Model 1 (`mod1lab')" ///
+					"`nomvar'`bolvlnamespec' total ME Ineq.:Model 2 (`mod2lab')" ///
+					"`nomvar'`bolvlnamespec' total ME Ineq.:Cross-Model Diff."
 				matrix `newmatall' = `newmatall' \ `newmatwgt'
 				matrix drop `newmatwgt'				
 										
@@ -1262,8 +1426,8 @@ if `numnomvars' != 0 {
 							if `i' < `j' {
 								local jlevel: word `j' of `nlevel'
 								local part1 ///
-								+ abs(_b[`dvnum'._predict#`mod_samp_spec1'`ilevel'.`nomvar'] ///
-								- _b[`dvnum'._predict#`mod_samp_spec1'`jlevel'.`nomvar'])
+								+ abs(_b[`dvnum'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`dvnum'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
 								local term_base `term_base' `part1'
 							}
 						}	
@@ -1281,8 +1445,8 @@ if `numnomvars' != 0 {
 							if `i' < `j' {
 								local jlevel: word `j' of `nlevel'
 								local part2 ///
-								+ abs(_b[`dvnum2'._predict#`mod_samp_spec1'`ilevel'.`nomvar'] ///
-								- _b[`dvnum2'._predict#`mod_samp_spec1'`jlevel'.`nomvar'])
+								+ abs(_b[`dvnum2'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`dvnum2'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
 								local term_com `term_com' `part2'						
 							}
 						}	
@@ -1291,43 +1455,51 @@ if `numnomvars' != 0 {
 				}
 				
 				qui est restore totalme_margins
-				capture `quietly' nlcom mean_base_all: (`term_base_all')/`div1'
+				capture `quietly' nlcom mean_base_all: (`term_base_all')/`div1', level(`level')
 				if _rc!=0 {
-					`quietly' nlcom mean_base_all_1000: ((`term_base_all')/`div1')*1000, post
-					`quietly' nlcom mean_base_all: _b[mean_base_all_1000] / 1000
+					`quietly' nlcom mean_base_all_1000: ((`term_base_all')/`div1')*1000, level(`level') post
+					`quietly' nlcom mean_base_all: _b[mean_base_all_1000] / 1000, level(`level')
 				}
+				
+				return scalar totalme_nom_unwgt_mod1_`numnomvars'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = nullmat(`newmatmean') \ `rt'					
 				
 				qui est restore totalme_margins
-				capture `quietly' nlcom wgt_com_all: (`term_com_all')/`div2'
+				capture `quietly' nlcom wgt_com_all: (`term_com_all')/`div2', level(`level')
 				if _rc!=0 {
-					`quietly' nlcom wgt_com_all_1000: ((`term_com_all')/`div2')*1000, post
-					`quietly' nlcom wgt_com_all: _b[wgt_com_all_1000] / 1000	
+					`quietly' nlcom wgt_com_all_1000: ((`term_com_all')/`div2')*1000, level(`level') post
+					`quietly' nlcom wgt_com_all: _b[wgt_com_all_1000] / 1000, level(`level')	
 				}
 				
+				return scalar totalme_nom_unwgt_mod2_`numnomvars'`bolvlspec' = r(table)[1,1]				
+
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = `newmatmean' \ `rt'
 				
 				*test of Weighted amount of inequality in two models
 				qui est restore totalme_margins
-				capture `quietly' nlcom wgt_change_all: [((`term_base_all')/`div1') - ((`term_com_all')/`div2')]
+				capture `quietly' nlcom wgt_change_all: [((`term_base_all')/`div1') ///
+				- ((`term_com_all')/`div2')], level(`level')
 				if _rc!=0 {
-					`quietly' nlcom wgt_change_all_1000: [((`term_base_all')/`div1') - ((`term_com_all')/`div2')]*1000, post
-					`quietly' nlcom wgt_change_all: _b[wgt_change_all_1000] / 1000	
+					`quietly' nlcom wgt_change_all_1000: [((`term_base_all')/`div1') ///
+					- ((`term_com_all')/`div2')]*1000, level(`level') post
+					`quietly' nlcom wgt_change_all: _b[wgt_change_all_1000] / 1000, level(`level')
 				}
 				
+				return scalar totalme_nom_unwgt_diff_`numnomvars' = r(table)[1,1]				
+
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = `newmatmean' \ `rt'	
 
 				matrix rownames `newmatmean' = ///
-					"`nomvar' toal Unwgt MEIneq:Model 1 (`mod1lab')" ///
-					"`nomvar' toal Unwgt MEIneq:Model 2 (`mod2lab')" ///
-					"`nomvar' toal Unwgt MEIneq:Cross-Model Diff."
+					"`nomvar'`bolvlnamespec' toal Unwgt MEIneq:Model 1 (`mod1lab')" ///
+					"`nomvar'`bolvlnamespec' toal Unwgt MEIneq:Model 2 (`mod2lab')" ///
+					"`nomvar'`bolvlnamespec' toal Unwgt MEIneq:Cross-Model Diff."
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'	
 				
@@ -1336,7 +1508,8 @@ if `numnomvars' != 0 {
 			quietly est restore totalme_gsem // restore the mod for next estimation
 
 		} // end: nominal DVs for 2 models				
-	}	
+		}	// end by/over option
+	}	// end nominal vars
 }		
 
 *********************************************************
@@ -1369,7 +1542,9 @@ if `numcontvars' != 0 & `numnomvars' != 0 {
 matrix colnames `newmatall' = "Estimate" "Std. err." "z" ///
 "P>|z|" "`ll_spec'" "`ul_spec'"
 
-mat _totalme = `newmatall'		
+mat `rtable' = `newmatall'
+
+return mat table = `rtable'	
 
 **display the results based on users' choise
 if ("`ci'"=="") {
