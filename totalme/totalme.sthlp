@@ -1,5 +1,5 @@
 {smcl}
-{* 2025-05-14 Bing Han, Trenton D. Mize}{...}
+{* 2025-07-01 Bing Han, Trenton D. Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -65,17 +65,17 @@ model estimations are possible.
 
 {title:Table of contents}
 
-	{help totalme##models:Required option for two model comparison}
+	{help totalme##Models:Required option for two model comparison}
 	{help totalme##groups:Required option if fitting models over two distinct samples}
 	{help totalme##amount:Amount of change to compute for continuous variables}
 	{help totalme##start:Setting starting values of variables in varlist}
 	{help totalme##covariates:Setting values of the covariates}
-	{help totalme##weighted:Weighting options for ME inequality for nominal IVs}
-	{help meinequality##by/over:Estimations for subpopulations}
-	{help totalme##sample weights:Setting sample weights and multiple imputation estimates}
+	{help totalme##Weighted:Weighting options for ME inequality for nominal IVs}
+	{help totalme##byover:Estimations for subpopulations}
+	{help totalme##sampleweights:Setting sample weights and multiple imputation estimates}
 	{help totalme##options:Optional options for formatting, reporting, missing data, etc.}
 	{help totalme##matrices:Saved estimates and matrices}
-	{help meinequality##bootstrap:Boostrap standard errors}
+	{help totalme##bootstrap:Boostrap standard errors}
 	{help totalme##examples:Examples}
 	
 {title:Options}
@@ -185,7 +185,7 @@ the total number of pairwise comparisons.
 total {it:ME inequalities}.
 {p_end}
 
-{marker by/over}
+{marker byover}
 {dlgtab:Subpopulation estimation options}
 
 {p2colset 5 18 19 0}
