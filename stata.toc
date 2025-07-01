@@ -1,5 +1,5 @@
 v 3
-d 2025-02-25
+d 2025-06-30
 d Stata packages for marginal effects, IRT models, mediation, and more
 d Trenton D. Mize, Purdue University
 d Details and examples for each package at www.trentonmize.com/software
