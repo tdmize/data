@@ -1,0 +1,60 @@
+---
+title: "2025 Summer Institute on<br>Longitudinal Data Analysis"
+author: "Prepared by Amy Loviska and Kristine Marceau"
+date: "2025-05-14"
+output: 
+  html_document:
+    toc: true
+    css: U:/Purdue Brand/purdue.css
+    toc_float: 
+      collapsed: true
+      smooth_scroll: false
+    toc_depth: 4
+    includes:
+      in_header: U:/Purdue Brand/fonts/acumin-pro.html      
+      before_body: U:/Purdue Brand/includes/logo.html
+---
+
+
+# Overview
+
+This file includes the data cleaning code for ABCD variables that can be used as examples in the Methodology Center Summer Institute on Longitudinal Data Analysis. For each section below, the code is organized by topic/phenotype (level 1 header), a description of the datasets and variables used according to ABCD documentation (level 2 header), the items and descriptions from each dataset are provided under the dataset name (level 3 header). As applicable, the scored phenotypes will be listed (level 4 headers). Finally, code for cleaning and creating summary variables are also provided (level 2 headers).
+
+Load in packages (Hidden)
+
+```{r include=FALSE}
+#clear working memory, if needed
+rm(list = ls())
+
+# Call in the packages needed
+library(psych)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(stringr) 
+```
+
+# Heading 1
+
+regular font
+
+## Heading 2
+
+*italic font* 
+
+### Heading 3
+
+**bold font**
+
+regular font
+
+#### Heading 4
+
+
+```{r }
+
+# check a code chunk
+answer<-2+2
+
+answer
+```

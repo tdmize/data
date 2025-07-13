@@ -1,0 +1,30 @@
+Read me:
+
+1. Save this folder locally. I saved it on my U drive, so if you put iton your U drive you won't need to change filepaths.
+
+2. In your .rmd file, put this above the first header...
+
+Things to change:
+- the author and date, and title. If you want a line break in the title (as I have below) put in <br> where you want the break
+- If you did not sae to your U drive, change the filpaths for css and in the includes: section.
+
+---
+title: "2025 Summer Institute on<br>Longitudinal Data Analysis"
+author: "Prepared by Amy Loviska and Kristine Marceau"
+date: "2025-05-14"
+output: 
+  html_document:
+    toc: true
+    css: U:/Purdue Brand/purdue.css
+    toc_float: 
+      collapsed: true
+      smooth_scroll: false
+    toc_depth: 4
+    includes:
+      in_header: U:/Purdue Brand/fonts/acumin-pro.html      
+      before_body: U:/Purdue Brand/includes/logo.html
+---
+
+3. Create your .RMD file. Ensure that you have a new header and code chunk for each visualization so they are easy to find in the TOC.
+
+4. Knit to .html
