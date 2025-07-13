@@ -1,0 +1,9 @@
+@font-face {
+    font-family: 'United Sans Rg Bd';
+    src: url('UnitedSansReg-Bold.woff2') format('woff2'),
+        url('UnitedSansReg-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
