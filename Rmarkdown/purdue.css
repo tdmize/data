@@ -1,0 +1,119 @@
+@font-face {
+  font-family: 'United Sans';
+  src: url('fonts/UnitedSansReg-Bold.woff2') format('woff2');
+  font-weight: bold;
+  font-style: normal;
+}
+
+/* Logo Banner Above Title */
+.logo-banner {
+  width: 100%;
+  background-image: url("logos/MCAP-logo.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;     /* Ensures the full logo fits without distortion */
+  height: 150px;         /* Adjust depending on logo size */
+  margin-bottom: 20px;
+  display: flex;                /* Use flexbox for centering */
+  justify-content: center;      /* Centers the logo horizontally */
+  align-items: center;          /* Centers the logo vertically */
+}
+
+/* === United Sans for title block === */
+.title, .navbar {
+  font-family: 'United Sans', sans-serif;
+  background-color: #000000; /* Purdue black */
+  color: #ffffff;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  padding-left: 40px;
+  padding-right: 40px;
+}
+
+
+/* ========== General Body & Typography ========== */
+body {
+  font-family: 'acumin-pro', sans-serif;  /* This name comes from Adobe */
+  color: #000000;
+  background-color: #ffffff;
+  margin: 40px;
+  font-size: 14px;
+}
+
+/* Headings */
+h1 {
+  color: #CFB991; /* Boilermaker Gold */
+
+}
+
+h2 {
+  color: #555960; /* Steel */
+}
+
+h3 {
+  color: #8e6f3e; /* Aged */
+}
+
+h4 {
+  color: #6f727b; /* Cool Gray */
+}
+
+/* Links */
+a {
+  color: #c28e0e;
+}
+
+/* Navbar & Title */
+.navbar, .title {
+  background-color: #000000; /* Purdue black */
+  color: #ffffff;
+}
+
+/* Horizontal Rule */
+hr {
+  border-top: 1px solid #b28f4a;
+}
+
+/* ========== Table of Contents (TOC) ========== */
+
+#TOC::before {
+  content: "Table of Contents";
+  font-family: "Acumin", Acumin Pro, sans-serif;
+  font-weight: bold;
+  font-size: 1.5em;     /* Adjust size */
+  margin-bottom: 10px;  /* Adjust space between title and TOC */
+  display: block;       /* Makes the content a block element */
+}
+
+/* TOC container */
+#TOC {
+  font-family: "Acumin", Acumin Pro, sans-serif;
+  background-color: #f7f7f7;
+  padding: 10px;
+  max-width: 250px;
+  font-size: 1.0em;
+}
+
+/* Highlight active TOC section */
+#TOC .active {
+  font-weight: bold;  
+  background-color:#555960; /* Steel */
+  color: #ffffff;
+}
+
+/* Hover effect on TOC entries */
+#TOC li a:hover {
+  background-color: #555960; /* Steel */
+  color: #ffffff;
+  border-radius: 4px;         /* Optional: rounded corners */
+  padding: 4px 8px;           /* Match active padding */
+  display: block;             /* Ensure the full area is clickable */
+  text-decoration: none;
+}
+
+/* Remove all visible boxes around TOC */
+#TOC {
+  border: 2px solid #000000; /* Black border with 2px width */
+  padding: 10px;
+  /*background-color: #f7f7f7;  /* Optional: background color for the TOC */
+}
