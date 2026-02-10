@@ -1,5 +1,5 @@
 {smcl}
-{* 2025-01-13 Bing Han, Trenton D. Mize}{...}
+{* 2026-02-10 Bing Han, Trenton D. Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -9,7 +9,7 @@ inequality statistics for nominal independent variables by
 averaging the absolute values of all marginal effects for the nominal 
 independent variable, which represent all pairwise comparisons of predictions 
 for the variable. The command supports estimation for one or two models. In the 
-two model case, the equality of the meinequality statistics across models 
+two model case, the inequality of the meinequality statistics across models 
 is automatically calculated. {cmdab:meineq:uality} can compute both weighted 
 and unweighted ME Inequality statistics. {cmdab:meineq:uality} can be used with  
 models for continuous, count, binary, ordinal, and nominal dependent variables.
@@ -60,9 +60,11 @@ supported for the one model case.
 	{help meinequality##covariates:Setting values of the covariates}
 	{help meinequality##models:Required option for two model comparison}
 	{help meinequality##groups:Required option if fitting models over two distinct samples}
-	{help meinequality##sampleweights:Setting sample weights and multiple imputation estimates}
+	{help meinequality##by/over:Estimations for subpopulations}
+	{help meinequality##sampleweights:Setting sample weights and multiple imputation estimates}	
 	{help meinequality##options:Optional options for formatting, reporting, missing data, etc.}
 	{help meinequality##matrices:Saved estimates and matrices}
+	{help meinequality##bootstrap:Boostrap standard errors}
 	{help meinequality##examples:Examples}
 	
 {title:Options}
@@ -95,7 +97,7 @@ inequality measures.
 {marker covariates}
 {dlgtab:Setting values of covariates}
 {p2colset 5 18 19 0}
-{synopt:{opt atmeans}}By default, the observed values of the other variables 
+{synopt:{opt atmeans}} By default, the observed values of the other variables 
 in the model are used for calculating the marginal effects (i.e., the margins 
 default of {it:asobserved} is used; see {help margins}). Alternatively, the 
 covariates can be set to their sample means with the {opt atmeans} option.
@@ -125,6 +127,17 @@ are fit on distinct samples. When the {opt groups} option is specified,
 the models listed in the {opt models(list)} option must have been fit 
 separately across distinct samples (e.g., distinct groups in data).
 
+{marker by/over}
+{dlgtab:Subpopulation estimation options}
+
+{p2colset 5 18 19 0}
+{synopt:{opt by(varname)}} estimates ME inequality separately for each level of the specified nominal variable (including binary variables), using the full sample. For each level, the estimation is based on the entire sample with the subpopulation variable hypothetically set to that level, while all other variables are held at their full-sample means. The subpopulation variable must be nominal and must also be included as a covariate in the model.
+{p_end}
+
+{p2colset 5 18 19 0}
+{synopt:{opt over(varname)}} estimates ME inequality separately for each level of the specified nominal variable, using only the subsample of observations that have that specific value. This option uses the {opt over()} option from the {help margins} command to compute marginal effects within each group-specific subsample; see {help margins##over:[margins] over} option. Importantly, if the groups differ in the distribution of other variables, these differences are not adjusted for: the "means" used in the -atmeans- option are calculated only within each group defined by the value of the nominal variable.
+{p_end}
+
 {marker sampleweights}
 {dlgtab:Sample weights and multiple imputation estimation options}
 
@@ -146,6 +159,11 @@ are supported.
 {dlgtab:Additional Optional Options}
 
 {p2colset 5 18 19 0}
+{synopt:{opt level:s(#)}} sets the confidence level for reported confidence intervals. 
+The default is {cmd:level(95)}. Acceptable values range from 10 to 99. 
+{p_end}
+
+{p2colset 5 18 19 0}
 {synopt:{opt dec:imals(#)}} changes the number of decimal places reported 
 in the table. The default is 3. Any integer between 0 - 7 is allowed.
 {p_end}
@@ -163,7 +181,7 @@ effects. The default is 24. Any integer between 20 - 32 is allowed.
 {p_end}
 
 {p2colset 5 18 19 0}
-{synopt:{opt title(sting)}} changes title of the output table. 
+{synopt:{opt title(string)}} changes title of the output table. 
 The default is "ME Inequality Estimates".
 {p_end}
 
@@ -201,8 +219,23 @@ marginal effects {cmdab:meineq:uality} calculates are stored as {it:meineq_margi
 The {cmdab:gsem} model results are stored as {it:meineq_gsem}. 
 {p_end}
 
-{pstd} {cmdab:meineq:uality} saves the current table to the matrix {opt _meinequality}. 
-The matrix has columns corresponding to the displayed results.
+{pstd} The command saves estimation results that can be retrieved using {cmd:return list}, 
+including scalars for each estimated inequality score and a matrix containing all results. 
+{cmdab:meineq:uality} saves the current table to the matrix {opt r(table)}. 
+The matrix has columns corresponding to the displayed results. 
+{p_end}
+
+{marker bootstrap}
+{dlgtab:Bootstrap standard errors}
+
+{p2colset 5 18 19 0}
+{pstd} Users can use the {helpb bootstrap} command to estimate standard 
+errors for {cmd:meinequality}. This can be particularly useful when the model encounters 
+convergence issues or when standard errors are otherwise unavailable or unreliable. When using {cmd:bootstrap}, 
+you should wrap the {cmd:meinequality} command inside the {cmd:bootstrap} prefix to obtain
+bootstrap-based standard errors for the inequality measures. See {help bootstrap} for 
+more information on syntax and options. Note that when using {cmd:bootstrap}, 
+the estimation results and stored values will reflect the bootstrap replications rather than the analytical estimates.
 {p_end}
 
 
@@ -237,7 +270,16 @@ The matrix has columns corresponding to the displayed results.
 {phang} {stata mlogit 			industry i.race c.age} {p_end}
 
 {phang} {stata meinequality 	race} {p_end}
-	
+
+*Bootstrap example
+{phang} {stata capture program drop boot_mei} {p_end}
+{phang} {stata program define boot_mei, rclass} {p_end}
+{phang2} {stata reg wages i.race c.age i.married} {p_end}
+{phang2} {stata meinequality race} {p_end}
+{phang2} {stata return scalar w_mei = r(wem11)} {p_end}
+{phang} {stata end} {p_end}
+{pstd} bootstrap w_mei=r(w_mei), reps(1000): boot_mei {p_end}	
+
 	
 {title:Comments}
 

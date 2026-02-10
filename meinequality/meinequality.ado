@@ -1,8 +1,13 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.0.2 Bing Han & Trenton Mize 2025-02-13
+*! meinequality v1.0.3 Bing Han & Trenton Mize 2026-02-10
 
+*TM: v1.0.3 adds by and over options
 *TM: v1.0.2 adds support for gologit2 for one model case
+*BH: makes level option work
+*    return scalar and tables 
+* 	 add by and over options	
+
 
 program define meinequality, rclass
 	
@@ -22,7 +27,9 @@ syntax 	varlist(fv) [fweight pweight iweight] , ///
 		LABWidth(numlist >19 integer) /// 
 		DETAILs /// 
 		COMMANDs /// 
-		LEVEL(integer 95) /// 		doesn't do anything yet
+		level(integer 95) /// 
+		by(string) ///
+		over(string) ///
 		] 	
 		
 ****************************************************************************
@@ -60,12 +67,12 @@ else {
 }
 
 if "`level'" == "" {
-	local cilevel = 95
+	local level = 95
 	local ll_spec "95% LL" 
 	local ul_spec "95% UL"		
 }
 else {
-	local cilevels = `level'
+	local level = `level'
 	local ll_spec "`level'% LL" 
 	local ul_spec "`level'% UL"
 }
@@ -76,6 +83,7 @@ if "`atmeans'" == "" {
 else {
 	local atmeans "atmeans"
 }
+
 	
 ****************************************************************************
 // Set options for different # of models
@@ -154,8 +162,8 @@ if `nummods' == 1 | `nummods' == 2 {
 	}
 }
 else if `nummods' == 0 {
-	quietly est store mod1
-	local mod1 mod1
+	quietly est store meineq_mod1
+	local mod1 meineq_mod1
 	local nummods = 1
 }
 
@@ -188,8 +196,7 @@ if "`cmd_m1'" == "mi estimate" {
 	local cmd_m1 "`e(cmd_mi)'"
 	local prefix1 = "`e(prefix_mi)'"	
 	local margins "mimrgns"
-	local mimarginsspec `e(marginsdefault)'
-		
+	local mimarginsspec "predict(default)"
 }	
 
 	
@@ -425,6 +432,93 @@ if `nummods' == 2 {
 		}	
 	
 } // end: check for two-model situation
+
+****************************************************************************
+// Check by over varaibles
+****************************************************************************
+
+** check the by/over options
+if "`by'" != "" & "`over'" != "" {
+	di _newline(1)
+	di as err "{opt by()} and {opt over()} option cannot be specified at the same time."
+	exit	
+}
+
+if "`by'" != "" | "`over'" != "" {
+
+	** check numbers of by/over var
+	local numbyvar : word count `by'
+	local numovervar : word count `over'
+
+	if `numbyvar' > 1 {
+		di _newline(1)
+		di as err "Invalid number of variables specified in {opt by()} option. " /*
+		*/ "{opt by()} can only be used with one variable."
+		exit	
+	}
+
+	if `numovervar' > 1 {
+		di _newline(1)
+		di as err "Invalid number of variables specified in {opt over()} option. " /*
+		*/ "{opt over()} can only be used with one variable."
+		exit	
+	}
+
+	** check if by/over var is nominal variable
+	if "`by'" != "" {
+		local byvar "`by'"
+		local byovervar "`by'"
+		if strpos("`byvar'", "i.") == 0 {
+			local i_byvar i.`byvar'
+		}
+		else {
+			local i_byvar `byvar'
+		}		
+		if strpos("`cmdline_m1'","`i_byvar'") == 0 { 
+			di _newline(1)
+			di as err "Variable `byvar' not found in the model. " /*
+			*/ "Only nominal variable can be specified in {opt by()} option." /*	
+			*/ "Check if i. prefix is used for the nominal variable in the model." 
+			exit
+		}
+		
+		local byvarspec "`byvar'#"
+	}
+
+	if "`over'" != "" {
+		local overvar "`over'"	
+		local byovervar "`over'"
+		if strpos("`overvar'", "i.") == 0 {
+			local i_overvar i.`overvar'
+		}
+		else {
+			local i_overvar `overvar'
+			local overvar = subinstr("`overvar'", "i.","",.)
+		}	
+		if strpos("`cmdline_m1'","`i_overvar'") == 0 { 
+			di _newline(1)
+			di as err "Variable `overvar' not found in the model. " /*
+			*/ "Only nominal variable can be specified in {opt over()} option." /*	
+			*/ "Check if i. prefix is used for the nominal variable in the model." 
+			exit
+		}
+		local overvarspec "over(`overvar')"
+	}
+
+	** all levels of the by/over variable
+
+	qui 	levelsof 		`byovervar'
+	local 	byoverlvl 		`r(levels)'
+	local 	numbyoverlvl	`r(r)'	
+	local  	labname : value label `byovervar'	
+	
+}
+
+else{
+	
+	local numbyoverlvl = 1
+	
+}
 	
 ****************************************************************************
 // Check nominal independent variables to be estimated
@@ -469,6 +563,11 @@ forvalues ithvar=1/`numvars' {
 		}		
 	}
 }
+
+** return scalars
+
+return scalar n_mods = `nummods'
+return scalar n_vars = `numvars'
 	
 ****************************************************************************
 // Model specification
@@ -590,17 +689,19 @@ else if `nummods' == 2 {
 ****************************************************************************
 
 ** temp list for matrix and estimations
-tempname newmatmean newmatwgt newmatall newmatall_m newmatall_uw
+tempname newmatmean newmatwgt newmatall newmatall_m newmatall_uw rtable
 tempname rt rb rV	
 
 local newmatall "full_matrix"
 local newmatall_w "weighted_null_matrix"
 local newmatall_uw "unweighted_null_matrix"
+local rtable "rtable"
 
 ** generate a nullmat for all 
 matrix `newmatall' = J(1, 6, .)
 matrix `newmatall_w' = J(1, 6, .)
 matrix `newmatall_uw' = J(1, 6, .)
+matrix `rtable' = J(1, 6, .)
 		
 ** calculate the meinequality for each nominal variable separately 
 forvalues ithvar=1/`numvars' {
@@ -620,21 +721,33 @@ forvalues ithvar=1/`numvars' {
 	** # of comparison groups
 	local nc = ((`r(r)')*(`r(r)'-1)/2)
 	
+	**set for by/over options
+	forvalues m = 1/`numbyoverlvl' {
+	
+	if `numbyoverlvl' > 1 {
+		local bolvl: word `m' of `byoverlvl'
+		local bolvlspec "_`bolvl'"
+		local temp_bolvlname: label `labname' `bolvl'
+		local bolvlname = abbrev("`temp_bolvlname'",13) 
+		local bolvlnamespec "(`bolvlname')"
+		local bospec "`bolvl'.`byovervar'#"
+	}
+	
 	****************************************************************************
 	// Calculation of ME inequality stats: Single level DV: 1 model
-	****************************************************************************
+	****************************************************************************	
 	
 	if `nummods' == 1 & `mod1cats' < 3 {
 		
-		`quietly' `margins' `nomvar', `atmeans' post	
+		`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' ///
+		`atmeans' post	
 		qui est store meineq_margins
 	
-	** Different Calculations
-	** Wieghted inequality: By default
-
+		** Different Calculations
+		** Wieghted inequality: By default
+	
 		if ("`unweighted'"==""){		
 			local 	term_base 0
-					
 			forvalues i = 1/`numlevels' {
 				local ilevel: word `i' of `nlevel'
 				qui `svyspec' prop `nomvar' `weightspec'
@@ -647,7 +760,7 @@ forvalues ithvar=1/`numvars' {
 						local multiplier = (`p_i'+`p_j') / (`numlevels' - 1)
 						local part1 ///
 						+ ( `multiplier' * ///
-								abs(_b[`ilevel'.`nomvar'] - _b[`jlevel'.`nomvar']))		
+								abs(_b[`bospec'`ilevel'.`nomvar'] - _b[`bospec'`jlevel'.`nomvar']))		
 						local term_base `term_base' `part1'	
 					}
 				}			
@@ -655,16 +768,19 @@ forvalues ithvar=1/`numvars' {
 			qui est restore meineq_margins
 			
 			**test if wgt_base could be calculated; if not *1000
-			capture `quietly' nlcom wgt_base: (`term_base') 
+			capture `quietly' nlcom wgt_base: (`term_base'), level(`level')
 			if _rc!=0 {
-				`quietly' nlcom wgt_base_1000: (`term_base')*1000, post
-				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000	
+				`quietly' nlcom wgt_base_1000: (`term_base')*1000, level(`level') post
+				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000, level(`level')
 			}
+			
+			return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
+			
 			matrix `newmatwgt' = nullmat(`newmatwgt') \ `rt'
-			matrix rownames `newmatwgt' = "ME Inequality:`nomvar'" 
+			matrix rownames `newmatwgt' = "ME Inequality:`nomvar'`bolvlnamespec'" 
 			if "`all'"=="" {
 				matrix `newmatall' = `newmatall' \ `newmatwgt'
 			}
@@ -683,7 +799,7 @@ forvalues ithvar=1/`numvars' {
 					if `i' < `j' {
 						local jlevel: word `j' of `nlevel'
 						local part1 ///
-						+ abs(_b[`ilevel'.`nomvar'] - _b[`jlevel'.`nomvar'])
+						+ abs(_b[`bospec'`ilevel'.`nomvar'] - _b[`bospec'`jlevel'.`nomvar'])
 						local term_base `term_base' `part1'
 					}
 				}	
@@ -691,16 +807,18 @@ forvalues ithvar=1/`numvars' {
 			
 			** Unweighted (mean) amount of inequality in base model
 			qui est restore meineq_margins
-			capture `quietly' nlcom mean_base: (`term_base')/(`nc')
+			capture `quietly' nlcom mean_base: (`term_base')/(`nc'), level(`level')
 			if _rc != 0 {
-				`quietly' nlcom mean_base_1000: (`term_base')*1000/(`nc'), post
-				`quietly' nlcom mean_base: _b[mean_base_1000]/1000			
+				`quietly' nlcom mean_base_1000: (`term_base')*1000/(`nc'), level(`level') post
+				`quietly' nlcom mean_base: _b[mean_base_1000]/1000, level(`level')			
 			}
+			
+			return scalar uwm1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatmean' = nullmat(`newmatmean') \ `rt'
-			matrix rownames `newmatmean' = "Unwgt. ME Inequality:`nomvar'" 
+			matrix rownames `newmatmean' = "Unwgt. ME Inequality:`nomvar'`bolvlnamespec'" 
 			if "`all'"=="" {
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 			}
@@ -711,7 +829,7 @@ forvalues ithvar=1/`numvars' {
 			
 		} // end: weighted/all options
 		
-		quietly est restore mod1 // restore the mod for next estimation
+		quietly est restore `mod1' // restore the mod for next estimation
 		
 	} // end: continuous or binary DVs for 1 model
 	
@@ -723,13 +841,13 @@ forvalues ithvar=1/`numvars' {
 		
 		** Calculate the margins for the nominal variables in the gsem model
 		if "`groups'" != "" {
-			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' ///
-								over(me_inequality_mod_samp) post					
+			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `atmeans' ///
+								over(me_inequality_mod_samp `overvar') post					
 			local mod_samp_spec1 "1.me_inequality_mod_samp#"
 			local mod_samp_spec2 "2.me_inequality_mod_samp#"
 		}
 		else {
-			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post
+			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' `atmeans' post
 			local mod_samp_spec1 ""
 			local mod_samp_spec2 ""
 		}
@@ -751,8 +869,8 @@ forvalues ithvar=1/`numvars' {
 						local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
 						local part1 ///
 						+ ( `multiplier' * ///
-							abs(_b[1._predict#`mod_samp_spec1'`ilevel'.`nomvar'] ///
-							- _b[1._predict#`mod_samp_spec1'`jlevel'.`nomvar']))
+							abs(_b[1._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+							- _b[1._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar']))
 						local term_base `term_base' `part1'
 					}
 				}	
@@ -773,8 +891,8 @@ forvalues ithvar=1/`numvars' {
 						local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
 						local part2 ///
 						+ ( `multiplier' * ///
-							abs(_b[2._predict#`mod_samp_spec2'`ilevel'.`nomvar'] ///
-							- _b[2._predict#`mod_samp_spec2'`jlevel'.`nomvar']))
+							abs(_b[2._predict#`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
+							- _b[2._predict#`mod_samp_spec2'`bospec'`jlevel'.`nomvar']))
 						local term_com `term_com' `part2'
 					}		
 				}	
@@ -783,44 +901,50 @@ forvalues ithvar=1/`numvars' {
 			local wgt_term_com `term_com'
 			 
 			qui est restore meineq_margins
-			capture `quietly' nlcom wgt_base: (`wgt_term_base')
+			capture `quietly' nlcom wgt_base: (`wgt_term_base'), level(`level')
 			if _rc!=0{
-				`quietly' nlcom wgt_base_1000: (`wgt_term_base')*1000, post
-				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000				
+				`quietly' nlcom wgt_base_1000: (`wgt_term_base')*1000, level(`level') post
+				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000, level(`level')		
 			}
-		
+			
+			return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
+			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatwgt' = nullmat(`newmatwgt') \ `rt'
 			
 			** Weighted amount of inequality in comparison model
 			qui est restore meineq_margins 
-			capture `quietly' nlcom wgt_compare: (`wgt_term_com')
+			capture `quietly' nlcom wgt_compare: (`wgt_term_com'), level(`level')
 			if _rc!=0 {
-				`quietly' nlcom wgt_compare_1000: (`wgt_term_com')*1000, post
-				`quietly' nlcom wgt_compare: _b[wgt_compare_1000]/1000				
+				`quietly' nlcom wgt_compare_1000: (`wgt_term_com')*1000, level(`level') post
+				`quietly' nlcom wgt_compare: _b[wgt_compare_1000]/1000, level(`level')		
 			}
-								
+
+			return scalar wem2`ithvar'`bolvlspec' = r(table)[1,1]
+						
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatwgt' = `newmatwgt' \ `rt'
 			
 			*test of Weighted amount of inequality in two models
 			qui est restore meineq_margins
-			capture `quietly' nlcom wgt_change: [(`wgt_term_base') - (`wgt_term_com')]
+			capture `quietly' nlcom wgt_change: [(`wgt_term_base') - (`wgt_term_com')], level(`level')
 			if _rc!=0 {
-				`quietly' nlcom wgt_change_1000: [(`wgt_term_base') - (`wgt_term_com')]*1000, post
-				`quietly' nlcom wgt_change: _b[wgt_change_1000]/1000				
+				`quietly' nlcom wgt_change_1000: [(`wgt_term_base') - (`wgt_term_com')]*1000, level(`level') post
+				`quietly' nlcom wgt_change: _b[wgt_change_1000]/1000, level(`level')				
 			}
+			
+			return scalar wed`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatwgt' = `newmatwgt' \ `rt'	
 		
 			matrix rownames `newmatwgt' = ///
-				"`nomvar' ME Ineq.:Model 1 (`mod1lab')" ///
-				"`nomvar' ME Ineq.:Model 2 (`mod2lab')" ///
-				"`nomvar' ME Ineq.:Cross-Model Diff."
+				"`nomvar'`bolvlnamespec' ME Ineq.:Model 1 (`mod1lab')" ///
+				"`nomvar'`bolvlnamespec' ME Ineq.:Model 2 (`mod2lab')" ///
+				"`nomvar'`bolvlnamespec' ME Ineq.:Cross-Model Diff."
 			matrix `newmatall' = `newmatall' \ `newmatwgt'
 			matrix drop `newmatwgt'
 
@@ -840,8 +964,8 @@ forvalues ithvar=1/`numvars' {
 					if `i' < `j' {
 						local jlevel: word `j' of `nlevel'
 						local part1 ///
-						+ abs(_b[1._predict#`mod_samp_spec1'`ilevel'.`nomvar'] ///
-						- _b[1._predict#`mod_samp_spec1'`jlevel'.`nomvar'])
+						+ abs(_b[1._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+						- _b[1._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
 						local term_base `term_base' `part1'
 					}
 				}	
@@ -859,8 +983,8 @@ forvalues ithvar=1/`numvars' {
 					if `i' < `j' {
 						local jlevel: word `j' of `nlevel'
 						local part2 ///
-						+ abs(_b[2._predict#`mod_samp_spec2'`ilevel'.`nomvar'] ///
-						- _b[2._predict#`mod_samp_spec2'`jlevel'.`nomvar'])
+						+ abs(_b[2._predict#`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
+						- _b[2._predict#`mod_samp_spec2'`bospec'`jlevel'.`nomvar'])
 						local term_com `term_com' `part2'						
 					}
 				}	
@@ -871,11 +995,13 @@ forvalues ithvar=1/`numvars' {
 			** Unweighted (mean) amount of inequality in base model
 			** Mean amount of inequality in base model
 			qui est restore meineq_margins
-			capture `quietly' nlcom mean_base: (`abs_term_base')/(`nc')
+			capture `quietly' nlcom mean_base: (`abs_term_base')/(`nc'), level(`level')
 			if _rc!=0 {
-				`quietly' nlcom mean_base_1000: (`abs_term_base')*1000/(`nc'), post 
-				`quietly' nlcom mean_base: _b[mean_base_1000] / 1000					
+				`quietly' nlcom mean_base_1000: (`abs_term_base')*1000/(`nc'), level(`level') post 
+				`quietly' nlcom mean_base: _b[mean_base_1000] / 1000, level(`level')					
 			}
+			
+			return scalar uwem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -883,11 +1009,13 @@ forvalues ithvar=1/`numvars' {
 			
 			** Mean amount of inequality in comparison model
 			qui est restore meineq_margins
-			capture `quietly' nlcom mean_compare: (`abs_term_com')/(`nc')
+			capture `quietly' nlcom mean_compare: (`abs_term_com')/(`nc'), level(`level')
 			if _rc!=0 {
-				`quietly' nlcom mean_compare_1000: (`abs_term_com')*1000/(`nc'), post
-				`quietly' nlcom mean_compare: _b[mean_compare_1000] / 1000					
+				`quietly' nlcom mean_compare_1000: (`abs_term_com')*1000/(`nc'), level(`level') post
+				`quietly' nlcom mean_compare: _b[mean_compare_1000] / 1000, level(`level')					
 			}
+			
+			return scalar uwem2`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -896,21 +1024,23 @@ forvalues ithvar=1/`numvars' {
 			*Test of Mean amount of inequality in two models
 			qui est restore meineq_margins
 			capture `quietly' nlcom mean_change: [(`abs_term_base') ///
-			- (`abs_term_com')]/(`nc')
+			- (`abs_term_com')]/(`nc'), level(`level')
 			if _rc!=0 {
 				`quietly' nlcom mean_change_1000: [(`abs_term_base') ///
-				- (`abs_term_com')]*1000/(`nc'), post
-				`quietly' nlcom mean_change: _b[mean_change_1000] / 1000					
+				- (`abs_term_com')]*1000/(`nc'), level(`level') post
+				`quietly' nlcom mean_change: _b[mean_change_1000] / 1000, level(`level')					
 			}
+			
+			return scalar uwed`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatmean' = `newmatmean' \ `rt'
 
 			matrix rownames `newmatmean' = ///
-				"`nomvar' Unwgt ME Ineq.:Model 1 (`mod1lab')" ///
-				"`nomvar' Unwgt ME Ineq.:Model 2 (`mod2lab')" ///
-				"`nomvar' Unwgt ME Ineq.:Cross-Model Diff."
+				"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Model 1 (`mod1lab')" ///
+				"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Model 2 (`mod2lab')" ///
+				"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Cross-Model Diff."
 			
 			matrix `newmatall' = `newmatall' \ `newmatmean'
 			matrix drop `newmatmean'	
@@ -927,7 +1057,7 @@ forvalues ithvar=1/`numvars' {
 
 	else if `nummods' == 1 & `mod1cats' >= 3 {
 
-		`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post	
+		`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' `atmeans' post	
 		qui est store meineq_margins
 		
 		qui levelsof 	`mod1dv'
@@ -964,8 +1094,8 @@ forvalues ithvar=1/`numvars' {
 							local multiplier = (`p_i'+`p_j') / (`numlevels' - 1)
 							local part1 ///
 							+ ( `multiplier' * ///
-							abs(_b[`dvnum'._predict#`ilevel'.`nomvar'] ///
-							- _b[`dvnum'._predict#`jlevel'.`nomvar']))		
+							abs(_b[`dvnum'._predict#`bospec'`ilevel'.`nomvar'] ///
+							- _b[`dvnum'._predict#`bospec'`jlevel'.`nomvar']))		
 							local term_base `term_base' `part1'	
 							// note it is the #ith for DV (_predict); it is the levels of IV.
 						}
@@ -974,18 +1104,20 @@ forvalues ithvar=1/`numvars' {
 							
 			**test if wgt_base could be calculated; if not *1000
 			qui est restore meineq_margins
-			capture `quietly' nlcom wgt_base: (`term_base') 
+			capture `quietly' nlcom wgt_base: (`term_base'), level(`level')
 			if _rc!=0 {
-				`quietly' nlcom wgt_base_1000: (`term_base')*1000, post
-				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000	
+				`quietly' nlcom wgt_base_1000: (`term_base')*1000, level(`level') post
+				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000, level(`level')	
 			}
+			
+			return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatwgt' = nullmat(`newmatwgt') \ `rt'
 			
 			**set the row names 
-			matrix rownames `newmatwgt' = "`nomvar' ME Ineq.:Pr(`out_`dvlevel'')" 
+			matrix rownames `newmatwgt' = "`nomvar'`bolvlnamespec' ME Ineq.:Pr(`out_`dvlevel'')" 
 			matrix `newmatall' = `newmatall' \ `newmatwgt'
 			matrix drop `newmatwgt'
 
@@ -1017,8 +1149,8 @@ forvalues ithvar=1/`numvars' {
 						if `i' < `j' {
 							local jlevel: word `j' of `nlevel'
 							local part1 ///
-							+ abs(_b[`dvnum'._predict#`ilevel'.`nomvar'] ///
-							- _b[`dvnum'._predict#`jlevel'.`nomvar'])
+							+ abs(_b[`dvnum'._predict#`bospec'`ilevel'.`nomvar'] ///
+							- _b[`dvnum'._predict#`bospec'`jlevel'.`nomvar'])
 							local term_base `term_base' `part1'
 						}
 					}	
@@ -1026,24 +1158,26 @@ forvalues ithvar=1/`numvars' {
 				
 				** Unweighted (mean) amount of inequality in base model
 				qui est restore meineq_margins
-				capture `quietly' nlcom mean_base: (`term_base')/(`nc')
+				capture `quietly' nlcom mean_base: (`term_base')/(`nc'), level(`level')
 				if _rc != 0 {
-					`quietly' nlcom mean_base_1000: (`term_base')*1000/(`nc'), post
-					`quietly' nlcom mean_base: _b[mean_base_1000]/1000			
+					`quietly' nlcom mean_base_1000: (`term_base')*1000/(`nc'), level(`level') post
+					`quietly' nlcom mean_base: _b[mean_base_1000]/1000, level(`level')			
 				}
+				
+				return scalar uwem1`ithvar'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = nullmat(`newmatmean') \ `rt'
 				**set the row names	
-				matrix rownames `newmatmean' = "`nomvar' Unwgt ME Ineq.:Pr(`out_`dvlevel'')" 		
+				matrix rownames `newmatmean' = "`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Pr(`out_`dvlevel'')" 		
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'
 			}
 		
 		} // end: unweighted meinequality
 		
-		quietly est restore mod1
+		quietly est restore `mod1'
 
 	} // end: nominal DVs for 1 model
 	
@@ -1054,13 +1188,13 @@ forvalues ithvar=1/`numvars' {
 	else if `nummods' == 2 & `mod1cats' >= 3 {
 
 		if "`groups'" != "" {
-			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' ///
-								over(me_inequality_mod_samp) post					
+			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `atmeans' ///
+								over(me_inequality_mod_samp `overvar') post					
 			local mod_samp_spec1 "1.me_inequality_mod_samp#"
 			local mod_samp_spec2 "2.me_inequality_mod_samp#"
 		}
 		else {
-			`quietly' `margins' `nomvar', `mimarginsspec' `atmeans' post	
+			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' `atmeans' post	
 			local mod_samp_spec1 ""
 			local mod_samp_spec2 ""
 		}
@@ -1102,8 +1236,8 @@ forvalues ithvar=1/`numvars' {
 							local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
 							local part1 ///
 							+ ( `multiplier' * ///
-								abs(_b[`dvnum'._predict#`mod_samp_spec1'`ilevel'.`nomvar'] ///
-								- _b[`dvnum'._predict#`mod_samp_spec1'`jlevel'.`nomvar']))
+								abs(_b[`dvnum'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`dvnum'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar']))
 							local term_base `term_base' `part1'
 						}
 					}	
@@ -1126,8 +1260,8 @@ forvalues ithvar=1/`numvars' {
 							local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
 							local part2 ///
 							+ ( `multiplier' * ///
-								abs(_b[`dvnum2'._predict#`mod_samp_spec2'`ilevel'.`nomvar'] ///
-								- _b[`dvnum2'._predict#`mod_samp_spec2'`jlevel'.`nomvar']))
+								abs(_b[`dvnum2'._predict#`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`dvnum2'._predict#`mod_samp_spec2'`bospec'`jlevel'.`nomvar']))
 							local term_com `term_com' `part2'
 						}		
 					}	
@@ -1136,11 +1270,13 @@ forvalues ithvar=1/`numvars' {
 				local wgt_term_com `term_com'
 				 
 				qui est restore meineq_margins
-				capture `quietly' nlcom wgt_base: (`wgt_term_base')
+				capture `quietly' nlcom wgt_base: (`wgt_term_base'), level(`level')
 				if _rc!=0{
-					`quietly' nlcom wgt_base_1000: (`wgt_term_base')*1000, post
-					`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000				
+					`quietly' nlcom wgt_base_1000: (`wgt_term_base')*1000, level(`level') post
+					`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000, level(`level')				
 				}
+				
+				return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1149,11 +1285,13 @@ forvalues ithvar=1/`numvars' {
 				
 				** Weighted amount of heterogeneity in comparison model
 				qui est restore meineq_margins 
-				capture `quietly' nlcom wgt_compare: (`wgt_term_com')
+				capture `quietly' nlcom wgt_compare: (`wgt_term_com'), level(`level')
 				if _rc!=0 {
-					`quietly' nlcom wgt_compare_1000: (`wgt_term_com')*1000, post
-					`quietly' nlcom wgt_compare: _b[wgt_compare_1000]/1000				
+					`quietly' nlcom wgt_compare_1000: (`wgt_term_com')*1000, level(`level') post
+					`quietly' nlcom wgt_compare: _b[wgt_compare_1000]/1000, level(`level')				
 				}
+				
+				return scalar wem2`ithvar'`bolvlspec' = r(table)[1,1]
 									
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1161,20 +1299,22 @@ forvalues ithvar=1/`numvars' {
 				
 				*test of Weighted amount of inequality in two models
 				qui est restore meineq_margins
-				capture `quietly' nlcom wgt_change: [(`wgt_term_base') - (`wgt_term_com')]
+				capture `quietly' nlcom wgt_change: [(`wgt_term_base') - (`wgt_term_com')], level(`level')
 				if _rc!=0 {
-					`quietly' nlcom wgt_change_1000: [(`wgt_term_base') - (`wgt_term_com')]*1000, post
-					`quietly' nlcom wgt_change: _b[wgt_change_1000]/1000				
+					`quietly' nlcom wgt_change_1000: [(`wgt_term_base') - (`wgt_term_com')]*1000, level(`level') post
+					`quietly' nlcom wgt_change: _b[wgt_change_1000]/1000, level(`level')				
 				}
+				
+				return scalar wed`ithvar'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatwgt' = `newmatwgt' \ `rt'	
 			
 				matrix rownames `newmatwgt' = ///
-					"`nomvar' ME Ineq.:`mod1lab' Pr(`out_`dvlevel'')" ///
-					"`nomvar' ME Ineq.:`mod2lab' Pr(`out_`dvlevel'')" ///
-					"`nomvar' ME Ineq.:Diff. Pr(`out_`dvlevel'')"
+					"`nomvar'`bolvlnamespec' ME Ineq.:`mod1lab' Pr(`out_`dvlevel'')" ///
+					"`nomvar'`bolvlnamespec' ME Ineq.:`mod2lab' Pr(`out_`dvlevel'')" ///
+					"`nomvar'`bolvlnamespec' ME Ineq.:Diff. Pr(`out_`dvlevel'')"
 				matrix `newmatall' = `newmatall' \ `newmatwgt'
 				matrix drop `newmatwgt'
 				
@@ -1208,8 +1348,8 @@ forvalues ithvar=1/`numvars' {
 						if `i' < `j' {
 							local jlevel: word `j' of `nlevel'
 							local part1 ///
-							+ abs(_b[`dvnum'._predict#`mod_samp_spec1'`ilevel'.`nomvar'] ///
-							- _b[`dvnum'._predict#`mod_samp_spec1'`jlevel'.`nomvar'])
+							+ abs(_b[`dvnum'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+							- _b[`dvnum'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
 							local term_base `term_base' `part1'
 						}
 					}	
@@ -1227,8 +1367,8 @@ forvalues ithvar=1/`numvars' {
 						if `i' < `j' {
 							local jlevel: word `j' of `nlevel'
 							local part2 ///
-							+ abs(_b[`dvnum2'._predict#`mod_samp_spec1'`ilevel'.`nomvar'] ///
-							- _b[`dvnum2'._predict#`mod_samp_spec1'`jlevel'.`nomvar'])
+							+ abs(_b[`dvnum2'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+							- _b[`dvnum2'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
 							local term_com `term_com' `part2'						
 						}
 					}	
@@ -1239,11 +1379,13 @@ forvalues ithvar=1/`numvars' {
 				** Unweighted (mean) amount of inequality in base model
 				** Mean amount of inequality in base model
 				qui est restore meineq_margins
-				capture `quietly' nlcom mean_base: (`abs_term_base')/(`nc')
+				capture `quietly' nlcom mean_base: (`abs_term_base')/(`nc'), level(`level')
 				if _rc!=0 {
-					`quietly' nlcom mean_base_1000: (`abs_term_base')*1000/(`nc'), post 
-					`quietly' nlcom mean_base: _b[mean_base_1000] / 1000					
+					`quietly' nlcom mean_base_1000: (`abs_term_base')*1000/(`nc'), level(`level') post 
+					`quietly' nlcom mean_base: _b[mean_base_1000] / 1000, level(`level')					
 				}
+				
+				return scalar uwem1`ithvar'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1251,11 +1393,13 @@ forvalues ithvar=1/`numvars' {
 				
 				** Mean amount of inequality in comparison model
 				qui est restore meineq_margins
-				capture `quietly' nlcom mean_compare: (`abs_term_com')/(`nc')
+				capture `quietly' nlcom mean_compare: (`abs_term_com')/(`nc'), level(`level')
 				if _rc!=0 {
-					`quietly' nlcom mean_compare_1000: (`abs_term_com')*1000/(`nc'), post
-					`quietly' nlcom mean_compare: _b[mean_compare_1000] / 1000					
+					`quietly' nlcom mean_compare_1000: (`abs_term_com')*1000/(`nc'), level(`level') post
+					`quietly' nlcom mean_compare: _b[mean_compare_1000] / 1000, level(`level')					
 				}
+				
+				return scalar uwem2`ithvar' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1263,20 +1407,22 @@ forvalues ithvar=1/`numvars' {
 				
 				*Test of Mean amount of inequality in two models
 				qui est restore meineq_margins
-				capture `quietly' nlcom mean_change: [(`abs_term_base') - (`abs_term_com')]/(`nc')
+				capture `quietly' nlcom mean_change: [(`abs_term_base') - (`abs_term_com')]/(`nc'), level(`level')
 				if _rc!=0 {
-					`quietly' nlcom mean_change_1000: [(`abs_term_base') - (`abs_term_com')]*1000/(`nc'), post
-					`quietly' nlcom mean_change: _b[mean_change_1000] / 1000					
+					`quietly' nlcom mean_change_1000: [(`abs_term_base') - (`abs_term_com')]*1000/(`nc'), level(`level') post
+					`quietly' nlcom mean_change: _b[mean_change_1000] / 1000, level(`level')					
 				}
+				
+				return scalar uwed`ithvar'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = `newmatmean' \ `rt'
 
 				matrix rownames `newmatmean' = ///
-					"`nomvar' Unwgt ME Ineq.:`mod1lab' Pr(`out_`dvlevel'')" ///
-					"`nomvar' Unwgt ME Ineq.:`mod2lab' Pr(`out_`dvlevel'')" ///
-					"`nomvar' Unwgt ME Ineq.:Diff. Pr(`out_`dvlevel'')"
+					"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:`mod1lab' Pr(`out_`dvlevel'')" ///
+					"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:`mod2lab' Pr(`out_`dvlevel'')" ///
+					"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Diff. Pr(`out_`dvlevel'')"
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'	
 			}
@@ -1287,11 +1433,14 @@ forvalues ithvar=1/`numvars' {
 
 	} // end: nominal DVs for 2 models
 	
+	} // end: levels of by/over variables
+	
 } // end: variables in varlist
 
 *********************************************************
-// format final table of stats 
+// organize final table of stats 
 *********************************************************
+
 
 ** special situation: change the order of the rows
 if `nummods' == 1 & `mod1cats' < 3 & "`all'"!="" {
@@ -1318,7 +1467,9 @@ else {
 matrix colnames `newmatall' = "Estimate" "Std. err." "z" ///
 "P>|z|" "`ll_spec'" "`ul_spec'"
 
-mat _meinequality = `newmatall'		
+mat `rtable' = `newmatall'
+
+return mat table = `rtable'			
 
 **display the results based on users' choise
 if ("`ci'"=="") {
@@ -1340,5 +1491,4 @@ matlist `newmatall', format(%10.`decimals'f) ///
 	title("`title' (`samp_info')") twidth(`twidth')	
 	
 end 
-
 
