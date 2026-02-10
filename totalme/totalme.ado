@@ -1,7 +1,8 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.0.3 Bing Han & Trenton Mize 2025-06-18
+*! totalme v1.0.4 Bing Han & Trenton Mize 2026-02-09
 
+*TM: v1.0.4 fixes issue with default prediction type with imputed data
 *TM: v1.0.3 adds support for gologit2 for single model case
 *BH: makes level option work
 *    return scalar and tables 
@@ -193,11 +194,7 @@ if "`cmd_m1'" == "mi estimate" {
 	local cmd_m1 "`e(cmd_mi)'"
 	local prefix1 = "`e(prefix_mi)'"	
 	local margins "mimrgns"
-	local mimarginsspec `e(marginsdefault)'
-	
-	if "`cmd_m1'" == "logit" | "`cmd_m1'" == "probit" {
-		local mimarginsspec ""
-	}	
+	local mimarginsspec "predict(default)"
 }	
 	
 *Check if model 1 is supported
