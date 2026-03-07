@@ -1,8 +1,9 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.0.4 Bing Han & Trenton Mize 2026-02-09
+*! totalme v1.0.4 Bing Han & Trenton Mize 2026-03-07
 
-*TM: v1.0.4 fixes issue with default prediction type with imputed data
+*TM: v1.0.4 fixes issue with default prediction type with imputed data; 
+*			better commands option
 *TM: v1.0.3 adds support for gologit2 for single model case
 *BH: makes level option work
 *    return scalar and tables 
@@ -582,14 +583,6 @@ else if `nummods' == 2 {
 		local listwise ""
 		}
 	
-	*Estimate the gsem model
-	if "`commands'" != "" {
-		di _newline(1)
-		di in white "gsem model is: "
-		di in yellow "  `gsemprefix'gsem (`mod1dv' <- `mod1ivs', `cmd_m1')" /*
-		*/ "(`mod2dv' <- `mod2ivs', `cmd_m2') `weightspec', vce(robust) `listwise'"
-	}
-	
 	*Warn if different sample size used across models
 	if "`groups'" == "" & `Nsav1' != `Nsav2' {
 		di _newline(1)
@@ -623,6 +616,12 @@ else if `nummods' == 2 {
 	
 	tempvar totalme_sample 
 	qui gen `totalme_sample' = 1 if e(sample) 	// to get correct SDs below
+
+	*commands option prints gsem model syntax 
+	if "`commands'" != "" {
+		di in white "gsem model is: "
+		di in yellow "     `e(cmdline)'"
+	}	
 	
 }	// End of model specification
 
@@ -970,6 +969,12 @@ if `numcontvars' != 0 {
 			
 			local 	term_base 0
 
+			*commands option prints margins syntax 
+			if "`commands'" != "" {
+				di in white "margins specification is: "
+				di in yellow "     `r(cmdline)'"
+			}
+	
 			if `mod1cats' == 1 { 
 				local term_base abs(_b[2._at`bospec'] - _b[1._at`bospec'])
 			}
@@ -1030,6 +1035,12 @@ if `numcontvars' != 0 {
 			local 	term_base 0
 			local 	term_com 0
 
+			*commands option prints margins syntax 
+			if "`commands'" != "" {
+				di in white "margins specification is: "
+				di in yellow "     `r(cmdline)'"
+			}
+	
 			forvalues i = 1/`mod1cats' {	
 				local part1 ///
 				+ abs(_b[`i'._predict#2._at`mod_samp_spec1'`bospec'] ///
@@ -1162,7 +1173,13 @@ if `numnomvars' != 0 {
 			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' ///
 			`atmeans' post	
 			qui est store totalme_margins
-			
+
+			*commands option prints margins syntax 
+			if "`commands'" != "" {
+				di in white "margins specification is: "
+				di in yellow "     `r(cmdline)'"
+			}
+	
 			qui levelsof 	`mod1dv'
 			local dvlevels 	`r(levels)'
 			
@@ -1296,7 +1313,13 @@ if `numnomvars' != 0 {
 				local mod_samp_spec2 ""
 			}
 			qui est store totalme_margins
-			
+
+			*commands option prints margins syntax 
+			if "`commands'" != "" {
+				di in white "margins specification is: "
+				di in yellow "     `r(cmdline)'"
+			}
+	
 			** Wieghted inequality: By default
 			if ("`unweighted'"=="") {		
 				
