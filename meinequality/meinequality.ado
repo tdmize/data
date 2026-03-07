@@ -1,8 +1,8 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.0.3 Bing Han & Trenton Mize 2026-02-10
+*! meinequality v1.0.3 Bing Han & Trenton Mize 2026-03-07
 
-*TM: v1.0.3 adds by and over options
+*TM: v1.0.3 adds by and over options; better commands option
 *TM: v1.0.2 adds support for gologit2 for one model case
 *BH: makes level option work
 *    return scalar and tables 
@@ -643,14 +643,6 @@ else if `nummods' == 2 {
 		local listwise ""
 		}
 	
-	*Estimate the gsem model
-	if "`commands'" != "" {
-		di _newline(1)
-		di in white "gsem model is: "
-		di in yellow "  `gsemprefix'gsem (`mod1dv' <- `mod1ivs', `cmd_m1')" /*
-		*/ "(`mod2dv' <- `mod2ivs', `cmd_m2') `weightspec', vce(robust) `listwise'"
-	}
-	
 	*Warn if different sample size used across models
 	if "`groups'" == "" & `Nsav1' != `Nsav2' {
 		di _newline(1)
@@ -682,8 +674,16 @@ else if `nummods' == 2 {
 	local samp1_size = e(_N)[1,1]
 	local samp2_size = e(_N)[1,2]
 
+	*commands option prints gsem model syntax 
+	if "`commands'" != "" {
+		di in white "gsem model is: "
+		di in yellow "     `e(cmdline)'"
+	}
+	
 }	// End of model specification
 
+
+	
 ****************************************************************************
 // Calculation of ME inequality stats: prep
 ****************************************************************************
@@ -742,6 +742,12 @@ forvalues ithvar=1/`numvars' {
 		`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' ///
 		`atmeans' post	
 		qui est store meineq_margins
+	
+	*commands option prints margins syntax 
+	if "`commands'" != "" {
+		di in white "margins specification is: "
+		di in yellow "     `r(cmdline)'"
+	}
 	
 		** Different Calculations
 		** Wieghted inequality: By default
@@ -853,6 +859,12 @@ forvalues ithvar=1/`numvars' {
 		}
 		qui est store meineq_margins
 		
+		*commands option prints margins syntax 
+		if "`commands'" != "" {
+			di in white "margins specification is: "
+			di in yellow "     `r(cmdline)'"
+		}
+	
 		** Wieghted inequality: By default
 		if ("`unweighted'"=="") {		
 			
@@ -1059,7 +1071,13 @@ forvalues ithvar=1/`numvars' {
 
 		`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' `atmeans' post	
 		qui est store meineq_margins
-		
+
+		*commands option prints margins syntax 
+		if "`commands'" != "" {
+			di in white "margins specification is: "
+			di in yellow "     `r(cmdline)'"
+		}
+	
 		qui levelsof 	`mod1dv'
 		local dvlevels 	`r(levels)'
 		
@@ -1199,7 +1217,13 @@ forvalues ithvar=1/`numvars' {
 			local mod_samp_spec2 ""
 		}
 		qui est store meineq_margins
-		
+
+		*commands option prints margins syntax 
+		if "`commands'" != "" {
+			di in white "margins specification is: "
+			di in yellow "     `r(cmdline)'"
+		}
+	
 		qui levelsof 	`mod1dv'
 		local dvlevels 	`r(levels)'
 		
