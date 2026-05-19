@@ -1,7 +1,8 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.0.3 Bing Han & Trenton Mize 2026-03-07
+*! meinequality v1.0.4 Bing Han & Trenton Mize 2026-05-15
 
+*TM: v1.0.4 adds support for various mi estimate options
 *TM: v1.0.3 adds by and over options; better commands option
 *TM: v1.0.2 adds support for gologit2 for one model case
 *BH: makes level option work
@@ -180,6 +181,7 @@ local mod1dv = 	"`e(depvar)'"
 local ifweight1 = "`e(wexp)'"
 local prefix1 = "`e(prefix)'"
 local margins "margins"
+local marginscmdline "r(cmdline)"
 
 if "`cmd_m1'" == "mi estimate" {
 
@@ -196,7 +198,8 @@ if "`cmd_m1'" == "mi estimate" {
 	local cmd_m1 "`e(cmd_mi)'"
 	local prefix1 = "`e(prefix_mi)'"	
 	local margins "mimrgns"
-	local mimarginsspec "predict(default)"
+	local mimarginsspec "predict(default) errorok esampvaryok"
+	local marginscmdline "r(est_cmdline_margins)"
 }	
 
 	
@@ -746,7 +749,7 @@ forvalues ithvar=1/`numvars' {
 	*commands option prints margins syntax 
 	if "`commands'" != "" {
 		di in white "margins specification is: "
-		di in yellow "     `r(cmdline)'"
+		di in yellow _skip(5) `marginscmdline'
 	}
 	
 		** Different Calculations
@@ -862,7 +865,7 @@ forvalues ithvar=1/`numvars' {
 		*commands option prints margins syntax 
 		if "`commands'" != "" {
 			di in white "margins specification is: "
-			di in yellow "     `r(cmdline)'"
+			di in yellow _skip(5) `marginscmdline'
 		}
 	
 		** Wieghted inequality: By default
@@ -1075,7 +1078,7 @@ forvalues ithvar=1/`numvars' {
 		*commands option prints margins syntax 
 		if "`commands'" != "" {
 			di in white "margins specification is: "
-			di in yellow "     `r(cmdline)'"
+			di in yellow _skip(5) `marginscmdline'
 		}
 	
 		qui levelsof 	`mod1dv'
@@ -1221,7 +1224,7 @@ forvalues ithvar=1/`numvars' {
 		*commands option prints margins syntax 
 		if "`commands'" != "" {
 			di in white "margins specification is: "
-			di in yellow "     `r(cmdline)'"
+			di in yellow _skip(5) `marginscmdline'
 		}
 	
 		qui levelsof 	`mod1dv'
