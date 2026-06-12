@@ -1,14 +1,16 @@
 @font-face {
   font-family: 'United Sans';
-  src: url('fonts/UnitedSansReg-Bold.woff2') format('woff2');
+  src: url('https://tdmize.github.io/data/Rmarkdown/UnitedSansReg-Bold.woff2') format('woff2'),
+       url('https://tdmize.github.io/data/Rmarkdown/UnitedSansReg-Bold.woff') format('woff');
   font-weight: bold;
   font-style: normal;
+  font-display: swap;
 }
 
 /* Logo Banner Above Title */
 .logo-banner {
   width: 100%;
-  background-image: url("logos/MCAP-logo.png");
+  background-image: url("https://tdmize.github.io/data/Rmarkdown/MCAP-logo.png");
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;     /* Ensures the full logo fits without distortion */
