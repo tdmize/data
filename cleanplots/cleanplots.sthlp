@@ -1,11 +1,11 @@
 {smcl}
-{* 2018-10-05 Trenton D Mize}{...}
+{* 2026-07-02 Trenton D Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
 {p2col:{cmd:cleanplots} {hline 2}}Graphics scheme that implements best 
 data visualization practices. Default color choices are effective in both 
-color and when printed in grayscale. {p_end}
+color and when printed in grayscale. Colors are chosen to be color-blind friendly. {p_end}
 {p2colreset}{...}
 
 {title:Overview}
@@ -18,7 +18,7 @@ follow best data visualization practices.
 {pstd}
 The choices for colors and markers allow for graphics that are effective when 
 used in color but that can also be easily distinguished when printed in 
-grayscale. 
+grayscale. The colors are also color-blind friendly.
 
 {pstd}
 For more information and to see examples, see the 
@@ -46,6 +46,16 @@ Stata's default graphic scheme is {cmd:s2color}. To change back to the default:
 {pstd} {cmd:cleanplots} is written by Trenton D Mize (Departments of Sociology 
 & Statistics [by courtesy] & The Methodology Center at Purdue University). 
 Questions can be sent to tmize@purdue.edu {p_end}
+
+{title:Updates}
+
+{pstd} {cmd:cleanplots} was overhauled on 2026-07-02 to ensure all 10 colors 
+and choices of lines, markers, etc are color-blind friendly and work as well as 
+possible in black and white. When using 6 or more colors, I recommnend including 
+markers or similar features of plots that aid in distinguishing parts of the 
+graph (e.g., different lines). {cmd:cleanplots} ensures that the first 10 
+features of a graph (e.g., lines or markers) are distinguishable if both color 
+and line/markers are used. {p_end}
 
 {title:Citation}
 

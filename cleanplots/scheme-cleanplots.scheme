@@ -1,4 +1,7 @@
 // cleanplots Graphing Scheme //
+* Trenton D. Mize
+* 2018-09-16
+*! cleanplots v1.0.4 Trenton Mize 2026-07-02
 
 * Graphing scheme with colors and other tweaks for common graphs
 * Particularly designed for easier and better default plots of 
@@ -7,8 +10,15 @@
 
 * NOTE: "help scheme entries" for what each command does
 
-* Trenton D. Mize
-* 2018-09-16
+* v1.0.4 - p4 gray lightened gs7 -> gs9 so p1 (red) and p4 are
+*			distinguishable in black & white; line patterns extended to
+*			shortdash (p5-p6) and longdash (p7-p8) so same-pattern pairs
+*			always differ strongly in lightness; p10 lightened to
+*			lavender*.35 for better colorblind separation from p2 and p8;
+*			fixes p9 color typo
+* v1.0.3 - Moves around colors in first 5, and adds some new ones after, for
+*			better distinguishment
+
 #include s1color
 
 // Legend outside in lower right corner
@@ -191,45 +201,39 @@ symbol p5     				smtriangle_hollow
 symbol p6     				smtriangle
 symbol p7     				smdiamond_hollow
 symbol p8     				smdiamond
-symbol p9     				i
+symbol p9     				plus
 symbol p10    				plus
 symbol p11    				x
-symbol p12    				smcircle
-symbol p13    				smcircle_hollow
-symbol p14    				smsquare
-symbol p15    				smsquare_hollow
+symbol p12    				x
+
 
 linepattern p1lineplot  	solid
-linepattern p2lineplot  	solid 
-linepattern p3lineplot  	solid
-linepattern p4lineplot  	solid
-linepattern p5lineplot  	solid
-linepattern p6lineplot  	solid
-linepattern p7lineplot  	solid
-linepattern p8lineplot  	solid
-linepattern p9lineplot  	dash
-linepattern p10lineplot 	dash
+linepattern p2lineplot  	solid
+linepattern p3lineplot  	dash
+linepattern p4lineplot  	dash
+linepattern p5lineplot  	shortdash
+linepattern p6lineplot  	shortdash
+linepattern p7lineplot  	longdash
+linepattern p8lineplot  	longdash
+linepattern p9lineplot  	solid
+linepattern p10lineplot 	solid
 linepattern p11lineplot 	dash
 linepattern p12lineplot 	dash
-linepattern p13lineplot 	dash
-linepattern p14lineplot 	dash
-linepattern p15lineplot 	dash
+
 
 linepattern p1line  		solid
-linepattern p2line  		solid 
-linepattern p3line  		solid
-linepattern p4line  		solid
-linepattern p5line  		solid
-linepattern p6line  		solid
-linepattern p7line  		solid
-linepattern p8line  		solid
-linepattern p9line  		dash
-linepattern p10line 		dash
-linepattern p11linep 		dash
+linepattern p2line  		solid
+linepattern p3line  		dash
+linepattern p4line  		dash
+linepattern p5line  		shortdash
+linepattern p6line  		shortdash
+linepattern p7line  		longdash
+linepattern p8line  		longdash
+linepattern p9line  		solid
+linepattern p10line 		solid
+linepattern p11line 		dash
 linepattern p12line 		dash
-linepattern p13line 		dash
-linepattern p14line 		dash
-linepattern p15line	 		dash
+
 
 linepattern xyline      	shortdash 	
 linepattern ci          	dash
@@ -244,94 +248,82 @@ yesno extend_axes_high      no
 yesno extend_axes_full_low  no
 yesno extend_axes_full_high no
 
+
 // Colors // 
 
 * White background for all plots
 color background             white
 
-* Textboxes
-color box           		gs15
-color textbox       		gs15
-color mat_label_box 		gs15
-
 * Default for all other non-specified objects
 * NOTE: CIs in marginsplot is based on this
 color p1					red*1.2
-color p2 					eltblue
-color p3 					gs8
-color p4 					black
-color p5 					cyan*1.2
-color p6 					purple
-color p7 					gold
-color p8 					dkgreen
-color p9 					lavender
-color p10 					navy
-color p11					dkgreen
-color p12 					pink
-color p13 					sand
-color p14 					black
+color p2 					eltblue*.9
+color p3 					black
+color p4 					gs9
+color p5					purple*1.1
+color p6					pink*.3
+color p7					navy*1.3
+color p8					gs12
+color p9					gs4
+color p10					lavender*.35
 
 * Default for lines (matching the symbols)
 color p1line				red*1.2
-color p2line				eltblue
-color p3line				gs8
-color p4line				black
-color p5line 				cyan*1.2
-color p6line 				purple
-color p7line 				gold
-color p8line 				dkgreen
-color p9line 				lavender
-color p10line 				navy
-color p11line				dkgreen
-color p12line				pink
-color p13line 				sand
-color p14line 				black
+color p2line				eltblue*.9
+color p3line				black
+color p4line				gs9
+color p5line 				purple*1.1
+color p6line 				pink*.3
+color p7line 				navy*1.3
+color p8line 				gs12
+color p9line 				gs4
+color p10line 				lavender*.35
 
 color p1lineplot			red*1.2
-color p2lineplot			eltblue
-color p3lineplot			gs8
-color p4lineplot			black
-color p5lineplot 			cyan*1.2
-color p6lineplot			purple
-color p7lineplot 			gold
-color p8lineplot 			dkgreen
-color p9lineplot 			lavender
-color p10lineplot 			navy
-color p11lineplot			dkgreen
-color p12lineplot			pink
-color p13lineplot			sand
-color p14lineplot 			black
+color p2lineplot			eltblue*.9
+color p3lineplot			black
+color p4lineplot			gs9
+color p5lineplot 			purple*1.1
+color p6lineplot			pink*.3
+color p7lineplot 			navy*1.3
+color p8lineplot 			gs12
+color p9lineplot 			gs4
+color p10lineplot 			lavender*.35
 
 color p1markline			red*1.2
-color p2markline			eltblue
-color p3markline			gs8
-color p4markline			black
-color p5markline 			cyan*1.2
-color p6markline			purple
-color p7markline 			gold
-color p8markline 			dkgreen
-color p9markline 			lavender
-color p10markline 			navy
-color p11markline			dkgreen
-color p12markline			pink
-color p13markline			sand
-color p14markline 			black
+color p2markline			eltblue*.9
+color p3markline			black
+color p4markline			gs9
+color p5markline 			purple*1.1
+color p6markline			pink*.3
+color p7markline 			navy*1.3
+color p8markline 			gs12
+color p9markline 			gs4
+color p10markline 			lavender*.35
 
 * Bar charts
 color p1bar					red
-color p2bar					eltblue*.8
-color p3bar					gs10
-color p4bar					black*.9
-color p5bar					cyan
-color p6bar					purple*.8
-color p7bar					gold*.8
-color p8bar					dkgreen*.9
-color p9bar					lavender*.9
-color p10bar				navy*.8
-color p11bar				dkgreen*.9
-color p12bar				pink*.7
-color p13bar				sand*.8
-color p14bar				black
+color p2bar					eltblue*.7
+color p3bar					black*.9
+color p4bar					gs9
+color p5bar					purple*.9
+color p6bar					pink*.2
+color p7bar					navy*1.1
+color p8bar					gs12
+color p9bar					gs6
+color p10bar				lavender*.3
+
+color p1barline				red
+color p2barline				eltblue*.7
+color p3barline				black*.9
+color p4barline				gs9
+color p5barline				purple*.9
+color p6barline				pink*.2
+color p7barline				navy*1.1
+color p8barline				gs12
+color p9barline				gs6
+color p10barline			lavender*.3
+
 
 * Confidence Intervals and other rarea plots
 color parea					gs13
@@ -339,55 +331,44 @@ color parealine				gs13
 
 * Area plots
 color p1area				red
-color p2area				eltblue*.8
-color p3area				gs10
-color p4area				black*.9
-color p5area				cyan
-color p6area				purple*.8
-color p7area				gold*.8
-color p8area				dkgreen*.9
-color p9area				lavender*.9
-color p10area				navy*.8
-color p11area				dkgreen*.9
-color p12area				pink*.7
-color p13area				sand*.8
-color p14area				black
+color p2area				eltblue*.7
+color p3area				black*.9
+color p4area				gs9
+color p5area				purple*.9
+color p6area				pink*.2
+color p7area				navy*1.1
+color p8area				gs12
+color p9area				gs6
+color p10area				lavender*.3
 
 color p1arealine			red
-color p2arealine			eltblue*.8
-color p3arealine			gs10
-color p4arealine			black*.9
-color p5arealine			cyan
-color p6arealine			purple*.8
-color p7arealine			gold*.8
-color p8arealine			dkgreen*.9
-color p9arealine			lavender*.9
-color p10arealine			navy*.8
-color p11arealine			dkgreen*.9
-color p12arealine			pink*.7
-color p13arealine			sand*.8
-color p14arealine			black
+color p2arealine			eltblue*.7
+color p3arealine			black*.9
+color p4arealine			gs9
+color p5arealine			purple*.9
+color p6arealine			pink*.2
+color p7arealine			navy*1.1
+color p8arealine			gs12
+color p9arealine			gs6
+color p10arealine			lavender*.3
 
 * Pie slices
 color p1pie					red
-color p2pie					eltblue*.8
-color p3pie					gs10
-color p4pie					black*.9
-color p5pie					cyan
-color p6pie					purple*.8
-color p7pie					gold*.8
-color p8pie					dkgreen*.9
-color p9pie					lavender*.9
-color p10pie				navy*.8
-color p11pie				dkgreen*.9
-color p12pie				pink*.7
-color p13pie				sand*.8
-color p14pie				black
+color p2pie					eltblue*.7
+color p3pie					black*.9
+color p4pie					gs9
+color p5pie					purple*.9
+color p6pie					pink*.2
+color p7pie					navy*1.1
+color p8pie					gs12
+color p9pie					gs6
+color p10pie				lavender*.3
+
 
 * Fade out bar charts and histograms into lighther palette because
 * so much ink
-intensity bar 				80
-intensity histogram         80
+intensity bar 				70
+intensity histogram         70
 
 * Confidence Intervals
 color ci_line      			gs13
@@ -468,4 +449,7 @@ yesno grid_draw_max          	no
 yesno grid_force_nomin       	no
 yesno grid_force_nomax       	no
 
-
+* Textboxes
+color box           		gs15
+color textbox       		gs15
+color mat_label_box 		gs15
