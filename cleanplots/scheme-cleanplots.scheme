@@ -15,6 +15,7 @@
 *			shortdash (p5-p6) and longdash (p7-p8) so same-pattern pairs
 *			always differ strongly in lightness; p10 lightened to
 *			lavender*.35 for better colorblind separation from p2 and p8;
+*			legend moved to the 3 o'clock position (right, centered);
 *			fixes p9 color typo
 * v1.0.3 - Moves around colors in first 5, and adds some new ones after, for
 *			better distinguishment
@@ -23,7 +24,7 @@
 
 // Legend outside in lower right corner
 * 1 column; short signatures; no frame
-clockdir legend_position     4
+clockdir legend_position     3
 numstyle legend_cols         1
 numstyle legend_rows         0
 gsize legend_key_xsize       5
