@@ -1,4 +1,5 @@
 v 3
-d cleanplots - graphing scheme for clean default plots
+d cleanplots - graphing scheme for clean default plots that are colorblind 
+d friendly and that can be printed in black and white.
 d Trenton D. Mize, Purdue University
 p cleanplots graph scheme
