@@ -1,7 +1,7 @@
 // cleanplots Graphing Scheme //
 * Trenton D. Mize
 * 2018-09-16
-*! cleanplots v1.0.4 Trenton Mize 2026-07-02
+*! cleanplots v1.0.5 Trenton Mize 2026-07-10
 
 * Graphing scheme with colors and other tweaks for common graphs
 * Particularly designed for easier and better default plots of 
@@ -17,6 +17,10 @@
 *			lavender*.35 for better colorblind separation from p2 and p8;
 *			legend moved to the 3 o'clock position (right, centered);
 *			fixes p9 color typo
+* v1.0.5 - plot slots 11-15 now recycle the cleanplots colors (11-15
+*			repeat colors 1-5, and their bar versions) with distinct
+*			line patterns and marker symbols, instead of falling back
+*			to Stata's factory defaults
 * v1.0.3 - Moves around colors in first 5, and adds some new ones after, for
 *			better distinguishment
 
@@ -454,3 +458,57 @@ yesno grid_force_nomax       	no
 color box           		gs15
 color textbox       		gs15
 color mat_label_box 		gs15
+
+
+* ---------------------------------------------------------------------
+* Plot slots 11-15: recycle cleanplots colors 1-5 (Stata's plot cycle
+* runs to 15). Line patterns and marker symbols differ from slots 1-5,
+* so recycled slots never share both color and pattern/symbol.
+* ---------------------------------------------------------------------
+
+color p11					red*1.2
+color p12					eltblue*.9
+color p13					black
+color p14					gs9
+color p15					purple*1.1
+
+color p11line				red*1.2
+color p12line				eltblue*.9
+color p13line				black
+color p14line				gs9
+color p15line				purple*1.1
+
+color p11lineplot			red*1.2
+color p12lineplot			eltblue*.9
+color p13lineplot			black
+color p14lineplot			gs9
+color p15lineplot			purple*1.1
+
+color p11markline			red*1.2
+color p12markline			eltblue*.9
+color p13markline			black
+color p14markline			gs9
+color p15markline			purple*1.1
+
+color p11bar				red
+color p12bar				eltblue*.7
+color p13bar				black*.9
+color p14bar				gs9
+color p15bar				purple*.9
+
+color p11barline			red
+color p12barline			eltblue*.7
+color p13barline			black*.9
+color p14barline			gs9
+color p15barline			purple*.9
+
+symbol p13					smplus
+symbol p14					circle_hollow
+symbol p15					square_hollow
+
+linepattern p13line			dash_dot
+linepattern p14line			longdash_dot
+linepattern p15line			"-.."
+linepattern p13lineplot		dash_dot
+linepattern p14lineplot		longdash_dot
+linepattern p15lineplot		"-.."
