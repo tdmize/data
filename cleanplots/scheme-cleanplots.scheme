@@ -1,7 +1,7 @@
 // cleanplots Graphing Scheme //
 * Trenton D. Mize
 * 2018-09-16
-*! cleanplots v1.0.5 Trenton Mize 2026-07-10
+*! cleanplots v1.0.6 Trenton Mize 2026-07-14
 
 * Graphing scheme with colors and other tweaks for common graphs
 * Particularly designed for easier and better default plots of 
@@ -21,6 +21,9 @@
 *			repeat colors 1-5, and their bar versions) with distinct
 *			line patterns and marker symbols, instead of falling back
 *			to Stata's factory defaults
+* v1.0.6 - axis lines and ticks lightened (gs10 -> gs13) and axis
+*			lines thinned (medthin -> thin) for a less invasive frame;
+*			dotted gs10 gridlines unchanged
 * v1.0.3 - Moves around colors in first 5, and adds some new ones after, for
 *			better distinguishment
 
@@ -110,7 +113,7 @@ linewidth histogram    		vthin
 linewidth bar          		vthin
 
 linewidth p                 medium
-linewidth axisline          medthin
+linewidth axisline          thin   
 linewidth tick              thin
 linewidth minortick         thin
 linewidth background        thin
@@ -390,13 +393,13 @@ color histogram 			none
 color histogram_line		black
 
 color xyline 				gs7
-color tick         			gs10
-color minortick    			gs10
+color tick         			gs13
+color minortick    			gs13
 
 color grid                  gs10
 color major_grid            gs10
 color minor_grid            gs10
-color axisline     			gs10
+color axisline     			gs13
 
 color matrix         		gs6    
 color matrixmarkline 		gs6    
