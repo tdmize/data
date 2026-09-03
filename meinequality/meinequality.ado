@@ -1,20 +1,12 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.0.4 Bing Han & Trenton Mize 2026-05-15
-
-*TM: v1.0.4 adds support for various mi estimate options
-*TM: v1.0.3 adds by and over options; better commands option
-*TM: v1.0.2 adds support for gologit2 for one model case
-*BH: makes level option work
-*    return scalar and tables 
-* 	 add by and over options	
-
+*! meinequality v1.8.8 Bing Han & Trenton Mize 2026-09-02  | history: CHANGELOG-meinequality.md (repo)
 
 program define meinequality, rclass
 	
-version 15
+version 16
 
-syntax 	varlist(fv) [fweight pweight iweight] , ///
+syntax 	varlist(fv) [if] [in] [fweight pweight iweight] , ///
 		[MODels(string) ///
 		WEIghted ///
 		UNWeighted ///
@@ -22,34 +14,82 @@ syntax 	varlist(fv) [fweight pweight iweight] , ///
 		ATMEANs ///
 		GROUPs ///
 		GROUPNames(string) /// 
-		DECimals(integer 3) /// 
+		DECimals(string) /// 
 		title(string) /// 
 		ci /// 
-		LABWidth(numlist >19 integer) /// 
+		LABWidth(numlist integer) /// 
 		DETAILs /// 
 		COMMANDs /// 
 		level(integer 95) /// 
 		by(string) ///
 		over(string) ///
+		ENGine(string) ///
 		] 	
+
+marksample touse
+
+*The suest2 package is a PREREQUISITE and must be installed
+local meimissing ""
+foreach meireq in suest2 _mec_canonical mec_share mec_wcheck mec_gsem _mec_omitchk _mec_prefix {
+	capture which `meireq'
+	if _rc  local meimissing "`meimissing' `meireq'"
+	}
+if "`meimissing'" != "" {
+	di _newline(1)
+	di as err "{cmd:meinequality} requires the {cmd:suest2} package, which "  /*
+	*/ "is missing or incomplete. Not found:`meimissing'. Install or "  /*
+	*/ "update {cmd:suest2} and try again."
+	exit 199
+	}
+
+*Engine: suest2 (default) combines the stored estimates; gsem is undocumented and refits
+local engine = lower(trim("`engine'"))
+if "`engine'" == ""  local engine "suest2"
+if "`engine'" != "suest2" & "`engine'" != "gsem" {
+	di _newline(1)
+	di as err "{opt engine()} must be {opt suest2} or {opt gsem}."
+	exit 198
+	}
+
+*Store the system under the engine's name; drop the other engine's name
+local meisys "meineq_suest2"
+local meisysalt "meineq_gsem"
+if "`engine'" == "gsem" {
+	local meisys "meineq_gsem"
+	local meisysalt "meineq_suest2"
+	}
+
+*Second marker: if/in only (under mi the varlist's missings are the imputed obs)
+tempvar mecshsamp
+marksample mecshsamp, novarlist
 		
 ****************************************************************************
 // Set overall options
 ****************************************************************************	
 
-*Show estimation details
+*Show estimation details; meishow prefixes the combine call, which runs under capture and is silent unless noisily
 if "`details'"!=""{
 	local quietly ""
-} 
+	local meishow "noisily"
+}
 else {
 	local quietly "quietly"
+	local meishow "quietly"
 }
 
-*Set display options for final table (label width, title, decimal)
+*Display options; labwidth 20-32 refused with a message
 if "`labwidth'" == "" {
 	local twidth = 24
 }
 else {
+	capture confirm integer number `labwidth'
+	if _rc | !inrange(real("`labwidth'"), 20, 32) {
+		di _newline(1)
+		di as err "{opt labwidth()} must be an integer between 20 and 32. " /*
+		*/ "To fit longer names, use shorter names in {opt models()} or " /*
+		*/ "{opt groupnames()}."
+		exit 198
+	}
 	local twidth = `labwidth'
 }
 
@@ -60,11 +100,17 @@ else {
 	local title "`title'"
 }  	
 
+*decimals must be an integer 0-7
 if "`decimals'" == "" {
-	local dec = 3
+	local decimals = 3
 }
 else {
-	local dec = `decimals'
+	capture confirm integer number `decimals'
+	if _rc | !inrange(real("`decimals'"), 0, 7) {
+		di _newline(1)
+		di as err "{opt decimals()} must be an integer between 0 and 7."
+		exit 198
+	}
 }
 
 if "`level'" == "" {
@@ -90,9 +136,7 @@ else {
 // Set options for different # of models
 ****************************************************************************
 
-*List of supported models
-local supmods 	"regress logit probit poisson nbreg mlogit ologit oprobit gologit2"
-local onmods 	"mlogit ologit oprobit gologit2"
+*Supported models resolved by _mec_canonical
 			
 *Check # of models
 local nummods: word count `models'
@@ -102,15 +146,17 @@ if `nummods' > 2 {
 	di _newline(1)
 	di as err "Invalid number of models specified in {opt models()} option. " /*
 	*/ "{cmd:meinequality} can only be used with one or two models."
-	exit	
+	exit 198	
 } 
 
 *Error out if group specified incorrectly
 if "`groups'" != "" & `nummods' == 1 {
 	di _newline(1)
 	di as err "The {opt groups} option requires two models to be specified in " /*
-	*/ "the {opt models()} option—one for each group. See " /*
+	*/ "the {opt models()} option -- one for each group. See " /*
 	*/ "{help meinequality##groups}."
+*groups needs two models; refuse
+	exit 198
 }		
 
 *Set model names in the table
@@ -119,7 +165,7 @@ if "`groupnames'" != "" & "`groups'" == "" {
 	di as err "The {opt groupnames} option requires two different models " /*
 	*/ "to be specified using the {opt groups()} option. " /*
 	*/ "See {help meinequality##groupnames}."
-	exit	
+	exit 198	
 }
 
 if "`groupnames'" == "" {
@@ -139,21 +185,19 @@ if "`weight'" != "" {
 	if `nummods' == 2 {
 		local weightspec = "[`weight' `exp']"
 	}
+	*A weight may restate the model's weight but not contradict it
 	else if `nummods' == 1 {
-		di _newline(1)
-		di as err "The {opt weight} option requires two models to be specified in " /*
-		*/ "the {opt models()} option—one for each group. " /*
-		*/ "For a one-model situation, directly use weight in your model. " /*
-		*/ "See {help meinequality##weight}."
-		exit
+		local weightspec = "[`weight' `exp']"
 	}
 } 
 
-if "`prefix1'" == "svy" {
-	local svyspec "svy:" 
-}
-else {
-	local svyspec ""
+*Only one weighting may be requested
+local nwopt = ("`weighted'" != "") + ("`unweighted'" != "") + ("`all'" != "")
+if `nwopt' > 1 {
+	di _newline(1)
+	di as err "Specify only one of {opt weighted}, {opt unweighted}, or " /*
+	*/ "{opt all}."
+	exit 198
 }
 
 *Save models
@@ -175,15 +219,62 @@ local cmd_m1 "`e(cmd)'"
 local cmdline_m1 "`e(cmdline)'"
 local vcetype1	= "`e(vce)'"
 qui tempvar mod1samp
-qui gen `mod1samp' = e(sample)
+*Under mi, e(sample) is unset; if/in alone is the sample
+_mei_ismi
+local mei_ismi1 = r(ismi)
+local mei_under1 "`r(under)'"
+if `mei_ismi1' == 1  qui gen `mod1samp' = 1
+else                             qui gen `mod1samp' = e(sample)
+
+*Sample the level proportions are taken over
+local psamp1 "`mod1samp'"
+local psamp2 "`mod1samp'"
+*Levels are read from the estimation sample (all data if it is empty)
+local levsamp "`mod1samp' == 1 & `mecshsamp'"
+qui count if `levsamp'
+if r(N) == 0  local levsamp "1"
 local Nsav1 = e(N)
 local mod1dv = 	"`e(depvar)'"
 local ifweight1 = "`e(wexp)'"
+local ifwtype1 = "`e(wtype)'"
 local prefix1 = "`e(prefix)'"
-local margins "margins"
-local marginscmdline "r(cmdline)"
 
-if "`cmd_m1'" == "mi estimate" {
+*A pweighted multilevel model needs the higher-level pweight(); same gate as suest2's
+if `nummods' == 1 {
+	if inlist("`e(cmd)'", "mixed", "melogit", "meprobit", "mecloglog", "mepoisson") | /*
+	*/ inlist("`e(cmd)'", "menbreg", "meologit", "meoprobit", "mestreg", "meglm") {
+		if trim("`e(prefix)'") == "" & "`e(wtype)'" == "pweight" & /*
+		*/ trim(`"`e(pweight1)'"') == "" {
+			di _newline(1)
+			di as err "model `mod1' was fit with a weight but without a stage " /*
+			*/ "weight, so it carries no higher-level weight to build a design " /*
+			*/ "from; a weighted multilevel model needs one, as in " /*
+			*/ "[pw=w2] || group:, pweight(w1), or use the svy: prefix"
+			exit 198
+			}
+		}
+	}
+
+*One model with its own weight: inherit it for the level proportions
+if `nummods' == 1 & "`weight'" == "" & "`ifweight1'" != "" & "`prefix1'" != "svy" {
+	local weightspec "[`ifwtype1' `ifweight1']"
+}
+if `nummods' == 1 & "`weight'" != "" {
+	mec_wcheck, gweight(`weight') gexp(`exp') mwtype(`ifwtype1') /*
+		*/ mwexp(`ifweight1') prefix(`prefix1') cmd(meinequality)
+}
+
+*Level shares from mec_share (works under mi; pweight maps to aweight)
+local mecwspec ""
+if "`weightspec'" != ""      local mecwspec = /*
+	*/ subinstr("`weightspec'", "pweight", "aweight", 1)
+else if "`ifweight1'" != ""  local mecwspec "[aweight `ifweight1']"
+local mecismi = `mei_ismi1'
+local margins "margins"
+*Name of the r() result that holds the margins command line
+local marginscmdline "cmdline"
+
+if `mei_ismi1' == 1 {
 
 	capture which mimrgns
 		if (_rc) {
@@ -191,33 +282,48 @@ if "`cmd_m1'" == "mi estimate" {
 		di as err "{cmd:meinequality} requires the user-written package " /*
 		*/ "{cmd:mimrgns}. Click the link below to search for " /*
 		*/ "and install {cmd:mimrgns}: {stata search mimrgns: {bf:mimrgns}}."
-		exit
+		exit 198
 		}
 
-	local Nsav1 = e(N_mi)
-	local cmd_m1 "`e(cmd_mi)'"
-	local prefix1 = "`e(prefix_mi)'"	
+	capture confirm scalar e(N_mi)
+	if !_rc  local Nsav1 = e(N_mi)
+	local cmd_m1 "`mei_under1'"
+	if "`e(prefix_mi)'" != ""  local prefix1 = "`e(prefix_mi)'"
 	local margins "mimrgns"
 	local mimarginsspec "predict(default) errorok esampvaryok"
-	local marginscmdline "r(est_cmdline_margins)"
+	local marginscmdline "est_cmdline_margins"
 }	
 
 	
-*Check if model 1 is supported
-if strpos("`supmods'","`cmd_m1'") == 0 {
+*Resolve model 1 through _mec_canonical; r(spec) = margins stripe
+local mei_raw "`e(cmd)'"
+if "`cmd_m1'" != "" & "`cmd_m1'" != "mi estimate"  local mei_raw "`cmd_m1'"
+_mec_canonical, cmd("`mei_raw'") cmd2("`e(cmd2)'") model("`e(model)'") /*
+	*/ distrib("`e(distrib)'") method("`e(method)'") estimator("`e(estimator)'")
+local mei_canon "`r(canon)'"
+local mei_ok    = r(ok)
+local mei_spec  = r(spec)
+if "`mei_canon'" != ""  local cmd_m1 "`mei_canon'"
+
+if `mei_ok' == 0 {
 	di _newline(1)
-	di as err "`mod1' is a {cmd:`cmd_m1'}. {cmd:meinequality} " /* 
-	*/ "only supports the following estimation commands: " /*
-	*/ "regress, logit, probit, mlogit, ologit, oprobit, gologit2, poisson, nbreg."
-	exit
-}
+	di as err "`mod1' is a {cmd:`mei_raw'}, which {cmd:meinequality} does " /*
+	*/ "not support."
+	exit 198
+	}
 	
-*Save the number of categories for ologit and mlogit
-if "`cmd_m1'" == "ologit" | "`cmd_m1'" == "oprobit" | "`cmd_m1'" == "gologit2" {	
+*Outcome categories keyed on the command name (e(k_eq) cannot say)
+if "`cmd_m1'" == "ologit" | "`cmd_m1'" == "oprobit" | "`cmd_m1'" == "gologit2" /*
+	*/ | "`cmd_m1'" == "meologit" | "`cmd_m1'" == "meoprobit" /*
+	*/ | "`cmd_m1'" == "xtologit" | "`cmd_m1'" == "xtoprobit" {
 	local mod1cats = e(k_cat)
 	}
 else if "`cmd_m1'" == "mlogit" {
 	local mod1cats = e(k_eq)
+	}
+else if "`cmd_m1'" == "xtmlogit" {
+*xtmlogit reads e(k_out)
+	local mod1cats = e(k_out)
 	}
 else {
 	local mod1cats = 1
@@ -227,27 +333,57 @@ else {
 if `nummods' == 2 {
 	qui est restore `mod2'
 	local cmd_m2 "`e(cmd)'"
+*Resolve model 2 through _mec_canonical too
+	_mec_canonical, cmd("`cmd_m2'") cmd2("`e(cmd2)'") model("`e(model)'") /*
+		*/ distrib("`e(distrib)'") method("`e(method)'") estimator("`e(estimator)'")
+	local mei_canon2 "`r(canon)'"
+	local mei_ok2    = r(ok)
+	local mei_spec2  = r(spec)
+	if "`mei_canon2'" != ""  local cmd_m2 "`mei_canon2'"
+	if `mei_ok2' == 0 {
+		di _newline(1)
+		di as err "`mod2' is a {cmd:`e(cmd)'}, which {cmd:meinequality} does " /*
+		*/ "not support."
+		exit 198
+		}
+*The two models must agree about the stripe
+	if "`mei_spec'" != "" & `mei_spec' != `mei_spec2' {
+		di _newline(1)
+		di as err "`mod1' and `mod2' produce marginal predictions labelled " /*
+		*/ "differently, so they cannot be combined by {cmd:meinequality}."
+		exit 198
+		}
 	local cmdline_m2 "`e(cmdline)'"
 	local vcetype2	= "`e(vce)'"
 	qui tempvar mod2samp
-	qui gen `mod2samp' = e(sample)
+	*Under mi, e(sample) is unset; if/in alone is the sample
+_mei_ismi
+local mei_ismi2 = r(ismi)
+local mei_under2 "`r(under)'"
+if `mei_ismi2' == 1  qui gen `mod2samp' = 1
+else                             qui gen `mod2samp' = e(sample)
 	local Nsav2 = e(N)	
-	local mod2dv = 	"`e(depvar)'"
 	local ifweight2 = "`e(wexp)'"
+	local ifwtype2 = "`e(wtype)'"
 	local prefix2 = "`e(prefix)'"
 	
-	if "`cmd_m2'" == "mi estimate" {
-		local cmd_m2 "`e(cmd_mi)'"
-		local prefix2 = "`e(prefix_mi)'"	
-		local Nsav2 = e(N_mi)
+	if `mei_ismi2' == 1 {
+		local cmd_m2 "`mei_under2'"
+		if "`e(prefix_mi)'" != ""  local prefix2 = "`e(prefix_mi)'"
+		capture confirm scalar e(N_mi)
+		if !_rc  local Nsav2 = e(N_mi)
 	}	
 	
-	capture drop me_inequality_mod_samp // use unique name to avoid being taken
-	quietly gen me_inequality_mod_samp  = .
-	quietly replace me_inequality_mod_samp  = 1 if `mod1samp' == 1
-	quietly replace me_inequality_mod_samp  = 2 if `mod2samp' == 1
+*Which model's sample each observation belongs to (a tempvar)
+	tempvar meisamp
+	quietly gen `meisamp' = .
+	quietly replace `meisamp' = 1 if `mod1samp' == 1
+	quietly replace `meisamp' = 2 if `mod2samp' == 1
+	local levsamp "`meisamp' < . & `mecshsamp'"
+	qui count if `levsamp'
+	if r(N) == 0  local levsamp "1"
 			
-	quietly count if me_inequality_mod_samp == 1
+	quietly count if `meisamp' == 1
 	local Nsav1_ovlp = `r(N)'
 	
 	*Error out if group number is not consistent with the e(sample)
@@ -256,7 +392,7 @@ if `nummods' == 2 {
 		di as err "{opt groups} option does not support partially overlapping " /*
 		*/ "samples. With the {opt groups} option, samples must be entirely " /*
 		*/ "distinct across models. See {help meinequality##groups} for details."
-		exit		
+		exit 198		
 	}
 		
 	*Error out if command1 != command2
@@ -264,40 +400,86 @@ if `nummods' == 2 {
 		di _newline(1)
 		di as err "`mod1' is a {cmd:`cmd_m1'}; `mod2' is a {cmd:`cmd_m2'}. " /*
 		*/ "{cmd:meinequality} doesn't support different models."
-	exit
+	exit 198
 	}
 	
-	*Can't use gsem for gologit2
-	if "`cmd_m1'" == "gologit2" | "`cmd_m2'" == "gologit2" { 	
+	*gologit2 pair refused under engine(gsem) only
+	if ("`cmd_m1'" == "gologit2" | "`cmd_m2'" == "gologit2") /*
+		*/ & "`engine'" == "gsem" {
 		di _newline(1)
 		di as err "{cmd:gologit2} is not supported for comparing across two " /*
-		*/ "models. {cmd:meinequality} uses {cmd:gsem} to combine model " /*
-		*/ "estimates and {cmd:gologit2} estimates cannot be replicated with {cmd:gsem}."
-		exit		
+		*/ "models with {opt engine(gsem)}. That engine uses {cmd:gsem} to " /*
+		*/ "combine model estimates and {cmd:gologit2} estimates cannot be " /*
+		*/ "replicated with {cmd:gsem}. The default engine does not refit and " /*
+		*/ "supports this pair."
+		exit 198		
 	}
 	
-	if "`e(cmd)'" == "ologit" | "`e(cmd)'" == "oprobit" {	
+*Same branch as model 1, keyed on the canonical name
+	if "`cmd_m2'" == "ologit" | "`cmd_m2'" == "oprobit" | "`cmd_m2'" == "gologit2" /*
+		*/ | "`cmd_m2'" == "meologit" | "`cmd_m2'" == "meoprobit" /*
+		*/ | "`cmd_m2'" == "xtologit" | "`cmd_m2'" == "xtoprobit" {
 		local mod2cats = e(k_cat)
 	}
-	else if "`e(cmd)'" == "mlogit" {
+	else if "`cmd_m2'" == "mlogit" {
 		local mod2cats = e(k_eq)
+		}
+	else if "`cmd_m2'" == "xtmlogit" {
+		local mod2cats = e(k_out)
 		}
 	else {
 		local mod2cats = 1
 		}
 	
-	*Error out if different # of categories across m/ologit models	
-	if "`cmd_m1'" == "ologit" | "`cmd_m1'" == "oprobit" | ///
-	   "`cmd_m1'" == "mlogit" | "`cmd_m1'" == "oprobit" {
+	*Refuse differing outcome counts across the models
+	if `mod1cats' > 1 | `mod2cats' > 1 {
 		if `mod1cats' != `mod2cats' {
 		di _newline(1)
 		di as err "Numbers of outcome categories differ across models `mod1' " /*
 		*/ "and `mod2'. {cmd:meinequality} can only be used with `cmd_m1' when the " /*
 		*/ "number of outcome categories is the same across both models."
-		exit
+		exit 198
 		}	
 	}	
 	
+
+*Coefficient crosswalk: spec 0 = N._predict#, spec 1 = <store>: equation labels
+	local meispec = 0
+	if "`mei_spec'" != "" & `mei_spec' == 1  local meispec = 1
+
+	if `mod1cats' == 1 {
+		local prnum1 "1._predict#"
+		local prnum2 "2._predict#"
+		if `meispec' == 1 {
+			local prnum1 "`mod1':"
+			local prnum2 "`mod2':"
+			}
+		}
+	else {
+		forvalues meiout = 1/`mod1cats' {
+			local prnum1_`meiout' "`meiout'._predict#"
+			local meimarg = `meiout' + `mod1cats'
+			local prnum2_`meiout' "`meimarg'._predict#"
+			if `meispec' == 1 {
+				local prnum1_`meiout' "`mod1':`meiout'._predict#"
+				local prnum2_`meiout' "`mod2':`meiout'._predict#"
+				}
+			}
+		}
+
+*The over() level suffix is cleared where it is set, inside the calculation blocks
+
+*Two-model prefixes: equation = store name; model 2 restarts outcome numbering; no predict spec passed
+
+*groups with a multi-outcome specialized model is refused
+	if `meispec' == 1 & "`groups'" != "" & `mod1cats' != 1 {
+		di _newline(1)
+		di as err "{opt groups} is not yet supported for multi-outcome " /*
+		*/ "models of this type ({cmd:`cmd_m1'}). Compare the groups " /*
+		*/ "separately for now."
+		exit 198
+		}
+
 	*Remove model options
 	local ifcomma = strpos("`cmdline_m1'", ",") 
 	local cmdline_m1_vce = "`cmdline_m1'"
@@ -310,8 +492,9 @@ if `nummods' == 2 {
 		local cmdline_m1_vce = substr("`cmdline_m1_vce'", `ifcomma' + 1, `ifcomma' + 7)		
 		local cmdline_m1_vce = strtrim("`cmdline_m1_vce'")
 		if "`cmdline_m1_vce'" != "vce(robust)" {
-			di in red "{cmd:meinequality} does not support options except vce(robust) " /*
-			*/ "for two-model cases. Options for `mod1' are removed for estimation."			
+			di in red "{cmd:meinequality} shows each model's command line without " /*
+			*/ "its options. Estimation uses `mod1' exactly as it was stored; " /*
+			*/ "nothing is refitted and no option is discarded."			
 		}
 	}		
 	
@@ -325,13 +508,30 @@ if `nummods' == 2 {
 		local cmdline_m2_vce = substr("`cmdline_m2_vce'", `ifcomma' + 1, .)
 		local cmdline_m2_vce = strtrim("`cmdline_m2_vce'")
 		if "`cmdline_m2_vce'" != "vce(robust)" {
-			di in red "{cmd:meinequality} does not support options except vce(robust) " /*
-			*/ "for two-model cases. Options for `mod2' are removed for estimation."			
+			di in red "{cmd:meinequality} shows each model's command line without " /*
+			*/ "its options. Estimation uses `mod2' exactly as it was stored; " /*
+			*/ "nothing is refitted and no option is discarded."			
 		}		
 	}
 	
 	local cmdline_m1_show = "`cmdline_m1'"
 	local cmdline_m2_show = "`cmdline_m2'"
+
+*Strip the || part first; its colon is not a prefix
+	local mpipe = strpos("`cmdline_m1'", "||")
+	if `mpipe' != 0  local cmdline_m1 = substr("`cmdline_m1'", 1, `mpipe' - 1)
+	local mpipe = strpos("`cmdline_m2'", "||")
+	if `mpipe' != 0  local cmdline_m2 = substr("`cmdline_m2'", 1, `mpipe' - 1)
+
+	*Strip any prefix before reading DV/IVs by position (after _show is set)
+	local mcolon = strpos("`cmdline_m1'", ":")
+	if `mcolon' != 0  local cmdline_m1 = substr("`cmdline_m1'", `mcolon' + 1, .)
+	local mcolon = strpos("`cmdline_m2'", ":")
+	if `mcolon' != 0  local cmdline_m2 = substr("`cmdline_m2'", `mcolon' + 1, .)
+
+	*Strip a [weight]; it precedes the options comma
+	local cmdline_m1 = regexr("`cmdline_m1'", "\[[^]]*\]", "")
+	local cmdline_m2 = regexr("`cmdline_m2'", "\[[^]]*\]", "")
 
 	*Remove if option
 	local ifif = strpos("`cmdline_m1'", " if ") 
@@ -369,25 +569,41 @@ if `nummods' == 2 {
 		local cmdline_m2 = substr("`cmdline_m2'", 1, `ifin') 
 	}
 	
-	*Error out if individual weight options are included
-	if "`ifweight1'" != "" | "`ifweight2'" != "" {
-			di _newline(1)
-			di as err "{cmd:meinequality} does not support individual weight options " /*
-			*/ "for two-model cases. " /*
-			*/ "Specify weight options globally using the weight specification. " /*
-			*/ "See {help meinequality} for details."
-			exit
+	*Two models with the same weight combine under it; differing weights are refused (svy exempt)
+	local wtinherit = 0
+	*A weight here may restate the models' weight but not contradict it
+	if "`weight'" != "" {
+		mec_wcheck, gweight(`weight') gexp(`exp') mwtype(`ifwtype1') /*
+			*/ mwexp(`ifweight1') prefix(`prefix1') cmd(meinequality)
+		mec_wcheck, gweight(`weight') gexp(`exp') mwtype(`ifwtype2') /*
+			*/ mwexp(`ifweight2') prefix(`prefix2') cmd(meinequality)
+		}
+
+	if ("`ifweight1'" != "" & "`prefix1'" != "svy") | ///
+	   ("`ifweight2'" != "" & "`prefix2'" != "svy") {
+		if "`weight'" == "" {
+			if "`ifweight1'" != "`ifweight2'" | "`ifwtype1'" != "`ifwtype2'" {
+				di _newline(1)
+				di as err "The two models were fit with different weights, " /*
+				*/ "so they cannot be combined. Refit them with the same " /*
+				*/ "weight, or give the weight to {cmd:meinequality} directly."
+				exit 198
+			}
+			local weightspec "[`ifwtype1' `ifweight1']"
+			local wtinherit = 1
+		}
 	}
 	
-	*Error out if svy prefix specified
+	*Two-model svy: both models must be svy:
 	if "`prefix1'" == "svy" | "`prefix2'" == "svy" {
-		di _newline(1)
-		di as err "{cmd:meinequality} does not support the {opt svy:} prefix " /*
-		*/ "when two models are specified." /*
-		*/ "Consider using weight options instead of {opt svy:}. " /*
-		*/ "See {help meinequality} for details."
-		exit
-	}	
+		if "`prefix1'" != "`prefix2'" {
+			di _newline(1)
+			di as err "One model uses the {opt svy:} prefix and the other " /*
+			*/ "does not; both models must be {opt svy:} (or neither)."
+			exit 198
+		}
+		local weightspec ""
+	}
 	
 	if "`prefix1'" == "mi estimate" | "`prefix2'" == "mi estimate" {
 		
@@ -395,19 +611,16 @@ if `nummods' == 2 {
 			di _newline(1)
 			di as err "The prefixes do not match in the two models. " /*
 			*/ "The prefix for `mod1' is `prefix1', and the prefix for `mod2' is `prefix2'."
-			exit
+			exit 198
 		}
-		
-		local gsemprefix "mi estimate, cmdok: "
-		local predictspec 	
-		
 	}
 	
-	if "`prefix1'" != "mi estimate" & "`prefix1'" != "" {
+	*Any other prefix is refused with two models
+	if "`prefix1'" != "mi estimate" & "`prefix1'" != "svy" & "`prefix1'" != "" {
 		di _newline(1)
 		di as err "{cmd:meinequality} does not support the `prefix1' prefix " /*
 		*/ "when two models are specified."
-		exit		
+		exit 198		
 	}
 	
 	*Strip the model options after comma
@@ -421,8 +634,7 @@ if `nummods' == 2 {
 	}		
 	}
 	
-	*Check if vce is used for two models
-	*Warn if vce(robust) not used on stored models
+	*Warn if vce(robust) was not used on the stored models
 	if "`vcetype1'" != "robust" | "`vcetype2'" != "robust" {
 		di in red "{cmd:meinequality} uses vce(robust) for both models. " /*
 		*/ "Standard errors from {cmd:meinequality} will differ from the " /*
@@ -444,7 +656,7 @@ if `nummods' == 2 {
 if "`by'" != "" & "`over'" != "" {
 	di _newline(1)
 	di as err "{opt by()} and {opt over()} option cannot be specified at the same time."
-	exit	
+	exit 198	
 }
 
 if "`by'" != "" | "`over'" != "" {
@@ -457,14 +669,14 @@ if "`by'" != "" | "`over'" != "" {
 		di _newline(1)
 		di as err "Invalid number of variables specified in {opt by()} option. " /*
 		*/ "{opt by()} can only be used with one variable."
-		exit	
+		exit 198	
 	}
 
 	if `numovervar' > 1 {
 		di _newline(1)
 		di as err "Invalid number of variables specified in {opt over()} option. " /*
 		*/ "{opt over()} can only be used with one variable."
-		exit	
+		exit 198	
 	}
 
 	** check if by/over var is nominal variable
@@ -482,7 +694,7 @@ if "`by'" != "" | "`over'" != "" {
 			di as err "Variable `byvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt by()} option." /*	
 			*/ "Check if i. prefix is used for the nominal variable in the model." 
-			exit
+			exit 198
 		}
 		
 		local byvarspec "`byvar'#"
@@ -503,14 +715,14 @@ if "`by'" != "" | "`over'" != "" {
 			di as err "Variable `overvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt over()} option." /*	
 			*/ "Check if i. prefix is used for the nominal variable in the model." 
-			exit
+			exit 198
 		}
 		local overvarspec "over(`overvar')"
 	}
 
 	** all levels of the by/over variable
 
-	qui 	levelsof 		`byovervar'
+	qui 	levelsof 		`byovervar' if `levsamp'
 	local 	byoverlvl 		`r(levels)'
 	local 	numbyoverlvl	`r(r)'	
 	local  	labname : value label `byovervar'	
@@ -534,7 +746,7 @@ if `numvars' == 0 {
 	di _newline(1)
 	di as err "Specify independent nominal variable. " /*
 	*/ "{cmd:meinequality} can be used with at least one independent nominal variable."
-	exit	
+	exit 198	
 } 
 
 forvalues ithvar=1/`numvars' {
@@ -553,7 +765,7 @@ forvalues ithvar=1/`numvars' {
 			di _newline(1)
 			di as err "Variable `nomvar' not found in the model. " ///
 			"See if i. prefix is used for the nominal variable in the model."
-			exit
+			exit 198
 		}
 	}
 	else if `nummods' == 2 {
@@ -562,7 +774,7 @@ forvalues ithvar=1/`numvars' {
 			di _newline(1)
 			di as err "Variable `nomvar' not found in the model. " ///
 			"See if i. prefix is used for the nominal variable in the model."
-			exit
+			exit 198
 		}		
 	}
 }
@@ -578,109 +790,108 @@ return scalar n_vars = `numvars'
 
 if `nummods' == 1 {
 	local samp1_size = e(N)
-	local mod1varnum : 	word count `cmdline_m1'
 
-	di 		in white "Model (`mod1') is:"
-	di 		in yellow "     `cmdline_m1'"
+	di 		as text "Model (`mod1') is:"
+	di 		as result "     `cmdline_m1'"
 }
 
 else if `nummods' == 2 {
 	
-	*Store model variables
-	local mod1varnum : 	word count `cmdline_m1'
-	local mod2varnum : 	word count `cmdline_m2'
-
-	forvalues i=3/`mod1varnum' {
-		local mod1iv`i': word `i' of `cmdline_m1'
-		local mod1ivs `mod1ivs' `mod1iv`i'' 
-	}	
-	forvalues i=3/`mod2varnum' {
-		local mod2iv`i': word `i' of `cmdline_m2'
-		local mod2ivs `mod2ivs' `mod2iv`i'' 
-	}	
-	
-	*Rename DV if the same
-	if "`mod1dv'" == "`mod2dv'" & "`groups'" != ""{
-		
-		capture drop `mod1dv'_COPY1
-		capture drop `mod2dv'_COPY2
-
-		qui clonevar `mod1dv'_COPY1 = `mod1dv' 
-		qui replace `mod1dv'_COPY1 = . if me_inequality_mod_samp != 1
-		local mod1dv_use = "`mod1dv'_COPY1"
-		qui clonevar `mod2dv'_COPY2 = `mod2dv'
-		qui replace `mod2dv'_COPY2 = . if me_inequality_mod_samp != 2
-		local mod2dv_use = "`mod2dv'_COPY2"
-		
-	}
-	else if "`mod1dv'" == "`mod2dv'" & "`groups'" == "" {
-		
-		capture drop `mod2dv'_COPY2
-		qui clonevar `mod2dv'_COPY2 = `mod2dv'
-		
-		local mod1dv_use = "`mod1dv'"
-		local mod2dv_use = "`mod2dv'_COPY2"
-
-	}
-	else {
-		local mod1dv_use = "`mod1dv'"
-		local mod2dv_use = "`mod2dv'"
-	}
-		
 	*Include model specs. in output
 	di 		_newline(1)
 
-	local 	mod1specs "`cmdline_m1_show', vce(robust)"
-	local 	mod2specs "`cmdline_m2_show', vce(robust)"
+	local 	mod1specs "`cmdline_m1_show'"
+	local 	mod2specs "`cmdline_m2_show'"
 
-	di 		in white "Model 1 (`mod1') is:"
-	di 		in yellow "     `mod1specs'"
-	di 		in white "Model 2 (`mod2') is:"
-	di 		in yellow "     `mod2specs'"
+	if `wtinherit' == 1 {
+		di _newline(1)
+		di in red "NOTE: no weight was given to {cmd:meinequality}, so the " /*
+		*/ "weight from the stored models ([`ifwtype1' `ifweight1']) is " /*
+		*/ "applied to the combined fit."
+		}
+	di 		as text "Model 1 (`mod1') is:"
+	di 		as result "     `mod1specs'"
+	di 		as text "Model 2 (`mod2') is:"
+	di 		as result "     `mod2specs'"
 
-	*Listwise delete if not a groups model
-	if "`groups'" == "" {
-		local listwise "listwise"
-		}
-	else {
-		local listwise ""
-		}
-	
-	*Warn if different sample size used across models
+	*Combine the stored estimates; nothing is refitted
 	if "`groups'" == "" & `Nsav1' != `Nsav2' {
 		di _newline(1)
-		di in red "Sample size varies across the models: " /*
-		*/ "N_`mod1'=`Nsav1'; N_`mod2'=`Nsav2'. " /*
-		*/ "The results from {cmd:meinequality} will not match " /*
-		*/ "those from the specified models as {cmd:meinequality} uses listwise " /*
-		*/ "deletion across the models."
-	}
-	
-	*Error out if no observations
-	if "`groups'" == "" & (`Nsav1' == 0 | `Nsav2' == 0) {
-		di _newline(1)
-		di in red "`mod1' and `mod2' are supposed to have the same sample. " /*
-		*/ "No observation detected. " /*
-		*/ "Consider if {opt groups} is needed. " /*
-		*/ "See {help groups} for details."
-	}
-	
-	*Run gsem for two-model situation
-	quietly `gsemprefix' gsem 	(`mod1dv_use' <- `mod1ivs', `cmd_m1') ///
-					(`mod2dv_use' <- `mod2ivs', `cmd_m2') ///
-					`weightspec' ///
-					, vce(robust) `listwise'
-	
-	quietly est store meineq_gsem
-	local mimarginsspec `e(marginsdefault)'
-	
-	local samp1_size = e(_N)[1,1]
-	local samp2_size = e(_N)[1,2]
+		di as text "NOTE: the models were fit on different numbers of "  /*
+		*/ "observations (N_`mod1'=`Nsav1'; N_`mod2'=`Nsav2'). Each model "  /*
+		*/ "keeps its own sample; the estimates match the models as fit."
+		}
 
-	*commands option prints gsem model syntax 
+	*Error out if either model has no observations
+	if `Nsav1' == 0 | `Nsav2' == 0 {
+		di _newline(1)
+		di as err "`mod1' has `Nsav1' observations and `mod2' has `Nsav2'. "  /*
+		*/ "{cmd:meinequality} cannot combine a model with no observations."
+		exit 2000
+		}
+
+	if "`engine'" == "suest2" {
+*details shows the suest2 output: capture noisily under details, capture quietly otherwise
+		capture `meishow' suest2 `mod1' `mod2', nowarn
+		local combrc = _rc
+		if `combrc' != 0 {
+			di _newline(1)
+			di as err "{cmd:suest2} could not combine `mod1' and `mod2' "  /*
+			*/ "(rc `combrc'). Its own message follows."
+*Repeat the failing call noisily, then pass the code up
+			capture noisily suest2 `mod1' `mod2', nowarn
+			exit `combrc'
+			}
+		}
+	else {
+		local g_groups ""
+		local g_samp ""
+		if "`groups'" != "" {
+			local g_groups "groups"
+			local g_samp "sampvar(`meisamp')"
+			}
+		capture `meishow' mec_gsem `mod1' `mod2' `weightspec', /*
+			*/ `g_groups' `g_samp' `quietly'
+		local combrc = _rc
+		if `combrc' != 0 {
+			di _newline(1)
+			di as err "{cmd:engine(gsem)} could not combine `mod1' and "  /*
+			*/ "`mod2' (rc `combrc'). Its own message follows."
+			capture noisily mec_gsem `mod1' `mod2' `weightspec', /*
+				*/ `g_groups' `g_samp'
+			exit `combrc'
+			}
+		}
+
+	*Level proportions from each model's own sample
+	local psamp1 "`mod1samp'"
+	local psamp2 "`mod2samp'"
+	
+	capture estimates drop `meisysalt'
+	quietly est store `meisys'
+
+*Capture suest2's private-copy names now; labelled at end of program
+local meiholdn ""
+local meiholdw ""
+if "`engine'" != "gsem" {
+	local meiholdn `"`e(suest2_holds)'"'
+	local __nh : word count `meiholdn'
+	forvalues __h = 1/`__nh' {
+		local __mn "suest2_model`__h'"
+		local meiholdw `"`meiholdw' `e(`__mn')'"'
+		}
+	}
+*No predict spec on the non-mi path; mi keeps its own (mimrgns needs it)
+	if `mecismi' == 0  local mimarginsspec ""
+	
+*Ns from the stored models
+	local samp1_size = `Nsav1'
+	local samp2_size = `Nsav2'
+
+	*commands option prints the engine's combined-model syntax
 	if "`commands'" != "" {
-		di in white "gsem model is: "
-		di in yellow "     `e(cmdline)'"
+		di as text "`engine' model is: "
+		di as result "     `e(cmdline)'"
 	}
 	
 }	// End of model specification
@@ -712,12 +923,8 @@ forvalues ithvar=1/`numvars' {
 	local nomvar : 	word `ithvar' of `varlist'	
 	local nomvar = subinstr("`nomvar'", "i.", "", .) 
 	
-	** # of n for variable
-	qui count if !missing(`nomvar')
-	local tot_n = `r(N)'	
-	
 	** all levels of the nominal variable
-	qui levelsof 	`nomvar'
+	qui levelsof 	`nomvar' if `levsamp'
 	local nlevel 	`r(levels)'
 	local numlevels	`r(r)'	
 	
@@ -742,47 +949,30 @@ forvalues ithvar=1/`numvars' {
 	
 	if `nummods' == 1 & `mod1cats' < 3 {
 		
-		`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' ///
+		`quietly' `margins' `byvarspec'`nomvar' `if' `in', `mimarginsspec' `overvarspec' ///
 		`atmeans' post	
+*Read the margins command line now; the rclass helpers below clear r()
+		local meimargcmd `"`r(`marginscmdline')'"'
+		if `"`meimargcmd'"' == ""  local meimargcmd `"`e(cmdline)'"'
 		qui est store meineq_margins
+*before any nlcom is built from these coefficients.
+		_mec_omitchk, focal("`nomvar'") cmdname(meinequality)
+*Rebuild the prefixes from what margins actually posted
 	
 	*commands option prints margins syntax 
 	if "`commands'" != "" {
-		di in white "margins specification is: "
-		di in yellow _skip(5) `marginscmdline'
+		di as text "margins specification is: "
+		di as result _skip(5) `"`meimargcmd'"'
 	}
 	
-		** Different Calculations
-		** Wieghted inequality: By default
+		*Weighted inequality by default
 	
 		if ("`unweighted'"==""){		
-			local 	term_base 0
-			forvalues i = 1/`numlevels' {
-				local ilevel: word `i' of `nlevel'
-				qui `svyspec' prop `nomvar' `weightspec'
-				local p_i = e(b)[1,`i'] 
-				forvalues j = 1/`numlevels' {
-					if `i' < `j' {
-						local jlevel: word `j' of `nlevel'
-						local p_j = e(b)[1,`j'] 
-						*Calculate weight, corrected for redundant comparisons
-						local multiplier = (`p_i'+`p_j') / (`numlevels' - 1)
-						local part1 ///
-						+ ( `multiplier' * ///
-								abs(_b[`bospec'`ilevel'.`nomvar'] - _b[`bospec'`jlevel'.`nomvar']))		
-						local term_base `term_base' `part1'	
-					}
-				}			
-			}	
-			qui est restore meineq_margins
-			
-			**test if wgt_base could be calculated; if not *1000
-			capture `quietly' nlcom wgt_base: (`term_base'), level(`level')
-			if _rc!=0 {
-				`quietly' nlcom wgt_base_1000: (`term_base')*1000, level(`level') post
-				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000, level(`level')
-			}
-			
+			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+				bospec("`bospec'") prefix("") weighted ///
+				psamp(`psamp1') shsamp(`mecshsamp') mi(`mecismi') wspec(`mecwspec')
+			local term_base `"`r(term)'"'
+			_mei_nlcom `term_base', name(wgt_base) level(`level') quietly(`quietly')
 			return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
@@ -801,28 +991,13 @@ forvalues ithvar=1/`numvars' {
 		
 		if "`all'"!="" | "`unweighted'"!="" {
 			** Set up for lincom calculation
-			local 	term_base 0
-			forvalues i = 1/`numlevels' {
-				local ilevel: word `i' of `nlevel'
-				forvalues j = 1/`numlevels' {
-					if `i' < `j' {
-						local jlevel: word `j' of `nlevel'
-						local part1 ///
-						+ abs(_b[`bospec'`ilevel'.`nomvar'] - _b[`bospec'`jlevel'.`nomvar'])
-						local term_base `term_base' `part1'
-					}
-				}	
-			}
+			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+				bospec("`bospec'") prefix("")
+			local term_base `"`r(term)'"'
 			
 			** Unweighted (mean) amount of inequality in base model
-			qui est restore meineq_margins
-			capture `quietly' nlcom mean_base: (`term_base')/(`nc'), level(`level')
-			if _rc != 0 {
-				`quietly' nlcom mean_base_1000: (`term_base')*1000/(`nc'), level(`level') post
-				`quietly' nlcom mean_base: _b[mean_base_1000]/1000, level(`level')			
-			}
-			
-			return scalar uwm1`ithvar'`bolvlspec' = r(table)[1,1]
+			_mei_nlcom (`term_base')/(`nc'), name(mean_base) level(`level') quietly(`quietly')
+			return scalar uwem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -850,78 +1025,79 @@ forvalues ithvar=1/`numvars' {
 		
 		** Calculate the margins for the nominal variables in the gsem model
 		if "`groups'" != "" {
-			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `atmeans' ///
-								over(me_inequality_mod_samp `overvar') post					
-			local mod_samp_spec1 "1.me_inequality_mod_samp#"
-			local mod_samp_spec2 "2.me_inequality_mod_samp#"
+			`quietly' `margins' `byvarspec'`nomvar' `if' `in', `mimarginsspec' `atmeans' ///
+								over(`meisamp' `overvar') post					
+			local mod_samp_spec1 "1.`meisamp'#"
+			local mod_samp_spec2 "2.`meisamp'#"
+*Specialized route: the equation encodes the group; no over() level in the names
+			if `meispec' == 1 {
+				local mod_samp_spec1 ""
+				local mod_samp_spec2 ""
+				}
 		}
 		else {
-			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' `atmeans' post
+			`quietly' `margins' `byvarspec'`nomvar' `if' `in', `mimarginsspec' `overvarspec' `atmeans' post
 			local mod_samp_spec1 ""
 			local mod_samp_spec2 ""
 		}
+*Read the margins command line now; the rclass helpers below clear r()
+		local meimargcmd `"`r(`marginscmdline')'"'
+		if `"`meimargcmd'"' == ""  local meimargcmd `"`e(cmdline)'"'
 		qui est store meineq_margins
+*before any nlcom is built from these coefficients.
+		_mec_omitchk, focal("`nomvar'") cmdname(meinequality)
+*Rebuild the prefixes from what margins actually posted
+		if `nummods' == 2 {
+			_mec_prefix, focal("`nomvar'") ncat(`mod1cats')
+			local meieq1 "`r(eq1)'"
+			local meieq2 "`r(eq2)'"
+			local meirst = r(restart)
+			if "`meieq1'" != "" & "`meieq2'" != "" {
+				if `mod1cats' == 1 {
+					local prnum1 "`meieq1':"
+					local prnum2 "`meieq2':"
+					}
+				else {
+					forvalues meiout = 1/`mod1cats' {
+						local prnum1_`meiout' "`meieq1':`meiout'._predict#"
+						if `meirst' == 1 ///
+							local prnum2_`meiout' "`meieq2':`meiout'._predict#"
+						else {
+							local meimarg = `meiout' + `mod1cats'
+							local prnum2_`meiout' "`meieq2':`meimarg'._predict#"
+							}
+						}
+					}
+*				an equation-labelled object carries no over() level
+				local mod_samp_spec1 ""
+				local mod_samp_spec2 ""
+				}
+			}
 		
 		*commands option prints margins syntax 
 		if "`commands'" != "" {
-			di in white "margins specification is: "
-			di in yellow _skip(5) `marginscmdline'
+			di as text "margins specification is: "
+			di as result _skip(5) `"`meimargcmd'"'
 		}
 	
 		** Wieghted inequality: By default
 		if ("`unweighted'"=="") {		
 			
-			local 	term_base 0
-			forvalues i = 1/`numlevels' {	
-				local ilevel: word `i' of `nlevel'
-				qui `svyspec' prop `nomvar' `weightspec'
-				local p_i = e(b)[1,`i'] 
-				forvalues j =1/`numlevels' {
-					if `i' < `j' {
-						local jlevel: word `j' of `nlevel'
-						local p_j = e(b)[1,`j'] 
-						*Calculate weight, corrected for redundant comparisons
-						local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
-						local part1 ///
-						+ ( `multiplier' * ///
-							abs(_b[1._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
-							- _b[1._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar']))
-						local term_base `term_base' `part1'
-					}
-				}	
-			}
+			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+				bospec("`bospec'") prefix("`prnum1'`mod_samp_spec1'") weighted ///
+				psamp(`psamp1') shsamp(`mecshsamp') mi(`mecismi') wspec(`mecwspec')
+			local term_base `"`r(term)'"'
 			 
 			local wgt_term_base `term_base'
 			
-			local 	term_com 0
-			forvalues i = 1/`numlevels' {	
-				local ilevel: word `i' of `nlevel'
-				qui `svyspec' prop `nomvar' `weightspec'
-				local p_i = e(b)[1,`i'] 
-				forvalues j = 1/`numlevels' {
-					if `i' < `j' {
-						local jlevel: word `j' of `nlevel'
-						local p_j = e(b)[1,`j'] 
-						*Calculate weight, corrected for redundant comparisons
-						local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
-						local part2 ///
-						+ ( `multiplier' * ///
-							abs(_b[2._predict#`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
-							- _b[2._predict#`mod_samp_spec2'`bospec'`jlevel'.`nomvar']))
-						local term_com `term_com' `part2'
-					}		
-				}	
-			}
+			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+				bospec("`bospec'") prefix("`prnum2'`mod_samp_spec2'") weighted ///
+				psamp(`psamp2') shsamp(`mecshsamp') mi(`mecismi') wspec(`mecwspec')
+			local term_com `"`r(term)'"'
 			
 			local wgt_term_com `term_com'
 			 
-			qui est restore meineq_margins
-			capture `quietly' nlcom wgt_base: (`wgt_term_base'), level(`level')
-			if _rc!=0{
-				`quietly' nlcom wgt_base_1000: (`wgt_term_base')*1000, level(`level') post
-				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000, level(`level')		
-			}
-			
+			_mei_nlcom `wgt_term_base', name(wgt_base) level(`level') quietly(`quietly')
 			return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
@@ -929,13 +1105,7 @@ forvalues ithvar=1/`numvars' {
 			matrix `newmatwgt' = nullmat(`newmatwgt') \ `rt'
 			
 			** Weighted amount of inequality in comparison model
-			qui est restore meineq_margins 
-			capture `quietly' nlcom wgt_compare: (`wgt_term_com'), level(`level')
-			if _rc!=0 {
-				`quietly' nlcom wgt_compare_1000: (`wgt_term_com')*1000, level(`level') post
-				`quietly' nlcom wgt_compare: _b[wgt_compare_1000]/1000, level(`level')		
-			}
-
+			_mei_nlcom `wgt_term_com', name(wgt_compare) level(`level') quietly(`quietly')
 			return scalar wem2`ithvar'`bolvlspec' = r(table)[1,1]
 						
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
@@ -943,13 +1113,7 @@ forvalues ithvar=1/`numvars' {
 			matrix `newmatwgt' = `newmatwgt' \ `rt'
 			
 			*test of Weighted amount of inequality in two models
-			qui est restore meineq_margins
-			capture `quietly' nlcom wgt_change: [(`wgt_term_base') - (`wgt_term_com')], level(`level')
-			if _rc!=0 {
-				`quietly' nlcom wgt_change_1000: [(`wgt_term_base') - (`wgt_term_com')]*1000, level(`level') post
-				`quietly' nlcom wgt_change: _b[wgt_change_1000]/1000, level(`level')				
-			}
-			
+			_mei_nlcom (`wgt_term_base') - (`wgt_term_com'), name(wgt_change) level(`level') quietly(`quietly')
 			return scalar wed`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
@@ -968,54 +1132,23 @@ forvalues ithvar=1/`numvars' {
 		** unweighted calculation
 		if "`all'"!="" | "`unweighted'"!="" {
 						
-			** load terms for calculation first
-			** weighted terms 
-			** Set up for the base model: mean
-			local 	term_base 0
-			qui levelsof `nomvar'
-			forvalues i = 1/`numlevels' {	
-				local ilevel: word `i' of `nlevel'
-				forvalues j = 1/`numlevels' {
-					if `i' < `j' {
-						local jlevel: word `j' of `nlevel'
-						local part1 ///
-						+ abs(_b[1._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
-						- _b[1._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
-						local term_base `term_base' `part1'
-					}
-				}	
-			}
+			*Load terms for calculation
+			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+				bospec("`bospec'") prefix("`prnum1'`mod_samp_spec1'")
+			local term_base `"`r(term)'"'
 			
 			local abs_term_base `term_base'
 			
 			** Set up for the comparison model
 			qui est restore meineq_margins
-			qui levelsof `nomvar'
-			local 	term_com 0
-			forvalues i = 1/`numlevels' {	
-				local ilevel: word `i' of `nlevel'
-				forvalues j = 1/`numlevels' {
-					if `i' < `j' {
-						local jlevel: word `j' of `nlevel'
-						local part2 ///
-						+ abs(_b[2._predict#`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
-						- _b[2._predict#`mod_samp_spec2'`bospec'`jlevel'.`nomvar'])
-						local term_com `term_com' `part2'						
-					}
-				}	
-			}	
+			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+				bospec("`bospec'") prefix("`prnum2'`mod_samp_spec2'")
+			local term_com `"`r(term)'"'
 			
 			local abs_term_com `term_com'		
 			
-			** Unweighted (mean) amount of inequality in base model
-			** Mean amount of inequality in base model
-			qui est restore meineq_margins
-			capture `quietly' nlcom mean_base: (`abs_term_base')/(`nc'), level(`level')
-			if _rc!=0 {
-				`quietly' nlcom mean_base_1000: (`abs_term_base')*1000/(`nc'), level(`level') post 
-				`quietly' nlcom mean_base: _b[mean_base_1000] / 1000, level(`level')					
-			}
-			
+			*Unweighted (mean) amount of inequality in base model
+			_mei_nlcom (`abs_term_base')/(`nc'), name(mean_base) level(`level') quietly(`quietly')
 			return scalar uwem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
@@ -1023,13 +1156,7 @@ forvalues ithvar=1/`numvars' {
 			matrix `newmatmean' = nullmat(`newmatmean') \ `rt'
 			
 			** Mean amount of inequality in comparison model
-			qui est restore meineq_margins
-			capture `quietly' nlcom mean_compare: (`abs_term_com')/(`nc'), level(`level')
-			if _rc!=0 {
-				`quietly' nlcom mean_compare_1000: (`abs_term_com')*1000/(`nc'), level(`level') post
-				`quietly' nlcom mean_compare: _b[mean_compare_1000] / 1000, level(`level')					
-			}
-			
+			_mei_nlcom (`abs_term_com')/(`nc'), name(mean_compare) level(`level') quietly(`quietly')
 			return scalar uwem2`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
@@ -1037,15 +1164,7 @@ forvalues ithvar=1/`numvars' {
 			matrix `newmatmean' = `newmatmean' \ `rt'
 			
 			*Test of Mean amount of inequality in two models
-			qui est restore meineq_margins
-			capture `quietly' nlcom mean_change: [(`abs_term_base') ///
-			- (`abs_term_com')]/(`nc'), level(`level')
-			if _rc!=0 {
-				`quietly' nlcom mean_change_1000: [(`abs_term_base') ///
-				- (`abs_term_com')]*1000/(`nc'), level(`level') post
-				`quietly' nlcom mean_change: _b[mean_change_1000] / 1000, level(`level')					
-			}
-			
+			_mei_nlcom ((`abs_term_base') - (`abs_term_com'))/(`nc'), name(mean_change) level(`level') quietly(`quietly')
 			return scalar uwed`ithvar'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
@@ -1062,7 +1181,7 @@ forvalues ithvar=1/`numvars' {
 			
 		} // end: unweighted meinequality
 	
-		quietly est restore meineq_gsem
+		quietly est restore `meisys'
 		
 	} // end: continuous or binary DVs for 2 model
 
@@ -1072,13 +1191,19 @@ forvalues ithvar=1/`numvars' {
 
 	else if `nummods' == 1 & `mod1cats' >= 3 {
 
-		`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' `atmeans' post	
+		`quietly' `margins' `byvarspec'`nomvar' `if' `in', `mimarginsspec' `overvarspec' `atmeans' post	
+*Read the margins command line now; the rclass helpers below clear r()
+		local meimargcmd `"`r(`marginscmdline')'"'
+		if `"`meimargcmd'"' == ""  local meimargcmd `"`e(cmdline)'"'
 		qui est store meineq_margins
+*before any nlcom is built from these coefficients.
+		_mec_omitchk, focal("`nomvar'") cmdname(meinequality)
+*Rebuild the prefixes from what margins actually posted
 
 		*commands option prints margins syntax 
 		if "`commands'" != "" {
-			di in white "margins specification is: "
-			di in yellow _skip(5) `marginscmdline'
+			di as text "margins specification is: "
+			di as result _skip(5) `"`meimargcmd'"'
 		}
 	
 		qui levelsof 	`mod1dv'
@@ -1089,49 +1214,17 @@ forvalues ithvar=1/`numvars' {
 		
 			forvalues dvnum = 1/`mod1cats'{
 				local dvlevel: word `dvnum' of `dvlevels'
-				*store DV label (if it exists) to label table
-				qui levelsof `mod1dv', local(levels_dv)
-				qui ds `mod1dv', has(vallabel)
-				if "`r(varlist)'" !=  "" {	// if value labels exist
-					local lbe : value label `mod1dv'
-					local temp_out_`dvlevel' : label `lbe' `dvlevel'
-					local out_`dvlevel' = abbrev("`temp_out_`dvlevel''",13) 
-					}
-				else {	// if no value labels
-						local out_`dvlevel' "Outcome `dvlevel'"
-						}
+				_mei_dvlab, dv(`mod1dv') dvlevel(`dvlevel')
+				local out_`dvlevel' `"`r(lab)'"'
 			
-				local 	term_base 0
 							
-				forvalues i = 1/`numlevels' {
-					local ilevel: word `i' of `nlevel'
-					qui `svyspec' prop `nomvar' `weightspec'
-					local p_i = e(b)[1,`i'] 
-					forvalues j = 1/`numlevels' {
-						if `i' < `j' {
-							local jlevel: word `j' of `nlevel'
-							local p_j = e(b)[1,`j'] 
-							*Calculate weight, corrected for redundant comparisons
-							local multiplier = (`p_i'+`p_j') / (`numlevels' - 1)
-							local part1 ///
-							+ ( `multiplier' * ///
-							abs(_b[`dvnum'._predict#`bospec'`ilevel'.`nomvar'] ///
-							- _b[`dvnum'._predict#`bospec'`jlevel'.`nomvar']))		
-							local term_base `term_base' `part1'	
-							// note it is the #ith for DV (_predict); it is the levels of IV.
-						}
-					}			
-				}
+				_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+					bospec("`bospec'") prefix("`dvnum'._predict#") weighted ///
+					psamp(`psamp1') shsamp(`mecshsamp') mi(`mecismi') wspec(`mecwspec')
+				local term_base `"`r(term)'"'
 							
-			**test if wgt_base could be calculated; if not *1000
-			qui est restore meineq_margins
-			capture `quietly' nlcom wgt_base: (`term_base'), level(`level')
-			if _rc!=0 {
-				`quietly' nlcom wgt_base_1000: (`term_base')*1000, level(`level') post
-				`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000, level(`level')	
-			}
-			
-			return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
+			_mei_nlcom `term_base', name(wgt_base) level(`level') quietly(`quietly')
+			return scalar wem1`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
 			
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1150,42 +1243,17 @@ forvalues ithvar=1/`numvars' {
 			forvalues dvnum = 1/`mod1cats'{
 
 				local dvlevel: word `dvnum' of `dvlevels'
-				*store DV label (if it exists) to label table
-				qui levelsof `mod1dv', local(levels_dv)
-				qui ds `mod1dv', has(vallabel)
-				if "`r(varlist)'" !=  "" {	// if value labels exist
-					local lbe : value label `mod1dv'
-					local temp_out_`dvlevel' : label `lbe' `dvlevel'
-					local out_`dvlevel' = abbrev("`temp_out_`dvlevel''",13) 
-				}
-				else {	// if no value labels
-						local out_`dvlevel' "Outcome `dvlevel'"
-				}
+				_mei_dvlab, dv(`mod1dv') dvlevel(`dvlevel')
+				local out_`dvlevel' `"`r(lab)'"'
 					
 				** Set up for lincom calculation
-				local 	term_base 0
-				forvalues i = 1/`numlevels' {
-					local ilevel: word `i' of `nlevel'
-					forvalues j = 1/`numlevels' {
-						if `i' < `j' {
-							local jlevel: word `j' of `nlevel'
-							local part1 ///
-							+ abs(_b[`dvnum'._predict#`bospec'`ilevel'.`nomvar'] ///
-							- _b[`dvnum'._predict#`bospec'`jlevel'.`nomvar'])
-							local term_base `term_base' `part1'
-						}
-					}	
-				}
+				_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+					bospec("`bospec'") prefix("`dvnum'._predict#")
+				local term_base `"`r(term)'"'
 				
 				** Unweighted (mean) amount of inequality in base model
-				qui est restore meineq_margins
-				capture `quietly' nlcom mean_base: (`term_base')/(`nc'), level(`level')
-				if _rc != 0 {
-					`quietly' nlcom mean_base_1000: (`term_base')*1000/(`nc'), level(`level') post
-					`quietly' nlcom mean_base: _b[mean_base_1000]/1000, level(`level')			
-				}
-				
-				return scalar uwem1`ithvar'`bolvlspec' = r(table)[1,1]
+				_mei_nlcom (`term_base')/(`nc'), name(mean_base) level(`level') quietly(`quietly')
+				return scalar uwem1`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1209,22 +1277,59 @@ forvalues ithvar=1/`numvars' {
 	else if `nummods' == 2 & `mod1cats' >= 3 {
 
 		if "`groups'" != "" {
-			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `atmeans' ///
-								over(me_inequality_mod_samp `overvar') post					
-			local mod_samp_spec1 "1.me_inequality_mod_samp#"
-			local mod_samp_spec2 "2.me_inequality_mod_samp#"
+			`quietly' `margins' `byvarspec'`nomvar' `if' `in', `mimarginsspec' `atmeans' ///
+								over(`meisamp' `overvar') post					
+			local mod_samp_spec1 "1.`meisamp'#"
+			local mod_samp_spec2 "2.`meisamp'#"
+*Specialized route: the equation encodes the group; no over() level in the names
+			if `meispec' == 1 {
+				local mod_samp_spec1 ""
+				local mod_samp_spec2 ""
+				}
 		}
 		else {
-			`quietly' `margins' `byvarspec'`nomvar', `mimarginsspec' `overvarspec' `atmeans' post	
+			`quietly' `margins' `byvarspec'`nomvar' `if' `in', `mimarginsspec' `overvarspec' `atmeans' post	
 			local mod_samp_spec1 ""
 			local mod_samp_spec2 ""
 		}
+*Read the margins command line now; the rclass helpers below clear r()
+		local meimargcmd `"`r(`marginscmdline')'"'
+		if `"`meimargcmd'"' == ""  local meimargcmd `"`e(cmdline)'"'
 		qui est store meineq_margins
+*before any nlcom is built from these coefficients.
+		_mec_omitchk, focal("`nomvar'") cmdname(meinequality)
+*Rebuild the prefixes from what margins actually posted
+		if `nummods' == 2 {
+			_mec_prefix, focal("`nomvar'") ncat(`mod1cats')
+			local meieq1 "`r(eq1)'"
+			local meieq2 "`r(eq2)'"
+			local meirst = r(restart)
+			if "`meieq1'" != "" & "`meieq2'" != "" {
+				if `mod1cats' == 1 {
+					local prnum1 "`meieq1':"
+					local prnum2 "`meieq2':"
+					}
+				else {
+					forvalues meiout = 1/`mod1cats' {
+						local prnum1_`meiout' "`meieq1':`meiout'._predict#"
+						if `meirst' == 1 ///
+							local prnum2_`meiout' "`meieq2':`meiout'._predict#"
+						else {
+							local meimarg = `meiout' + `mod1cats'
+							local prnum2_`meiout' "`meieq2':`meimarg'._predict#"
+							}
+						}
+					}
+*				an equation-labelled object carries no over() level
+				local mod_samp_spec1 ""
+				local mod_samp_spec2 ""
+				}
+			}
 
 		*commands option prints margins syntax 
 		if "`commands'" != "" {
-			di in white "margins specification is: "
-			di in yellow _skip(5) `marginscmdline'
+			di as text "margins specification is: "
+			di as result _skip(5) `"`meimargcmd'"'
 		}
 	
 		qui levelsof 	`mod1dv'
@@ -1234,76 +1339,28 @@ forvalues ithvar=1/`numvars' {
 		if ("`unweighted'"=="") {		
 			
 			forvalues dvnum = 1/`mod1cats'{			 
-			** load terms for calculation first
-			** weighted terms 
+			*Load terms for calculation
 			local dvlevel: word `dvnum' of `dvlevels'
-			*store DV label (if it exists) to label table
-			qui levelsof `mod1dv', local(levels_dv)
-			qui ds `mod1dv', has(vallabel)
-			if "`r(varlist)'" !=  "" {	// if value labels exist
-				local lbe : value label `mod1dv'
-				local temp_out_`dvlevel' : label `lbe' `dvlevel'
-				local out_`dvlevel' = abbrev("`temp_out_`dvlevel''",13) 
-			}
-			else {	// if no value labels
-					local out_`dvlevel' "Outcome `dvlevel'"
-			}
+			_mei_dvlab, dv(`mod1dv') dvlevel(`dvlevel')
+			local out_`dvlevel' `"`r(lab)'"'
 			
-			local term_base 0
 				
-				forvalues i = 1/`numlevels' {	
-					local ilevel: word `i' of `nlevel'
-					qui `svyspec' prop `nomvar' `weightspec'
-					local p_i = e(b)[1,`i'] 
-					forvalues j =1/`numlevels' {
-						if `i' < `j' {
-							local jlevel: word `j' of `nlevel'
-							local p_j = e(b)[1,`j'] 
-							*Calculate weight, corrected for redundant comparisons
-							local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
-							local part1 ///
-							+ ( `multiplier' * ///
-								abs(_b[`dvnum'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
-								- _b[`dvnum'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar']))
-							local term_base `term_base' `part1'
-						}
-					}	
-				}
+			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+				bospec("`bospec'") prefix("`prnum1_`dvnum''`mod_samp_spec1'") weighted ///
+				psamp(`psamp1') shsamp(`mecshsamp') mi(`mecismi') wspec(`mecwspec')
+			local term_base `"`r(term)'"'
 				 
 				local wgt_term_base `term_base'
 				
-				local 	term_com 0
-				local  	dvnum2 = `dvnum' + `mod1cats'
-				qui levelsof `nomvar'
-				forvalues i = 1/`numlevels' {	
-					local ilevel: word `i' of `nlevel'
-					qui `svyspec' prop `nomvar' `weightspec'
-					local p_i = e(b)[1,`i'] 
-					forvalues j = 1/`numlevels' {
-						if `i' < `j' {
-							local jlevel: word `j' of `nlevel'
-							local p_j = e(b)[1,`j'] 
-							*Calculate weight, corrected for redundant comparisons
-							local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
-							local part2 ///
-							+ ( `multiplier' * ///
-								abs(_b[`dvnum2'._predict#`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
-								- _b[`dvnum2'._predict#`mod_samp_spec2'`bospec'`jlevel'.`nomvar']))
-							local term_com `term_com' `part2'
-						}		
-					}	
-				}
+				_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+					bospec("`bospec'") prefix("`prnum2_`dvnum''`mod_samp_spec2'") weighted ///
+					psamp(`psamp2') shsamp(`mecshsamp') mi(`mecismi') wspec(`mecwspec')
+				local term_com `"`r(term)'"'
 				
 				local wgt_term_com `term_com'
 				 
-				qui est restore meineq_margins
-				capture `quietly' nlcom wgt_base: (`wgt_term_base'), level(`level')
-				if _rc!=0{
-					`quietly' nlcom wgt_base_1000: (`wgt_term_base')*1000, level(`level') post
-					`quietly' nlcom wgt_base: _b[wgt_base_1000] / 1000, level(`level')				
-				}
-				
-				return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
+				_mei_nlcom `wgt_term_base', name(wgt_base) level(`level') quietly(`quietly')
+				return scalar wem1`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
 			
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1311,28 +1368,16 @@ forvalues ithvar=1/`numvars' {
 
 				
 				** Weighted amount of heterogeneity in comparison model
-				qui est restore meineq_margins 
-				capture `quietly' nlcom wgt_compare: (`wgt_term_com'), level(`level')
-				if _rc!=0 {
-					`quietly' nlcom wgt_compare_1000: (`wgt_term_com')*1000, level(`level') post
-					`quietly' nlcom wgt_compare: _b[wgt_compare_1000]/1000, level(`level')				
-				}
-				
-				return scalar wem2`ithvar'`bolvlspec' = r(table)[1,1]
+				_mei_nlcom `wgt_term_com', name(wgt_compare) level(`level') quietly(`quietly')
+				return scalar wem2`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
 									
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatwgt' = `newmatwgt' \ `rt'
 				
 				*test of Weighted amount of inequality in two models
-				qui est restore meineq_margins
-				capture `quietly' nlcom wgt_change: [(`wgt_term_base') - (`wgt_term_com')], level(`level')
-				if _rc!=0 {
-					`quietly' nlcom wgt_change_1000: [(`wgt_term_base') - (`wgt_term_com')]*1000, level(`level') post
-					`quietly' nlcom wgt_change: _b[wgt_change_1000]/1000, level(`level')				
-				}
-				
-				return scalar wed`ithvar'`bolvlspec' = r(table)[1,1]
+				_mei_nlcom (`wgt_term_base') - (`wgt_term_com'), name(wgt_change) level(`level') quietly(`quietly')
+				return scalar wed`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1355,92 +1400,43 @@ forvalues ithvar=1/`numvars' {
 			forvalues dvnum = 1/`mod1cats'{			 
 			
 			local dvlevel: word `dvnum' of `dvlevels'
-			*store DV label (if it exists) to label table
-			qui levelsof `mod1dv', local(levels_dv)
-			qui ds `mod1dv', has(vallabel)
-			if "`r(varlist)'" !=  "" {	// if value labels exist
-				local lbe : value label `mod1dv'
-				local temp_out_`dvlevel' : label `lbe' `dvlevel'
-				local out_`dvlevel' = abbrev("`temp_out_`dvlevel''",13) 
-				}
-			else {	// if no value labels
-					local out_`dvlevel' "Outcome `dvlevel'"
-					}
+			_mei_dvlab, dv(`mod1dv') dvlevel(`dvlevel')
+			local out_`dvlevel' `"`r(lab)'"'
 				
-			local term_base 0
 			
-				forvalues i = 1/`numlevels' {	
-					local ilevel: word `i' of `nlevel'
-					forvalues j = 1/`numlevels' {
-						if `i' < `j' {
-							local jlevel: word `j' of `nlevel'
-							local part1 ///
-							+ abs(_b[`dvnum'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
-							- _b[`dvnum'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
-							local term_base `term_base' `part1'
-						}
-					}	
-				}
+			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+				bospec("`bospec'") prefix("`prnum1_`dvnum''`mod_samp_spec1'")
+			local term_base `"`r(term)'"'
 				
 				local abs_term_base `term_base'
 				
 				** Set up for the comparison model
-				local 	term_com 0
-				local  	dvnum2 = `dvnum' + `mod1cats'
 				
-				forvalues i = 1/`numlevels' {	
-					local ilevel: word `i' of `nlevel'
-					forvalues j = 1/`numlevels' {
-						if `i' < `j' {
-							local jlevel: word `j' of `nlevel'
-							local part2 ///
-							+ abs(_b[`dvnum2'._predict#`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
-							- _b[`dvnum2'._predict#`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
-							local term_com `term_com' `part2'						
-						}
-					}	
-				}	
+				_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
+					bospec("`bospec'") prefix("`prnum2_`dvnum''`mod_samp_spec2'")
+				local term_com `"`r(term)'"'
 				
 				local abs_term_com `term_com'		
 				
-				** Unweighted (mean) amount of inequality in base model
-				** Mean amount of inequality in base model
-				qui est restore meineq_margins
-				capture `quietly' nlcom mean_base: (`abs_term_base')/(`nc'), level(`level')
-				if _rc!=0 {
-					`quietly' nlcom mean_base_1000: (`abs_term_base')*1000/(`nc'), level(`level') post 
-					`quietly' nlcom mean_base: _b[mean_base_1000] / 1000, level(`level')					
-				}
-				
-				return scalar uwem1`ithvar'`bolvlspec' = r(table)[1,1]
+				*Unweighted (mean) amount of inequality in base model
+				_mei_nlcom (`abs_term_base')/(`nc'), name(mean_base) level(`level') quietly(`quietly')
+				return scalar uwem1`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = nullmat(`newmatmean') \ `rt'
 				
 				** Mean amount of inequality in comparison model
-				qui est restore meineq_margins
-				capture `quietly' nlcom mean_compare: (`abs_term_com')/(`nc'), level(`level')
-				if _rc!=0 {
-					`quietly' nlcom mean_compare_1000: (`abs_term_com')*1000/(`nc'), level(`level') post
-					`quietly' nlcom mean_compare: _b[mean_compare_1000] / 1000, level(`level')					
-				}
-				
-				return scalar uwem2`ithvar' = r(table)[1,1]
+				_mei_nlcom (`abs_term_com')/(`nc'), name(mean_compare) level(`level') quietly(`quietly')
+				return scalar uwem2`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = `newmatmean' \ `rt'
 				
 				*Test of Mean amount of inequality in two models
-				qui est restore meineq_margins
-				capture `quietly' nlcom mean_change: [(`abs_term_base') - (`abs_term_com')]/(`nc'), level(`level')
-				if _rc!=0 {
-					`quietly' nlcom mean_change_1000: [(`abs_term_base') - (`abs_term_com')]*1000/(`nc'), level(`level') post
-					`quietly' nlcom mean_change: _b[mean_change_1000] / 1000, level(`level')					
-				}
-				
-				return scalar uwed`ithvar'`bolvlspec' = r(table)[1,1]
+				_mei_nlcom ((`abs_term_base') - (`abs_term_com'))/(`nc'), name(mean_change) level(`level') quietly(`quietly')
+				return scalar uwed`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
 				
 				matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
@@ -1456,7 +1452,7 @@ forvalues ithvar=1/`numvars' {
 			
 		} // end: unweighted estimation
 		
-		quietly est restore meineq_gsem // restore the mod for next estimation
+		quietly est restore `meisys' // restore the mod for next estimation
 
 	} // end: nominal DVs for 2 models
 	
@@ -1496,6 +1492,13 @@ matrix colnames `newmatall' = "Estimate" "Std. err." "z" ///
 
 mat `rtable' = `newmatall'
 
+*Count empty cells whose SE is missing; returned as r(se_missing) and noted under the table
+local meisemiss = 0
+forvalues meii = 1/`=rowsof(`newmatall')' {
+	if missing(`newmatall'[`meii',2])  local meisemiss = `meisemiss' + 1
+	}
+return scalar se_missing = `meisemiss'
+
 return mat table = `rtable'			
 
 **display the results based on users' choise
@@ -1515,7 +1518,133 @@ if `nummods' == 2 {
 	
 *Final table	
 matlist `newmatall', format(%10.`decimals'f) ///
-	title("`title' (`samp_info')") twidth(`twidth')	
-	
+	title("`title' (`samp_info')") twidth(`twidth')
+
+if `meisemiss' > 0 {
+	di _newline(1)
+	di as err "NOTE: standard errors are missing for `meisemiss' " /*
+	*/ "of the quantities above. {cmd:nlcom} could not compute them, " /*
+	*/ "which " /*
+	*/ "usually means a predicted quantity sits at or near zero -- " /*
+	*/ "check for sparse outcome categories. The point estimate is " /*
+	*/ "reported; the absent inference is not a display artefact. " /*
+	*/ "{cmd:r(se_missing)} = `meisemiss'."
+	}
+
+*Label the _est_ markers at return; any estimates housekeeping can reset them, and _rc is saved/restored so the block is invisible to the caller
+local __rcsave = _rc
+capture label variable _est_`meisys' "meinequality: est. sample for stored system `meisys'"
+capture label variable _est_meineq_margins "meinequality: est. sample for stored margins meineq_margins"
+capture label variable _est_meineq_mod1 "meinequality: est. sample for the models()-omitted store meineq_mod1"
+local __nh : word count `meiholdn'
+forvalues __h = 1/`__nh' {
+	local __hv : word `__h' of `meiholdn'
+	local __hw : word `__h' of `meiholdw'
+	capture label variable _est_`__hv' "suest2: est. sample for private copy of `__hw'"
+	}
+capture error `__rcsave'
+
 end 
 
+
+*Is the restored model an mi-pooled fit, and what command underlies it?
+capture program drop _mei_terms
+program define _mei_terms, rclass
+*	Build the nlcom expression for one model's (or one outcome's) ME
+	version 16
+	syntax, nomvar(string) nlevel(string) numlevels(integer) ///
+		[bospec(string) prefix(string) weighted psamp(string) ///
+		shsamp(string) mi(integer 0) wspec(string asis)]
+	local term 0
+	forvalues i = 1/`numlevels' {
+		local ilevel: word `i' of `nlevel'
+		if "`weighted'" != "" {
+			mec_share `nomvar' if `psamp' == 1 & `shsamp', level(`ilevel') ///
+				mi(`mi') wspec(`wspec')
+			local p_i = r(share)
+		}
+		forvalues j = 1/`numlevels' {
+			if `i' < `j' {
+				local jlevel: word `j' of `nlevel'
+				if "`weighted'" != "" {
+					mec_share `nomvar' if `psamp' == 1 & `shsamp', level(`jlevel') ///
+						mi(`mi') wspec(`wspec')
+					local p_j = r(share)
+*					the pair weight, corrected for redundant comparisons
+					local multiplier = (`p_i'+`p_j') / (`numlevels' - 1)
+					local term `term' + ( `multiplier' * ///
+						abs(_b[`prefix'`bospec'`ilevel'.`nomvar'] ///
+						- _b[`prefix'`bospec'`jlevel'.`nomvar']))
+				}
+				else {
+					local term `term' ///
+						+ abs(_b[`prefix'`bospec'`ilevel'.`nomvar'] ///
+						- _b[`prefix'`bospec'`jlevel'.`nomvar'])
+				}
+			}
+		}
+	}
+	return local term `"`term'"'
+end
+
+capture program drop _mei_nlcom
+program define _mei_nlcom, rclass
+*	Restore the margins object and form one nlcom quantity, retrying rescaled
+	version 16
+	syntax anything(name=expr everything), name(string) level(string) [quietly(string)]
+	qui est restore meineq_margins
+	capture `quietly' nlcom `name': (`expr'), level(`level')
+	if _rc != 0 {
+		local meirc1 = _rc
+*Capture the 1000x retry; a failed retry must not abort
+		capture `quietly' nlcom `name'_1000: (`expr')*1000, level(`level') post
+		local meirc2 = _rc
+		if `meirc2' == 0 {
+			capture `quietly' nlcom `name': _b[`name'_1000]/1000, level(`level')
+			local meirc2 = _rc
+			}
+		if `meirc2' != 0 {
+			capture qui est restore meineq_mod1
+			di as err "{cmd:meinequality} could not compute {bf:`name'}: " /*
+			*/ "{cmd:nlcom} returned r(`meirc1'), and r(`meirc2') on " /*
+			*/ "the rescaled retry."
+			di as err "This happens when a quantity the summary averages " /*
+			*/ "over sits at or near zero -- most often when an outcome " /*
+			*/ "category holds very few observations. {cmd:tabulate} the " /*
+			*/ "dependent variable; combining sparse categories usually " /*
+			*/ "resolves it."
+			di as err "Your model has been restored to {cmd:e()}."
+			exit 498
+			}
+		}
+	return add
+end
+
+capture program drop _mei_dvlab
+program define _mei_dvlab, rclass
+*	The display label for one outcome level, abbreviated to fit
+	version 16
+	syntax, dv(string) dvlevel(string)
+	qui ds `dv', has(vallabel)
+	if "`r(varlist)'" != "" {
+		local lbe : value label `dv'
+		local lab : label `lbe' `dvlevel'
+		return local lab = abbrev(`"`lab'"', 13)
+	}
+	else return local lab "Outcome `dvlevel'"
+end
+
+capture program drop _mei_ismi
+program define _mei_ismi, rclass
+	local ismi = 0
+	if "`e(cmd)'" == "mi estimate"        local ismi = 1
+	if "`e(prefix_mi)'" == "mi estimate"  local ismi = 1
+	if "`e(mi)'" == "mi"                  local ismi = 1
+	capture confirm scalar e(M_mi)
+	if !_rc                               local ismi = 1
+	local under "`e(cmd_mi)'"
+	if trim("`under'") == "" | "`under'" == "mi estimate"  local under "`e(cmd)'"
+	if "`under'" == "mi estimate"  local under ""
+	return scalar ismi = `ismi'
+	return local under "`under'"
+end
