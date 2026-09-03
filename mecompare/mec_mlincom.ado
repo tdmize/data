@@ -6,7 +6,7 @@
 *	mec_mlincom is an adaptation of mlincom for use inside of mecompare.ado
 *	Specifies the lincom expression rather than the row number
 
-*! version 1.0.3 2015-01-09 | long freese | tweak row margin
+* version 1.0.3 2015-01-09 | long freese | tweak row margin
 * version 1.0.2 2014-10-01 | long freese | always allow non margins
 * version 1.0.1 2014-09-28 | long freese | force if not margins
 * version 1.0.0 2014-02-18 | long freese | spost13 release
@@ -15,7 +15,22 @@
 
 *   DO: trap errors from lincom
 capture program drop mec_mlincom
-*! mec_mlincom v0.1.1 Trenton Mize 2019-03-18
+*! mec_mlincom v0.1.3 Trenton Mize 2026-08-03
+* Revision notes
+* - v0.1.3 two user-facing messages still named melincom, which is retired
+*          and replaced by metest. The first told users to combine marginal
+*          effects with "melincom 1 - 2"; that is metest now. The second told
+*          them to clear the accumulated table with "melincom clear", and
+*          metest is NOT the fix there: metest accumulates into _metest and
+*          _metest_test, while this program accumulates into _mlincom and
+*          _mlincom_allstats. The command that actually clears those is
+*          "mec_mlincom clear", so that is what the message now says.
+* - v0.1.2 error handling: every error branch exited with NO return code,
+*          so a failure inside mecompare's display path reported rc 0 and
+*          looked like success to a caller or a test. All now exit with a
+*          nonzero code, and the messages say what to do about it. (The
+*          exits that end a SUCCESSFUL call -- clear, and listing the
+*          table -- are unchanged.)
 program define mec_mlincom
 
     version 11.2
@@ -80,16 +95,23 @@ program define mec_mlincom
         }
         else if ("`clear'"=="clear") exit
         else {
-            display as error "you must specify the lincom expression"
-            exit
+            display as error "{cmd:mec_mlincom} requires a lincom " /*
+            */ "expression. It is called internally by {cmd:mecompare}; " /*
+            */ "to combine or test marginal effects use {cmd:metest} " /*
+            */ "with the {it:ME #} from the {cmd:mecompare} table, " /*
+            */ "e.g. {cmd:metest 1 - 2}."
+            exit 198
         }
     }
 
     capture confirm matrix e(b)
     if _rc>0 {
-        display as error ///
-"mlincom requires e(b) in memory; with margins or mtable, use the post option"
-        exit
+        display as error "{cmd:mec_mlincom} needs estimation results " /*
+        */ "in memory: run {cmd:margins} with the {opt post} option " /*
+        */ "first. Inside {cmd:mecompare} this is handled " /*
+        */ "automatically, so seeing this means the {cmd:margins} step " /*
+        */ "did not post its results."
+        exit 301
     }
 
 /*  dropped in 1.0.2 to allow mlincom to work with all estimation commands
@@ -186,14 +208,16 @@ program define mec_mlincom
             local stat "`s(stat)'"
             local newstatlist "`newstatlist'`stat' "
             if "`s(isbad)'"=="1" {
-                display as error ///
-                    "invalid statistic specified: `opt'"
-                exit
+                display as error "invalid statistic specified: " /*
+                */ "{bf:`opt'}. Valid statistics are: {opt estimate} " /*
+                */ "(or {opt coef}), {opt se}, {opt zvalue}, " /*
+                */ "{opt pvalue}, {opt ll}, {opt ul}, or {opt all}."
+                exit 198
             }
         }
         local statlist "`newstatlist'"
     }
-    if ("`s(isbad)'"=="1") exit
+    if ("`s(isbad)'"=="1") exit 198	// v0.2.45: was a silent rc 0
     local statlist : list uniq statlist
 
     * column names for matrix
@@ -215,9 +239,12 @@ program define mec_mlincom
             local priorcolnms : colnames `matrix'
         }
         if `matrixexists'==1 & "`colnms'"!="`priorcolnms'" {
-            display as error ///
-                "statistics in matrix `matrix' do not match those being added"
-            exit
+            display as error "the statistics being added do not match " /*
+            */ "those already in {bf:`matrix'} (`priorcolnms' vs " /*
+            */ "`colnms'). Clear the table first -- {cmd:mec_mlincom clear} " /*
+            */ "-- or ask for the same {opt stat()} list as the rows " /*
+            */ "already saved."
+            exit 198
         }
     }
 
