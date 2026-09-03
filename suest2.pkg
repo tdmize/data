@@ -1,0 +1,21 @@
+v 3
+d suest2 - Seemingly unrelated estimation for most models in Stata 
+d with margins support
+d Trenton D. Mize, Purdue University
+d Distribution-Date: 20260831
+f suest2/suest2.ado
+f suest2/suest2.sthlp
+f suest2/suest2_p.ado
+f suest2/suest2_margins.ado
+f suest2/suest2_marg_check.ado
+f suest2/suest2_cleanup.ado
+f suest2/suest2_cleanup.sthlp
+f suest2/suest2_mi.ado
+f suest2/suest2_mi.sthlp
+f suest2/suest2_xtregmle_p.ado
+f suest2/_mec_canonical.ado
+f suest2/mec_share.ado
+f suest2/mec_wcheck.ado
+f suest2/mec_gsem.ado
+f suest2/_mec_omitchk.ado
+f suest2/_mec_prefix.ado
