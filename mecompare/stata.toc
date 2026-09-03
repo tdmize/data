@@ -1,4 +1,0 @@
-v 1
-d mecompare - Cross-model comparisons of marginal effects
-d Trenton D. Mize, Purdue University
-p mecompare command for cross-model comparisons of marginal effects
