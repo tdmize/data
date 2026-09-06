@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.4.0 Trenton Mize 2026-09-02  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.4.2 Trenton Mize 2026-09-05  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -68,6 +68,20 @@ program define mecompare, eclass
 		local 0 `"`mecvl'`mecop'"'
 		}
 
+*syntax drops a c. that stands alone (c.x -> x): remember which variables the user typed with c.
+	local mecrawc ""
+	local mecrawv `"`0'"'
+	local mecrcom = strpos(`"`mecrawv'"', ",")
+	if `mecrcom' > 0  local mecrawv = substr(`"`mecrawv'"', 1, `mecrcom' - 1)
+	foreach mectk of local mecrawv {
+		if inlist("`mectk'", "if", "in") | substr("`mectk'", 1, 1) == "["  continue, break
+		if substr("`mectk'", 1, 2) == "c." & strpos("`mectk'", "#") == 0 {
+			local mecrc = substr("`mectk'", 3, .)
+			capture unab mecrc : `mecrc'
+			if _rc == 0  local mecrawc "`mecrawc' `mecrc'"
+			}
+		}
+
 	syntax [varlist(default=none fv)] [if] [in] [fweight pweight iweight] ///
 		/// models() optional, so the comma sits INSIDE the bracket.
 		[, MODels(string) ///
@@ -78,6 +92,15 @@ program define mecompare, eclass
 		PREDict(string) ENGine(string) ///
 		TOTALme(string) MARGINSopt(string asis) ATMeans ///
 		LABWidth(numlist integer) STATWidth(numlist integer)]  
+
+*The varlist as typed: the c. prefixes syntax dropped are put back for the prefix check
+local mecuvl ""
+foreach mectk of local varlist {
+	local mecin : list posof "`mectk'" in mecrawc
+	if `mecin' > 0  local mecuvl "`mecuvl' c.`mectk'"
+	else  local mecuvl "`mecuvl' `mectk'"
+	}
+local mecuvl = trim(itrim("`mecuvl'"))
 
 *Error out if if/in qualifiers specify no obs; store N
 marksample touse
@@ -747,7 +770,7 @@ if "`varlist'" == "" { // If no vars listed, calculate MEs for all IVs
 	local list_ivs : list uniq clean_list1b
 	}
 else { 	// annotate the specified plain/factor varlist
-	_mec_annotate, uservars("`varlist'") modelivs("`clean_list1b'")
+	_mec_annotate, uservars("`mecuvl'") modelivs("`clean_list1b'")
 	local list_ivs "`r(annotated)'"
 	}
 }
@@ -1043,7 +1066,7 @@ local mecfull2 "`list_ivs2'"
 
 *Allow plain variable names in varlist; annotate against both models
 if "`varlist'" != "" {
-	_mec_annotate, uservars("`varlist'") modelivs("`list_ivs1' `list_ivs2'")
+	_mec_annotate, uservars("`mecuvl'") modelivs("`list_ivs1' `list_ivs2'")
 	local varlist "`r(annotated)'"
 	}
 
@@ -1256,12 +1279,20 @@ if "`by'`over'" != "" {
 	local byvars ""
 	if "`by'" != "" {
 		local botype "by"
-		local byvars = subinstr("`by'",   "i.", "", .)
+		local byvars "`by'"
 		}
 	else {
 		local botype "over"
-		local byvars = subinstr("`over'", "i.", "", .)
+		local byvars "`over'"
 		}
+	*A prefix on a by()/over() variable must agree with the model(s); the bare name is kept
+	_mec_annotate, uservars("`byvars'") modelivs("`clean_list1b' `fvivs1' `fvivs2'")
+	local byvars ""
+	foreach mectk in `r(annotated)' {
+		local mectkb = regexr("`mectk'", "^i(b[0-9]+|bn)?\.", "")
+		local byvars "`byvars' `mectkb'"
+		}
+	local byvars = trim(itrim("`byvars'"))
 	local byuniq : list uniq byvars
 	if `: word count `byuniq'' != `: word count `byvars'' {
 		di _newline(1)
@@ -4120,32 +4151,97 @@ end
 
 capture program drop _mec_annotate
 program define _mec_annotate, rclass
-	*Annotate a plain varlist with the model's factor prefixes; user tokens pass through
+	*Annotate a plain varlist with the factor prefixes of the model; a user prefix must agree with the model
 	version 16.0
 	syntax, USERvars(string) MODELivs(string)
 	local out ""
 	foreach uv of local uservars {
-		local base = subinstr("`uv'", "i.", "", .)
-		local base = subinstr("`base'", "c.", "", .)
-		local slen = length(".`base'")
+		*Interaction terms pass through unchanged; the predictor check refuses them
+		if strpos("`uv'", "#") {
+			local out "`out' `uv'"
+			continue
+			}
+		*Split the user prefix from the name
+		local udot = strpos("`uv'", ".")
+		local upre ""
+		local base "`uv'"
+		if `udot' > 0 {
+			local upre = substr("`uv'", 1, `udot' - 1)
+			local base = substr("`uv'", `udot' + 1, .)
+			}
+		*The user declaration: cont, fac, or none; ubase holds an explicit base level (n = no base)
+		local utype ""
+		local ubase ""
+		if "`upre'" == "c"  local utype "cont"
+		else if "`upre'" == "i"  local utype "fac"
+		else if "`upre'" == "ibn" {
+			local utype "fac"
+			local ubase "n"
+			}
+		else if substr("`upre'", 1, 2) == "ib" {
+			local ubase = subinstr(subinstr(substr("`upre'", 3, .), "(", "", .), ")", "", .)
+			capture confirm integer number `ubase'
+			if _rc | "`ubase'" == "" {
+				di _newline(1)
+				di as err "{bf:`uv'}: {cmd:mecompare} reads a base level only as " /*
+				*/ "{bf:ib#.}, where # is the level. Base levels are set on the " /*
+				*/ "stored model(s); type {bf:i.`base'} or {bf:`base'} to use " /*
+				*/ "the base the model(s) set."
+				exit 198
+				}
+			local utype "fac"
+			}
+		else if "`upre'" != "" {
+			di _newline(1)
+			di as err "{bf:`uv'}: {cmd:mecompare} reads only the prefixes " /*
+			*/ "{bf:c.}, {bf:i.}, {bf:ib#.}, and {bf:ibn.} in its variable list. " /*
+			*/ "Type {bf:`base'} to use the variable as the stored model(s) entered it."
+			exit 198
+			}
+		*The model token for this name: the first factor token, and/or the bare (continuous) name
 		local ftoken ""
+		local ctoken ""
 		foreach t of local modelivs {
-			if "`ftoken'" == "" {
-				local tlen = length("`t'")
-				if `tlen' > `slen' {
-					if substr("`t'", `tlen'-`slen'+1, `slen') == ".`base'" ///
-					   & substr("`t'",1,1) == "i" {
-						local ftoken "`t'"
-						}
+			local tbase = regexr("`t'", "^i(b[0-9]+|bn)?\.", "")
+			if "`tbase'" == "`base'" {
+				if "`tbase'" != "`t'" {
+					if "`ftoken'" == ""  local ftoken "`t'"
 					}
+				else  local ctoken "`t'"
 				}
 			}
-		if "`ftoken'" != "" {
-			local out "`out' `ftoken'"
+		*Refuse a prefix that contradicts the model(s)
+		if "`utype'" == "cont" & "`ftoken'" != "" {
+			di _newline(1)
+			di as err "{bf:`uv'} contradicts the stored model(s): {bf:`base'} was " /*
+			*/ "entered as a factor variable ({bf:`ftoken'}), not as continuous. " /*
+			*/ "Factor syntax is optional in {cmd:mecompare} but must match the " /*
+			*/ "model(s); type {bf:i.`base'} or {bf:`base'}, or refit with {bf:c.`base'}."
+			exit 198
 			}
-		else {
-			local out "`out' `base'"
+		if "`utype'" == "fac" & "`ftoken'" == "" & "`ctoken'" != "" {
+			di _newline(1)
+			di as err "{bf:`uv'} contradicts the stored model(s): {bf:`base'} was " /*
+			*/ "entered as a continuous variable, not with a factor prefix. " /*
+			*/ "Factor syntax is optional in {cmd:mecompare} but must match the " /*
+			*/ "model(s); type {bf:c.`base'} or {bf:`base'}, or refit with {bf:i.`base'}."
+			exit 198
 			}
+		if "`ubase'" != "" & "`ftoken'" != "" {
+			local mbase ""
+			if regexm("`ftoken'", "^ib([0-9]+|n)\.")  local mbase = regexs(1)
+			if "`mbase'" != "" & "`ubase'" != "`mbase'" {
+				if "`mbase'" == "n"  local mbasetxt "no base level ({bf:`ftoken'})"
+				else  local mbasetxt "base level `mbase' ({bf:`ftoken'})"
+				di _newline(1)
+				di as err "{bf:`uv'} contradicts the stored model(s): {bf:`base'} was " /*
+				*/ "entered with `mbasetxt'. The base level is set on the stored " /*
+				*/ "model(s); type {bf:i.`base'} or {bf:`base'}, or refit with {bf:`uv'}."
+				exit 198
+				}
+			}
+		if "`ftoken'" != ""  local out "`out' `ftoken'"
+		else  local out "`out' `base'"
 		}
 	return local annotated = trim(itrim("`out'"))
 end

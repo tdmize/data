@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-02 Trenton D Mize -- matches mecompare v1.4.0}{...}
+{* 2026-09-05 Trenton D Mize -- matches mecompare v1.4.2}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -33,9 +33,12 @@ Factor syntax should have been used on the stored model estimates to ensure
 variables must be entered into the variable list with the {bf:i.} prefix; continuous 
 predictor variables with the {bf:c.} prefix). Factor syntax is allowed 
 but not required for the {cmdab:mecomp:are} command itself: each variable is 
-treated as the stored models specified it. See {help fvvarlist} for details on 
-factor syntax. If you do not specify a variable list, marginal effects are 
-calculated for all variables across the model(s).
+treated as the stored models specified it, and a prefix that contradicts the 
+stored models (for example {bf:c.} on a variable the models entered with 
+{bf:i.}, or a different base level) is refused with an error. See 
+{help fvvarlist} for details on factor syntax. If you do not specify a 
+variable list, marginal effects are calculated for all variables across 
+the model(s).
 
 {pstd}
 By default, marginal effects for a nominal independent variable are shown in 
