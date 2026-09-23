@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-02 Bing Han, Trenton D. Mize -- matches totalme v1.6.9}{...}
+{* 2026-09-23 Bing Han, Trenton D. Mize -- matches totalme v1.7.5}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -171,6 +171,18 @@ variables, of which changes of (a) age + sd, (b) income + 5, and (c) polviews
 {p2col :{ul:{bf:sd}}}A standard deviation change{p_end}
 {p2col :{ul:{bf:#}}}A change of {it: #}, which can be any amount. E.g., A 
 10 unit increase can be specified with {opt amount(10)}{p_end}
+{p2col :{ul:{bf:2sd}}}A two standard deviation change (Gelman 2008),
+useful for comparing continuous effects to categorical effects; centered by
+default, from [x - SD] to [x + SD]. {bf:twosd} is a synonym{p_end}
+{p2col :{ul:{bf:trimrange}}}A change across the trimmed range of the
+variable, from its 5th to its 95th percentile in the estimation sample
+(Mize and Han 2025); {opt start()} and centering do not apply{p_end}
+{p2col :{ul:{bf:range}}}A change across the full observed range of the
+variable, from its minimum to its maximum in the estimation sample;
+{opt start()} and centering do not apply{p_end}
+{p2col :{ul:{bf:rate}}}An instantaneous rate of change, i.e. the derivative,
+approximated with a small centered change; {bf:slope} and {bf:dydx} are
+synonyms. Centering does not apply{p_end}
 
 {p2line}
 
@@ -258,6 +270,23 @@ effects within each group-specific subsample; see
 {help margins##over:[margins] over} option.
 {p_end}
 
+{pstd} Neither option may name one of the focal variables: {cmd:totalme} does
+not estimate the total ME of a variable within levels of that same variable
+and exits with an error; {help mecompare} handles that case.
+{p_end}
+
+{pstd} With either option the table also holds a {bf:Diff.} row for each 
+pair of levels of the {opt by()} or {opt over()} variable -- the total ME at 
+the first level minus the total ME at the second, with its standard error 
+and test, which is the test of whether the effect differs across the 
+groups (a test of interaction). With two models the Diff. rows are given for 
+model 1, model 2, and the cross-model difference. Rows are labelled 
+{bf:Diff.} when the variable has two levels and {bf:Diff.1}, {bf:Diff.2}, 
+... when it has more, one per pair; the level each row subtracts is 
+printed under the table. All quantities come from one {help margins} call, 
+so the tests use the joint covariance of the levels. 
+{p_end}
+
 {marker sampleweights}
 {dlgtab:Sample weights and multiple imputation estimation options}
 
@@ -266,8 +295,9 @@ effects within each group-specific subsample; see
 {cmd:mi estimate: svy:} prefixes are supported. Specify the prefixes on the 
 models themselves, not with {cmd:totalme}; with two models both must use the 
 same prefixes. Under {cmd:mi}, fit with {cmd:mi estimate:} or 
-{cmd:mi estimate, post:} -- both are accepted here and return the same 
-pooled statistic -- and store with {cmd:estimates store}; declare a survey 
+{cmd:mi estimate, post:} -- with one model both are accepted and return the 
+same pooled statistic; with two models, fit both with 
+{cmd:mi estimate, post:} -- and store with {cmd:estimates store}; declare a survey 
 design with {help mi svyset} rather than {help svyset}. The user-written 
 {it:mimrgns} is used for the marginal effects and must be installed 
 separately.
@@ -363,7 +393,10 @@ including scalars for each estimated inequality score and a matrix containing al
 given. In each name {it:#} is the variable's number within its type (the first 
 continuous/binary variable is 1, the first nominal variable is 1). With 
 {opt by()} or {opt over()}, {cmd:_}{it:level} is appended to every name, 
-including the cross-model differences.
+including the cross-model differences, and the Diff. rows append 
+{cmd:_d}{it:level1}{cmd:_}{it:level2} instead (e.g. {cmd:r(tmcm11_d0_1)} 
+is the total ME of the first continuous/binary variable at level 0 minus 
+that at level 1).
 {p_end}
 
 {synoptset 26 tabbed}{...}
@@ -381,6 +414,9 @@ including the cross-model differences.
 {synopt:{cmd:r(tmuwm1}{it:#}{cmd:)}}unweighted Total ME inequality, model 1{p_end}
 {synopt:{cmd:r(tmuwm2}{it:#}{cmd:)}}unweighted Total ME inequality, model 2{p_end}
 {synopt:{cmd:r(tmuwd}{it:#}{cmd:)}}cross-model difference{p_end}
+{syntab:Other}
+{synopt:{cmd:r(n_mods)}}number of models{p_end}
+{synopt:{cmd:r(n_vars)}}number of variables{p_end}
 {synoptline}
 
 {pstd} With one model only the {cmd:m1} names are returned. 
@@ -423,11 +459,18 @@ more information on syntax and options.
 *Continuous and Binary IVs
 {phang} {stata totalme 		age woman} {p_end}
 {phang} {stata totalme 		age woman, amount(sd)} {p_end}
+{phang} {stata totalme 		age woman, amount(2sd)} {p_end}
+{phang} {stata totalme 		age woman, amount(trimrange)} {p_end}
+{phang} {stata totalme 		age woman, amount(range)} {p_end}
+{phang} {stata totalme 		age woman, amount(rate)} {p_end}
 {phang} {stata totalme 		age woman, start(age=20) amount(10)} {p_end}
 
 *Nominal IV (ME inequalities calculated)
 {phang} {stata totalme 		race4} {p_end}
 {phang} {stata totalme 		race4, unweighted} {p_end}
+
+*Total MEs by group, with the Diff. row testing whether they differ
+{phang} {stata totalme 		age woman, by(race4)} {p_end}
 	
 	
 ** Compare across two models on same sample **
@@ -468,6 +511,12 @@ to combine the model estimates. See {help suest} and Weesie (1999) for details o
 the method.
 {p_end}
 
+{title:Stata version}
+
+{pstd}{cmd:totalme} requires Stata 16 or later. A do-file that sets
+{help version} must set version 16 or later; under an older version the
+command stops with a message.{p_end}
+
 {title:Authorship}
 
 {pstd} {cmdab:totalme} and {cmdab:meineq:uality} are written by Bing Han 
@@ -476,6 +525,9 @@ the method.
 Questions can be sent to han644@purdue.edu or tmize@purdue.edu. {p_end}
 
 {title:References}
+
+{pstd} Gelman, Andrew. 2008. Scaling regression inputs by dividing by two
+standard deviations. {it:Statistics in Medicine}. 27(15):2865-2873. {p_end}
 
 {pstd} Mize, Trenton D. and Bing Han. 2025. Inequality and total effect summary 
 measures for nominal and ordinal variables. {it:Sociological Science}. {p_end}

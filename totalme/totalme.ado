@@ -1,10 +1,17 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.6.9 Bing Han & Trenton Mize 2026-09-02  | history: CHANGELOG-totalme.md (repo)
+*! totalme v1.7.5 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-totalme.md (repo)
 
 program define totalme, rclass
 	
 version 16
+*Stata 16 or later, including the version the caller sets
+if _caller() < 16 {
+	di as err "{cmd:totalme} requires version 16 or later; this call " /*
+	*/ "runs under version `=_caller()', set by a {cmd:version} " /*
+	*/ "statement. Set version 16 or later."
+	exit 9
+}
 
 syntax 	varlist(fv) [if] [in] [fweight pweight iweight] , ///
 		[MODels(string) ///
@@ -226,6 +233,10 @@ quietly est restore `mod1'
 
 local cmd_m1 "`e(cmd)'"
 local cmdline_m1 "`e(cmdline)'"
+*Column names of the stored e(b) (e(b_mi) under mi); the variable checks read these
+capture confirm matrix e(b)
+if _rc  local tmcoln1 : colnames e(b_mi)
+else    local tmcoln1 : colnames e(b)
 local vcetype1	= "`e(vce)'"
 tempvar mod1samp
 *Under mi, e(sample) is unset; if/in alone is the sample
@@ -347,6 +358,9 @@ if `nummods' == 2 {
 	qui est restore `mod2'
 	local cmd_m2 "`e(cmd)'"
 	local cmdline_m2 "`e(cmdline)'"
+	capture confirm matrix e(b)
+	if _rc  local tmcoln2 : colnames e(b_mi)
+	else    local tmcoln2 : colnames e(b)
 	local vcetype2	= "`e(vce)'"
 	tempvar mod2samp
 	*Under mi, e(sample) is unset; if/in alone is the sample
@@ -426,7 +440,28 @@ else                qui gen `mod2samp' = e(sample)
 		*/ "categories for `mod2' (a {cmd:`cmd_m2'})."
 		exit 198
 		}
-	
+
+	*The combined estimates hold one base level per factor variable
+	_tm_bases, cols(`tmcoln1')
+	local tmb1 `r(bases)'
+	_tm_bases, cols(`tmcoln2')
+	foreach t in `r(bases)' {
+		gettoken v k : t, parse(":")
+		foreach u of local tmb1 {
+			gettoken w l : u, parse(":")
+			if "`v'" == "`w'" & "`k'" != "`l'" {
+				local l = substr("`l'", 2, .)
+				local k = substr("`k'", 2, .)
+				di _newline(1)
+				di as err "`v' enters `mod1' as `l' and `mod2' as `k'. The two " /*
+				*/ "models are combined into one set of estimates, which holds one " /*
+				*/ "base level per variable. Refit one model so the base levels " /*
+				*/ "match; the total ME does not depend on the base level."
+				exit 198
+			}
+		}
+	}
+
 	*Remove model options
 	local ifcomma = strpos("`cmdline_m1'", ",") 
 	local cmdline_m1_vce = "`cmdline_m1'"
@@ -631,15 +666,10 @@ if "`by'" != "" | "`over'" != "" {
 
 	** check if by/over var is nominal variable
 	if "`by'" != "" {
-		local byvar "`by'"
-		local byovervar "`by'"
-		if strpos("`byvar'", "i.") == 0 {
-			local i_byvar i.`byvar'
-		}
-		else {
-			local i_byvar `byvar'
-		}		
-		if strpos("`cmdline_m1'","`i_byvar'") == 0 { 
+		local byvar = regexr("`by'", "^i[^.]*\.", "")
+		local byovervar "`byvar'"
+		_tm_fvtype, name(`byvar') cols(`tmcoln1')
+		if "`r(type)'" != "factor" {
 			di _newline(1)
 			di as err "Variable `byvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt by()} option." /*	
@@ -651,16 +681,10 @@ if "`by'" != "" | "`over'" != "" {
 	}
 
 	if "`over'" != "" {
-		local overvar "`over'"	
-		local byovervar "`over'"
-		if strpos("`overvar'", "i.") == 0 {
-			local i_overvar i.`overvar'
-		}
-		else {
-			local i_overvar `overvar'
-			local overvar = subinstr("`overvar'", "i.","",.)
-		}	
-		if strpos("`cmdline_m1'","`i_overvar'") == 0 { 
+		local overvar = regexr("`over'", "^i[^.]*\.", "")
+		local byovervar "`overvar'"
+		_tm_fvtype, name(`overvar') cols(`tmcoln1')
+		if "`r(type)'" != "factor" {
 			di _newline(1)
 			di as err "Variable `overvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt over()} option." /*	
@@ -684,6 +708,24 @@ else{
 	local numbyoverlvl = 1
 	
 }
+ 	
+*Pairs of by/over levels for the Diff. rows: first level minus second, all pairs
+local bod_n = 0
+forvalues a = 1/`numbyoverlvl' {
+	forvalues b = `=`a' + 1'/`numbyoverlvl' {
+		local ++bod_n
+		local bodA_`bod_n' = `a'
+		local bodB_`bod_n' = `b'
+		local lvA : word `a' of `byoverlvl'
+		local lvB : word `b' of `byoverlvl'
+		local bodspec_`bod_n' "_d`lvA'_`lvB'"
+		local bodlab_`bod_n' "Diff."
+		if `numbyoverlvl' > 2  local bodlab_`bod_n' "Diff.`bod_n'"
+		local labA : label (`byovervar') `lvA'
+		local labB : label (`byovervar') `lvB'
+		local bodfoot_`bod_n' "`bodlab_`bod_n'' = `labA' - `labB'"
+		}
+	}
  	
 ****************************************************************************
 // Model specification
@@ -835,32 +877,27 @@ local pconivs
 forvalues ithvar=1/`numvars' {
 		
 	local ivar: 	word `ithvar' of `varlist'
-	
+	local ivar = regexr("`ivar'", "^i[^.]*\.", "")
+	_tm_fvtype, name(`ivar') cols(`tmcoln1')
+	local tmty "`r(type)'"
+
 	if `nummods' == 1 {
-		if strpos("`cmdline_m1'","`ivar'") == 0 { 
+		if "`tmty'" == "" {
 			di _newline(1)
-			di as err "Variable `ivar' not found in the model." 
+			di as err "Variable `ivar' not found in the model."
 			exit 198
 		}
 	}
 	else if `nummods' == 2 {
-		if strpos("`cmdline_m1'", "`ivar'") == 0 | ///
-		strpos("`cmdline_m2'","`ivar'") == 0 { 
+		_tm_fvtype, name(`ivar') cols(`tmcoln2')
+		if "`tmty'" == "" | "`r(type)'" == "" {
 			di _newline(1)
 			di as err "Variable `ivar' not found in both models."
 			exit 198
 		}
 	}
 
-	if strpos("`ivar'", "i.") == 0 {
-		local i_ivar i.`ivar'
-	}
-	else {
-		local i_ivar `ivar'
-	}
-	
-	if strpos("`cmdline_m1'", "`i_ivar'") != 0 {
-		local ivar = subinstr("`i_ivar'", "i.", "", .)
+	if "`tmty'" == "factor" {
 		qui levelsof `ivar' if `levsamp'
 		local numlevels	`r(r)'	
 		if `numlevels' > 2 {
@@ -871,12 +908,25 @@ forvalues ithvar=1/`numvars' {
 		}
 	}
 	else {
-		local ivar = subinstr("`i_ivar'", "i.", "", .)
 		local conivs `conivs' `ivar'
 		local pconivs `pconivs' `ivar'
 	}
 	
 		
+}
+
+*A focal variable may not be the by()/over() variable; mecompare handles that case
+if "`byovervar'" != "" {
+	local bobare = subinstr("`byovervar'", "i.", "", .)
+	local boopt = cond("`by'" != "", "by()", "over()")
+	if `: list posof "`bobare'" in conivs' > 0 | `: list posof "`bobare'" in nomivs' > 0 {
+		di _newline(1)
+		di as err "{bf:`bobare'} is a focal variable and is also the {opt `boopt'} " /*
+		*/ "variable. {cmd:totalme} does not estimate the total marginal effect " /*
+		*/ "of a variable within levels of that same variable; use {cmd:mecompare} " /*
+		*/ "for that."
+		exit 198
+	}
 }
 
 if "`conivs'" != "" {
@@ -985,6 +1035,7 @@ if `numcontvars' != 0 {
 		} 
 
 		// Continuous IVs //
+		local amtkey ""
 		if `numcats' > 2 {
 			
 			if `numamounts' == 0 {		// default to 1
@@ -997,18 +1048,60 @@ if `numcontvars' != 0 {
 				local amount`cnum' : word `cnum' of `amount' 
 				}
 			
+			*Keywords are case-insensitive; twosd, slope and dydx are synonyms
+			local amount`cnum' = lower("`amount`cnum''")
+			if "`amount`cnum''" == "twosd"  local amount`cnum' "2sd"
+			if inlist("`amount`cnum''", "slope", "dydx")  local amount`cnum' "rate"
+			local amtkey "`amount`cnum''"
+			local vcent "`centered'"
+			*2sd is a 2*SD change on the numeric path
+			if "`amtkey'" == "2sd" {
+				qui sum `v' if `totalme_sample' == 1
+				local amount`cnum' = 2 * r(sd)
+				}
+			*rate is a centered step of (max - min)/1000 on the numeric path, divided out below
+			if "`amtkey'" == "rate" {
+				qui sum `v' if `totalme_sample' == 1
+				local rmax = r(max)
+				local rmin = r(min)
+				local rateh = (`rmax' - `rmin') / 1000
+				local amount`cnum' "`rateh'"
+				local vcent "centered"
+				}
+
 			*need to remove = so that, e.g. age=50 and age = 50 are treated same
 			local start 		= subinstr("`start'", "=", " ", .) 
 			local hasiv 		= strpos("`start'", "`v'")
 				
+			*trimrange is the 5th to the 95th percentile as fixed values; start() does not apply
+			if "`amtkey'" == "trimrange" {
+				local hasiv = -1
+				qui _pctile `v' if `totalme_sample' == 1, p(5 95)
+				local p5 = r(r1)
+				local p95 = r(r2)
+				local startval 	"`v'=`p5'"
+				local endval 	"`v'=`p95'"
+				local startlab ""
+				}
+			*range is the minimum to the maximum as fixed values; start() does not apply
+			if "`amtkey'" == "range" {
+				local hasiv = -1
+				qui sum `v' if `totalme_sample' == 1
+				local rmin = r(min)
+				local rmax = r(max)
+				local startval 	"`v'=`rmin'"
+				local endval 	"`v'=`rmax'"
+				local startlab ""
+				}
+
 			if `hasiv' == 0  {	// asoberved
 			
 				if "`amount`cnum''" == "one" {	
-					if "`centered'" == "" {
+					if "`vcent'" == "" {
 						local startval 	"`v'=gen(`v')"	
 						local endval	"`v'=gen(`v' + 1)"				
 						}
-					if "`centered'" != "" {
+					if "`vcent'" != "" {
 						local startval 	"`v'=gen(`v' - .5)"	
 						local endval 	"`v'=gen(`v' + .5)"				
 						}
@@ -1018,11 +1111,11 @@ if `numcontvars' != 0 {
 					local sd = r(sd)	
 					local halfsd = `sd' / 2
 					
-					if "`centered'" == "" {
+					if "`vcent'" == "" {
 						local startval 	"`v'=gen(`v')"	
 						local endval 	"`v'=gen(`v' + `sd')"				
 						}
-					if "`centered'" != "" {
+					if "`vcent'" != "" {
 						local startval 	"`v'=gen(`v' - `halfsd')"	
 						local endval 	"`v'=gen(`v' + `halfsd')"				
 						}
@@ -1030,11 +1123,11 @@ if `numcontvars' != 0 {
 				else {	
 					local halfamt = `amount`cnum'' / 2
 					
-					if "`centered'" == "" {
+					if "`vcent'" == "" {
 						local startval 	"`v'=gen(`v')"	
 						local endval 	"`v'=gen(`v' + `amount`cnum'')"				
 						}
-					if "`centered'" != "" {
+					if "`vcent'" != "" {
 						local startval 	"`v'=gen(`v' - `halfamt')"	
 						local endval 	"`v'=gen(`v' + `halfamt')"				
 						}
@@ -1042,9 +1135,8 @@ if `numcontvars' != 0 {
 				local startlab ""
 			}
 				
-			if `hasiv'!= 0 {	// start change at specified value
+			if `hasiv' > 0 {	// start change at specified value
 				local 	wherevar : list posof "`v'" in start
-				di 		`wherevar'
 				local 	whereval = `wherevar' + 1
 				local 	startnum : word `whereval' of `start'
 				qui sum `v' if `totalme_sample' == 1
@@ -1052,12 +1144,12 @@ if `numcontvars' != 0 {
 				local 	halfsd = `sd' / 2	
 				
 				if "`amount`cnum''" == "one" {	
-					if "`centered'" == "" {
+					if "`vcent'" == "" {
 						local endat 	= `startnum' + 1
 						local startval 	"`v'=`startnum'"	
 						local endval 	"`v'=`endat'"				
 						}
-					if "`centered'" != "" {
+					if "`vcent'" != "" {
 						local startat	= `startnum' - .5
 						local endat 	= `startnum' + .5
 						local startval 	"`v'=`startat'"	
@@ -1065,12 +1157,12 @@ if `numcontvars' != 0 {
 						}
 					}
 				else if "`amount`cnum''" == "sd" {	
-					if "`centered'" == "" {
+					if "`vcent'" == "" {
 						local endat 	= `startnum' + `sd'
 						local startval 	"`v'=`startnum'"
 						local endval 	"`v'=`endat'"				
 						}
-					if "`centered'" != "" {
+					if "`vcent'" != "" {
 						local startat 	= `startnum' - `halfsd'
 						local endat 	= `startnum' + `halfsd'
 						local startval 	"`v'=`startat'"
@@ -1080,12 +1172,12 @@ if `numcontvars' != 0 {
 				else {	
 					local halfamt = `amount`cnum'' / 2
 					
-					if "`centered'" == "" {
+					if "`vcent'" == "" {
 						local endat 	= `startnum' + `amount`cnum''
 						local startval 	"`v'=`startnum'"	
 						local endval 	"`v'=`endat'"				
 						}
-					if "`centered'" != "" {
+					if "`vcent'" != "" {
 						local startat 	= `startnum' - `halfamt'
 						local endat 	= `startnum' + `halfamt'		
 						local startval 	"`v'=`startat'"	
@@ -1095,23 +1187,36 @@ if `numcontvars' != 0 {
 					local startlab "start (`startnum')"
 				}
 			*Set labels for table	
-			if "`centered'" == "" {
+			if "`vcent'" == "" {
 				local centerlab ""
 				}
-			if "`centered'" != "" {
+			if "`vcent'" != "" {
 				local centerlab " (centered)"
 				}
-			if "`amount`cnum''" == "one" {
+			if "`amtkey'" == "one" {
 				local change`vnum' "`startlab' + 1`centerlab'"
 				}
-			else if "`amount`cnum''" == "sd" {
+			else if "`amtkey'" == "sd" {
 				local change`vnum' "`startlab' + SD`centerlab'"
+				}
+			else if "`amtkey'" == "2sd" {
+				local change`vnum' "`startlab' + 2SD`centerlab'"
+				}
+			else if "`amtkey'" == "trimrange" {
+				local change`vnum' "p5 to p95"
+				}
+			else if "`amtkey'" == "range" {
+				local change`vnum' "min to max"
+				}
+			else if "`amtkey'" == "rate" {
+				local change`vnum' "`startlab' d/dx"
 				}
 			else {
 				local change`vnum' "`startlab' + `amount`cnum''`centerlab'"
 				}	
 			local 	mspec`i' at(`startval') at(`endval')
-			local 	++cnum	
+			*The amount list advances once per variable, not once per by/over level
+			if `m' == `numbyoverlvl'  local ++cnum
 		
 		} // end: continuous variable 
 		
@@ -1174,6 +1279,9 @@ if `numcontvars' != 0 {
 					local term_base `term_base' `part1'	
 				}	
 			}
+			*rate: the step is divided out
+			if "`amtkey'" == "rate"  local term_base (`term_base')/`rateh'
+			local tmb_`m' `"`term_base'"'
 			**save terms for comparison
 			local contrast`vnum' (`term_base')/`div1' 
 			
@@ -1253,6 +1361,13 @@ if `numcontvars' != 0 {
 				- _b[`tmpre2_`i''1._at`mod_samp_spec2'`bospec'])	
 				local term_com `term_com' `part2'	
 			}
+			*rate: the step is divided out
+			if "`amtkey'" == "rate" {
+				local term_base (`term_base')/`rateh'
+				local term_com (`term_com')/`rateh'
+				}
+			local tmb_`m' `"`term_base'"'
+			local tmc_`m' `"`term_com'"'
 			
 			** total me in base model
 			_tm_nlcom (`term_base')/`div1', name(conivs_nlcom_base) level(`level') quietly(`quietly')
@@ -1281,10 +1396,13 @@ if `numcontvars' != 0 {
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatconivs_temp' = `newmatconivs_temp' \ `rt'
 		
+			*One header per IV; the change label rides on it when it fits the label column
+			local tmeq = "`v'`bolvlnamespec' " + strtrim("`change`vnum''")
+			if udstrlen("`tmeq'") > `twidth'  local tmeq "`v'`bolvlnamespec'"
 			matrix rownames `newmatconivs_temp' = ///
-				"`v',`change`vnum'' `bolvlnamespec':Model 1 (`mod1lab')" ///
-				"`v',`change`vnum'' `bolvlnamespec':Model 2 (`mod2lab')" ///
-				"`v',`change`vnum'' `bolvlnamespec':Cross-Model Diff."
+				"`tmeq':Model 1 (`mod1lab')" ///
+				"`tmeq':Model 2 (`mod2lab')" ///
+				"`tmeq':Cross-Model Diff."
 							
 			matrix `newmatconivs' = `newmatconivs' \ `newmatconivs_temp'
 			matrix drop `newmatconivs_temp'
@@ -1295,6 +1413,31 @@ if `numcontvars' != 0 {
 
 	
 		}	// end by/over option
+
+		*Diff. rows: the level pairs, from the same stored margins
+		forvalues p = 1/`bod_n' {
+			local a = `bodA_`p''
+			local b = `bodB_`p''
+			if `nummods' == 1  _tm_bodrows, ba(`tmb_`a'') bb(`tmb_`b'') div1(`div1') level(`level') quietly(`quietly')
+			else  _tm_bodrows, ba(`tmb_`a'') bb(`tmb_`b'') div1(`div1') ca(`tmc_`a'') cb(`tmc_`b'') div2(`div2') level(`level') quietly(`quietly')
+			return scalar tmcm1`vnum'`bodspec_`p'' = r(b1)
+			matrix `newmatconivs_temp' = r(rows)
+			if `nummods' == 1  matrix rownames `newmatconivs_temp' = "`v' `bodlab_`p'':`change`vnum''"
+			else {
+				return scalar tmcm2`vnum'`bodspec_`p'' = r(b2)
+				return scalar tmcd`vnum'`bodspec_`p'' = r(bd)
+				local tmeq = "`v' `bodlab_`p'' " + strtrim("`change`vnum''")
+				if udstrlen("`tmeq'") > `twidth'  local tmeq "`v' `bodlab_`p''"
+				matrix rownames `newmatconivs_temp' = ///
+					"`tmeq':Model 1 (`mod1lab')" ///
+					"`tmeq':Model 2 (`mod2lab')" ///
+					"`tmeq':Cross-Model Diff."
+				}
+			matrix `newmatconivs' = `newmatconivs' \ `newmatconivs_temp'
+			matrix drop `newmatconivs_temp'
+			if `nummods' == 1  quietly est restore `mod1'
+			else  quietly est restore `tmsys'
+			}
 	} // end: continuous vars
 	
 } // end: if continuous variables
@@ -1306,14 +1449,6 @@ if `numcontvars' != 0 {
 
 ** number of continuous/binary variables
 local numnomvars : word count `nomivs'
-
-if 	`numnomvars' == 0 & ///
-("`weighted'"!="" | "`unweighted'"!="" | "`all'"!=""){
-	di _newline(1)
-	di as err "Incorrect specification in {opt weighted/unweighted/all} option." /*
-	*/ " The options are only for nominal independent variables. "
-	exit 198
-}
 
 if `numnomvars' != 0 {
 	
@@ -1411,6 +1546,7 @@ if `numnomvars' != 0 {
 					local term_base_all `term_base_all' + (`term_base')
 				}
 				
+				local tmwb_`m' `"`term_base_all'"'
 				_tm_nlcom (`term_base_all')/`div1', name(wgt_base_all) level(`level') quietly(`quietly')
 				
 				return scalar tmwm1`vnum'`bolvlspec' = r(table)[1,1]
@@ -1458,6 +1594,7 @@ if `numnomvars' != 0 {
 				** ssave terms for comparison
 				local contrast`vnum' (`term_base')/(`div1'*`nc')
 				
+				local tmub_`m' `"`term_base_all'"'
 				_tm_nlcom (`term_base_all')/(`div1'*`nc'), name(mean_base_all) level(`level') quietly(`quietly')
 				
 				return scalar tmuwm1`vnum'`bolvlspec' = r(table)[1,1]
@@ -1576,6 +1713,8 @@ if `numnomvars' != 0 {
 					local term_com_all `term_com_all' + (`term_com')
 				}
 				
+				local tmwb_`m' `"`term_base_all'"'
+				local tmwc_`m' `"`term_com_all'"'
 				_tm_nlcom (`term_base_all')/`div1', name(wgt_base_all) level(`level') quietly(`quietly')
 				
 				return scalar tmwm1`vnum'`bolvlspec' = r(table)[1,1]
@@ -1653,6 +1792,8 @@ if `numnomvars' != 0 {
 					local term_com_all `term_com_all' + (`term_com')					
 				}
 				
+				local tmub_`m' `"`term_base_all'"'
+				local tmuc_`m' `"`term_com_all'"'
 				_tm_nlcom (`term_base_all')/(`div1'*`nc'), name(mean_base_all) level(`level') quietly(`quietly')
 				
 				return scalar tmuwm1`vnum'`bolvlspec' = r(table)[1,1]
@@ -1679,9 +1820,9 @@ if `numnomvars' != 0 {
 				matrix `newmatmean' = `newmatmean' \ `rt'	
 
 				matrix rownames `newmatmean' = ///
-					"`nomvar'`bolvlnamespec' toal Unwgt MEIneq:Model 1 (`mod1lab')" ///
-					"`nomvar'`bolvlnamespec' toal Unwgt MEIneq:Model 2 (`mod2lab')" ///
-					"`nomvar'`bolvlnamespec' toal Unwgt MEIneq:Cross-Model Diff."
+					"`nomvar'`bolvlnamespec' Unwgt total MEIneq:Model 1 (`mod1lab')" ///
+					"`nomvar'`bolvlnamespec' Unwgt total MEIneq:Model 2 (`mod2lab')" ///
+					"`nomvar'`bolvlnamespec' Unwgt total MEIneq:Cross-Model Diff."
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'	
 				
@@ -1691,6 +1832,48 @@ if `numnomvars' != 0 {
 
 		} // end: nominal DVs for 2 models				
 		}	// end by/over option
+
+		*Diff. rows: the level pairs, weighted then unweighted as the level rows are
+		forvalues p = 1/`bod_n' {
+			local a = `bodA_`p''
+			local b = `bodB_`p''
+			if "`unweighted'" == "" {
+				if `nummods' == 1  _tm_bodrows, ba(`tmwb_`a'') bb(`tmwb_`b'') div1(`div1') level(`level') quietly(`quietly')
+				else  _tm_bodrows, ba(`tmwb_`a'') bb(`tmwb_`b'') div1(`div1') ca(`tmwc_`a'') cb(`tmwc_`b'') div2(`div2') level(`level') quietly(`quietly')
+				return scalar tmwm1`vnum'`bodspec_`p'' = r(b1)
+				matrix `newmatwgt' = r(rows)
+				if `nummods' == 1  matrix rownames `newmatwgt' = "`nomvar' `bodlab_`p'': total ME Ineq."
+				else {
+					return scalar tmwm2`vnum'`bodspec_`p'' = r(b2)
+					return scalar tmwd`vnum'`bodspec_`p'' = r(bd)
+					matrix rownames `newmatwgt' = ///
+						"`nomvar' `bodlab_`p'' total ME Ineq.:Model 1 (`mod1lab')" ///
+						"`nomvar' `bodlab_`p'' total ME Ineq.:Model 2 (`mod2lab')" ///
+						"`nomvar' `bodlab_`p'' total ME Ineq.:Cross-Model Diff."
+					}
+				matrix `newmatall' = `newmatall' \ `newmatwgt'
+				matrix drop `newmatwgt'
+				}
+			if "`all'" != "" | "`unweighted'" != "" {
+				if `nummods' == 1  _tm_bodrows, ba(`tmub_`a'') bb(`tmub_`b'') div1(`div1'*`nc') level(`level') quietly(`quietly')
+				else  _tm_bodrows, ba(`tmub_`a'') bb(`tmub_`b'') div1(`div1'*`nc') ca(`tmuc_`a'') cb(`tmuc_`b'') div2(`div2'*`nc') level(`level') quietly(`quietly')
+				return scalar tmuwm1`vnum'`bodspec_`p'' = r(b1)
+				matrix `newmatmean' = r(rows)
+				if `nummods' == 1  matrix rownames `newmatmean' = "`nomvar' `bodlab_`p'': Unwgt total ME Ineq."
+				else {
+					return scalar tmuwm2`vnum'`bodspec_`p'' = r(b2)
+					return scalar tmuwd`vnum'`bodspec_`p'' = r(bd)
+					matrix rownames `newmatmean' = ///
+						"`nomvar' `bodlab_`p'' Unwgt total MEIneq:Model 1 (`mod1lab')" ///
+						"`nomvar' `bodlab_`p'' Unwgt total MEIneq:Model 2 (`mod2lab')" ///
+						"`nomvar' `bodlab_`p'' Unwgt total MEIneq:Cross-Model Diff."
+					}
+				matrix `newmatall' = `newmatall' \ `newmatmean'
+				matrix drop `newmatmean'
+				}
+			if `nummods' == 1  quietly est restore `mod1'
+			else  quietly est restore `tmsys'
+			}
 	}	// end nominal vars
 }		
 
@@ -1754,6 +1937,12 @@ if `nummods' == 2 {
 matlist `newmatall', format(%10.`decimals'f) ///
 	title("`title' (`samp_info')") twidth(`twidth')
 
+*What each Diff. row subtracts
+forvalues p = 1/`bod_n' {
+	if `p' == 1  di as text ""
+	di as text "`bodfoot_`p''"
+	}
+
 if `tmsemiss' > 0 {
 	di _newline(1)
 	di as err "NOTE: standard errors are missing for `tmsemiss' " /*
@@ -1813,6 +2002,26 @@ program define _tm_nlcom, rclass
 			}
 		}
 	return add
+end
+
+*Diff. rows for one pair of by/over levels: level a minus level b for model 1, model 2 and their cross-model difference
+capture program drop _tm_bodrows
+program define _tm_bodrows, rclass
+	version 16
+	syntax , ba(string asis) bb(string asis) div1(string) [ca(string asis) cb(string asis) div2(string)] level(string) [quietly(string)]
+	tempname rows
+	_tm_nlcom ((`ba') - (`bb'))/(`div1'), name(bod_m1) level(`level') quietly(`quietly')
+	matrix `rows' = r(table)[1,1], r(table)[2,1], r(table)[3,1], r(table)[4,1], r(table)[5,1], r(table)[6,1]
+	return scalar b1 = `rows'[1,1]
+	if `"`ca'"' != "" {
+		_tm_nlcom ((`ca') - (`cb'))/(`div2'), name(bod_m2) level(`level') quietly(`quietly')
+		matrix `rows' = `rows' \ (r(table)[1,1], r(table)[2,1], r(table)[3,1], r(table)[4,1], r(table)[5,1], r(table)[6,1])
+		return scalar b2 = `rows'[2,1]
+		_tm_nlcom ((`ba')/(`div1') - (`ca')/(`div2')) - ((`bb')/(`div1') - (`cb')/(`div2')), name(bod_diff) level(`level') quietly(`quietly')
+		matrix `rows' = `rows' \ (r(table)[1,1], r(table)[2,1], r(table)[3,1], r(table)[4,1], r(table)[5,1], r(table)[6,1])
+		return scalar bd = `rows'[3,1]
+		}
+	return matrix rows = `rows'
 end
 
 capture program drop _tm_prefixes
@@ -1913,6 +2122,45 @@ program define _tm_cats, rclass
 		return scalar div = 1
 		exit
 		}
+end
+
+*How name enters a list of e(b) column names: factor, cont, or empty when absent
+capture program drop _tm_fvtype
+program define _tm_fvtype, rclass
+	version 16
+	syntax, name(string) [cols(string asis)]
+	local type ""
+	foreach c of local cols {
+		local c = subinstr("`c'", "#", " ", .)
+		foreach p of local c {
+			if regexm("`p'", "^[0-9]+[bno]*\.`name'$")  local type "factor"
+			else if "`type'" == "" & regexm("`p'", "^((c|o|co)\.)?`name'$")  local type "cont"
+		}
+	}
+	return local type "`type'"
+end
+
+*Base level of each factor variable in a list of e(b) column names, as name:ib#.name
+capture program drop _tm_bases
+program define _tm_bases, rclass
+	version 16
+	syntax, [cols(string asis)]
+	local out ""
+	local seen ""
+	foreach c of local cols {
+		local c = subinstr("`c'", "#", " ", .)
+		foreach p of local c {
+			if regexm("`p'", "^([0-9]+)(bn?)o?\.(.+)$") {
+				local v = regexs(3)
+				local ib = cond(regexs(2) == "bn", "ibn", "ib" + regexs(1))
+				if !`: list v in seen' {
+					local seen `seen' `v'
+					local out `out' `v':`ib'.`v'
+				}
+			}
+		}
+	}
+	return local bases `out'
 end
 
 *Is the restored model an mi-pooled fit, and what command underlies it?
