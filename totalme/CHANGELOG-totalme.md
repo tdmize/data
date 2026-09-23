@@ -1,5 +1,15 @@
 # CHANGELOG -- totalme
 
+## v1.7.6 -- 23sep2026, start() matches the variable's own name
+
+`start()` found a focal variable by searching the start() text for its
+name, so a variable whose name is part of another's was taken to have a
+start value: in `totalme age wage, start(wage=20)` `age` matched inside
+`wage`, and the value read for it was the next word of start(), `wage`,
+not a number. The test is now an exact match on the name, as in
+mecompare (found 10sep2026; gate 61, `test_totalme_start_gate61_v1_0`).
+Nothing else moves.
+
 ## v1.7.5 -- 23sep2026, version 16 or later; weighting options without a nominal variable
 
 A caller running under version 15 or older -- a `version 15` line at the

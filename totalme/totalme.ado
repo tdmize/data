@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.7.5 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-totalme.md (repo)
+*! totalme v1.7.6 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-totalme.md (repo)
 
 program define totalme, rclass
 	
@@ -1071,7 +1071,8 @@ if `numcontvars' != 0 {
 
 			*need to remove = so that, e.g. age=50 and age = 50 are treated same
 			local start 		= subinstr("`start'", "=", " ", .) 
-			local hasiv 		= strpos("`start'", "`v'")
+			*Exact token match when reading start() values
+			local hasiv 		: list posof "`v'" in start
 				
 			*trimrange is the 5th to the 95th percentile as fixed values; start() does not apply
 			if "`amtkey'" == "trimrange" {
