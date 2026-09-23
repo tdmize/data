@@ -1,6 +1,13 @@
-*! version 1.0.0  30aug2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.0.1  23sep2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
+    *Stata 16 or later, including the version the caller sets
+    if _caller() < 16 {
+        di as err "{cmd:suest2} requires version 16 or later; this call " /*
+        */ "runs under version `=_caller()', set by a {cmd:version} " /*
+        */ "statement. Set version 16 or later."
+        exit 9
+    }
 
     if replay() {
         if "`e(cmd)'" != "suest2" {
@@ -760,7 +767,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.0.0"
+    ereturn local suest2_version "1.0.1"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  31aug2026}{...}
+{* *! version 1.0.1  23sep2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -402,6 +402,12 @@ the model estimates before estimating marginal effects.
 
 
 {marker authorship}{...}
+{title:Stata version}
+
+{pstd}{cmd:suest2} requires Stata 16 or later. A do-file that sets
+{help version} must set version 16 or later; under an older version the
+command stops with a message.{p_end}
+
 {title:Authorship}
 
 {pstd} {cmd:suest2} is written by Trenton D Mize, 
