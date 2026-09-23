@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-02 Bing Han, Trenton D. Mize -- matches meinequality v1.8.8}{...}
+{* 2026-09-23 Bing Han, Trenton D. Mize -- matches meinequality v1.9.3}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -199,7 +199,8 @@ nominal variable in the sample.
 {p_end}
 
 {p2col:{opt all}} reports both the {opt wei:ghted} and {opt unw:eighted} 
-inequality measures.
+inequality measures. For a binary variable the two are equal, and only the 
+weighted one is shown.
 {p_end}
 
 {marker covariates}
@@ -264,6 +265,24 @@ effects within each group-specific subsample; see
 {help margins##over:[margins] over} option. 
 {p_end}
 
+{pstd} Neither option may name one of the focal variables: {cmd:meinequality}
+does not estimate the ME inequality of a variable within levels of that same
+variable and exits with an error; {help mecompare} handles that case.
+{p_end}
+
+{pstd} With either option the table also holds a {bf:Diff.} row for each 
+pair of levels of the {opt by()} or {opt over()} variable -- the ME 
+inequality at the first level minus that at the second, with its standard 
+error and test, which is the test of whether the inequality differs across 
+the groups (a test of interaction). With a multi-category outcome there is 
+one Diff. row per outcome; with two models the Diff. rows are given for 
+model 1, model 2, and the cross-model difference. Rows are labelled 
+{bf:Diff.} when the variable has two levels and {bf:Diff.1}, {bf:Diff.2}, 
+... when it has more, one per pair; the level each row subtracts is 
+printed under the table. All quantities come from one {help margins} call, 
+so the tests use the joint covariance of the levels. 
+{p_end}
+
 {marker sampleweights}
 {dlgtab:Sample weights and multiple imputation estimation options}
 
@@ -272,8 +291,9 @@ effects within each group-specific subsample; see
 {cmd:mi estimate: svy:} prefixes are supported. Specify the prefixes on the models 
 themselves, not with {cmd:meinequality}; with two models both must use the 
 same prefixes. Under {cmd:mi}, fit with {cmd:mi estimate:} or 
-{cmd:mi estimate, post:} -- both are accepted here and return the same 
-pooled statistic -- and store with {cmd:estimates store}; declare a survey 
+{cmd:mi estimate, post:} -- with one model both are accepted and return the 
+same pooled statistic; with two models, fit both with 
+{cmd:mi estimate, post:} -- and store with {cmd:estimates store}; declare a survey 
 design with {help mi svyset} rather than {help svyset}. The user-written 
 {it:mimrgns} is used for the marginal effects and must be installed 
 separately.
@@ -377,7 +397,10 @@ names are used when the outcome is binary or continuous.
 the outcome is appended as {cmd:_o}{it:#} -- one scalar per outcome, matching 
 the rows displayed -- and with a binary outcome nothing is appended, since 
 there is only one. {opt by()} and {opt over()} then append 
-{cmd:_}{it:level}. With one model only the {cmd:m1} names are returned.
+{cmd:_}{it:level}, and their Diff. rows append 
+{cmd:_d}{it:level1}{cmd:_}{it:level2} instead (e.g. {cmd:r(wem11_d0_1)} is 
+the weighted ME inequality of the first variable at level 0 minus that at 
+level 1). With one model only the {cmd:m1} names are returned.
 {p_end}
 
 {synoptset 26 tabbed}{...}
@@ -444,6 +467,9 @@ See {help bootstrap} for more information on syntax and options.
 
 {phang} {stata meinequality 	race, models(basemod medmod)} {p_end}
 
+*ME inequality by group in the second model, with the Diff. row testing whether it differs
+{phang} {stata meinequality 	race, models(medmod) by(married)} {p_end}
+
 *Compare across distinct samples/groups for two models
 {phang} {stata logit 			union i.race c.age if married == 0, vce(robust)} {p_end}
 {phang} {stata est store 		notmar} {p_end}
@@ -486,6 +512,12 @@ See {help bootstrap} for more information on syntax and options.
 model estimates in the two model case. See {help suest} and Weesie (1999) 
 for details on the method.
 {p_end}
+
+{title:Stata version}
+
+{pstd}{cmd:meinequality} requires Stata 16 or later. A do-file that sets
+{help version} must set version 16 or later; under an older version the
+command stops with a message.{p_end}
 
 {title:Authorship}
 

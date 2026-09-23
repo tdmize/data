@@ -1,10 +1,17 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.8.8 Bing Han & Trenton Mize 2026-09-02  | history: CHANGELOG-meinequality.md (repo)
+*! meinequality v1.9.3 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-meinequality.md (repo)
 
 program define meinequality, rclass
 	
 version 16
+*Stata 16 or later, including the version the caller sets
+if _caller() < 16 {
+	di as err "{cmd:meinequality} requires version 16 or later; this call " /*
+	*/ "runs under version `=_caller()', set by a {cmd:version} " /*
+	*/ "statement. Set version 16 or later."
+	exit 9
+}
 
 syntax 	varlist(fv) [if] [in] [fweight pweight iweight] , ///
 		[MODels(string) ///
@@ -217,6 +224,10 @@ quietly est restore `mod1'
 
 local cmd_m1 "`e(cmd)'"
 local cmdline_m1 "`e(cmdline)'"
+*Column names of the stored e(b) (e(b_mi) under mi); the nominal-variable checks read these
+capture confirm matrix e(b)
+if _rc  local meicoln1 : colnames e(b_mi)
+else    local meicoln1 : colnames e(b)
 local vcetype1	= "`e(vce)'"
 qui tempvar mod1samp
 *Under mi, e(sample) is unset; if/in alone is the sample
@@ -333,6 +344,9 @@ else {
 if `nummods' == 2 {
 	qui est restore `mod2'
 	local cmd_m2 "`e(cmd)'"
+*Under mi the underlying command is resolved first, as for model 1
+	_mei_ismi
+	if r(ismi) == 1 & "`r(under)'" != ""  local cmd_m2 "`r(under)'"
 *Resolve model 2 through _mec_canonical too
 	_mec_canonical, cmd("`cmd_m2'") cmd2("`e(cmd2)'") model("`e(model)'") /*
 		*/ distrib("`e(distrib)'") method("`e(method)'") estimator("`e(estimator)'")
@@ -354,6 +368,9 @@ if `nummods' == 2 {
 		exit 198
 		}
 	local cmdline_m2 "`e(cmdline)'"
+	capture confirm matrix e(b)
+	if _rc  local meicoln2 : colnames e(b_mi)
+	else    local meicoln2 : colnames e(b)
 	local vcetype2	= "`e(vce)'"
 	qui tempvar mod2samp
 	*Under mi, e(sample) is unset; if/in alone is the sample
@@ -402,7 +419,28 @@ else                             qui gen `mod2samp' = e(sample)
 		*/ "{cmd:meinequality} doesn't support different models."
 	exit 198
 	}
-	
+
+	*The combined estimates hold one base level per factor variable
+	_mei_bases, cols(`meicoln1')
+	local meib1 `r(bases)'
+	_mei_bases, cols(`meicoln2')
+	foreach t in `r(bases)' {
+		gettoken v k : t, parse(":")
+		foreach u of local meib1 {
+			gettoken w l : u, parse(":")
+			if "`v'" == "`w'" & "`k'" != "`l'" {
+				local l = substr("`l'", 2, .)
+				local k = substr("`k'", 2, .)
+				di _newline(1)
+				di as err "`v' enters `mod1' as `l' and `mod2' as `k'. The two " /*
+				*/ "models are combined into one set of estimates, which holds one " /*
+				*/ "base level per variable. Refit one model so the base levels " /*
+				*/ "match; the ME inequality does not depend on the base level."
+				exit 198
+			}
+		}
+	}
+
 	*gologit2 pair refused under engine(gsem) only
 	if ("`cmd_m1'" == "gologit2" | "`cmd_m2'" == "gologit2") /*
 		*/ & "`engine'" == "gsem" {
@@ -681,15 +719,10 @@ if "`by'" != "" | "`over'" != "" {
 
 	** check if by/over var is nominal variable
 	if "`by'" != "" {
-		local byvar "`by'"
-		local byovervar "`by'"
-		if strpos("`byvar'", "i.") == 0 {
-			local i_byvar i.`byvar'
-		}
-		else {
-			local i_byvar `byvar'
-		}		
-		if strpos("`cmdline_m1'","`i_byvar'") == 0 { 
+		local byvar = regexr("`by'", "^i[^.]*\.", "")
+		local byovervar "`byvar'"
+		_mei_isfv, name(`byvar') cols(`meicoln1')
+		if !r(found) {
 			di _newline(1)
 			di as err "Variable `byvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt by()} option." /*	
@@ -701,16 +734,10 @@ if "`by'" != "" | "`over'" != "" {
 	}
 
 	if "`over'" != "" {
-		local overvar "`over'"	
-		local byovervar "`over'"
-		if strpos("`overvar'", "i.") == 0 {
-			local i_overvar i.`overvar'
-		}
-		else {
-			local i_overvar `overvar'
-			local overvar = subinstr("`overvar'", "i.","",.)
-		}	
-		if strpos("`cmdline_m1'","`i_overvar'") == 0 { 
+		local overvar = regexr("`over'", "^i[^.]*\.", "")
+		local byovervar "`overvar'"
+		_mei_isfv, name(`overvar') cols(`meicoln1')
+		if !r(found) {
 			di _newline(1)
 			di as err "Variable `overvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt over()} option." /*	
@@ -735,6 +762,25 @@ else{
 	
 }
 	
+*Pairs of by/over levels for the Diff. rows: first level minus second, all pairs
+local bod_n = 0
+local meizero = 0
+forvalues a = 1/`numbyoverlvl' {
+	forvalues b = `=`a' + 1'/`numbyoverlvl' {
+		local ++bod_n
+		local bodA_`bod_n' = `a'
+		local bodB_`bod_n' = `b'
+		local lvA : word `a' of `byoverlvl'
+		local lvB : word `b' of `byoverlvl'
+		local bodspec_`bod_n' "_d`lvA'_`lvB'"
+		local bodlab_`bod_n' "Diff."
+		if `numbyoverlvl' > 2  local bodlab_`bod_n' "Diff.`bod_n'"
+		local labA : label (`byovervar') `lvA'
+		local labB : label (`byovervar') `lvB'
+		local bodfoot_`bod_n' "`bodlab_`bod_n'' = `labA' - `labB'"
+		}
+	}
+	
 ****************************************************************************
 // Check nominal independent variables to be estimated
 ****************************************************************************
@@ -752,30 +798,29 @@ if `numvars' == 0 {
 forvalues ithvar=1/`numvars' {
 		
 	local nomvar : 	word `ithvar' of `varlist'
-	
-	if strpos("`nomvar'", "i.") == 0 {
-		local i_nomvar i.`nomvar'
+	local nomvar = regexr("`nomvar'", "^i[^.]*\.", "")
+
+	_mei_isfv, name(`nomvar') cols(`meicoln1')
+	local meifound = r(found)
+	if `nummods' == 2 {
+		_mei_isfv, name(`nomvar') cols(`meicoln2')
+		local meifound = `meifound' & r(found)
 	}
-	else {
-		local i_nomvar `nomvar'
+	if !`meifound' {
+		di _newline(1)
+		di as err "Variable `nomvar' not found in the model. " ///
+		"See if i. prefix is used for the nominal variable in the model."
+		exit 198
 	}
-			
-	if `nummods' == 1 {
-		if strpos("`cmdline_m1'","`i_nomvar'") == 0 { 
-			di _newline(1)
-			di as err "Variable `nomvar' not found in the model. " ///
-			"See if i. prefix is used for the nominal variable in the model."
-			exit 198
-		}
-	}
-	else if `nummods' == 2 {
-		if strpos("`cmdline_m1'","`i_nomvar'") == 0 | ///
-		strpos("`cmdline_m2'","`i_nomvar'") == 0 { 
-			di _newline(1)
-			di as err "Variable `nomvar' not found in the model. " ///
-			"See if i. prefix is used for the nominal variable in the model."
-			exit 198
-		}		
+*A focal variable may not be the by()/over() variable; mecompare handles that case
+	if "`byovervar'" != "" & "`nomvar'" == "`byovervar'" {
+		local boopt = cond("`by'" != "", "by()", "over()")
+		di _newline(1)
+		di as err "{bf:`nomvar'} is a focal variable and is also the {opt `boopt'} " /*
+		*/ "variable. {cmd:meinequality} does not estimate the ME inequality " /*
+		*/ "of a variable within levels of that same variable; use " /*
+		*/ "{cmd:mecompare} for that."
+		exit 198
 	}
 }
 
@@ -920,13 +965,15 @@ matrix `rtable' = J(1, 6, .)
 ** calculate the meinequality for each nominal variable separately 
 forvalues ithvar=1/`numvars' {
 
-	local nomvar : 	word `ithvar' of `varlist'	
-	local nomvar = subinstr("`nomvar'", "i.", "", .) 
+	local nomvar : 	word `ithvar' of `varlist'
+	local nomvar = regexr("`nomvar'", "^i[^.]*\.", "")
 	
 	** all levels of the nominal variable
 	qui levelsof 	`nomvar' if `levsamp'
 	local nlevel 	`r(levels)'
 	local numlevels	`r(r)'	
+*The unweighted rows: with all, not for a binary variable (they equal the weighted)
+	local meiuw = ("`all'" != "" & `numlevels' > 2) | "`unweighted'" != ""
 	
 	** # of comparison groups
 	local nc = ((`r(r)')*(`r(r)'-1)/2)
@@ -972,6 +1019,7 @@ forvalues ithvar=1/`numvars' {
 				bospec("`bospec'") prefix("") weighted ///
 				psamp(`psamp1') shsamp(`mecshsamp') mi(`mecismi') wspec(`mecwspec')
 			local term_base `"`r(term)'"'
+			local meiwb_`m'_1 `"`term_base'"'
 			_mei_nlcom `term_base', name(wgt_base) level(`level') quietly(`quietly')
 			return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
 			
@@ -989,11 +1037,12 @@ forvalues ithvar=1/`numvars' {
 			matrix drop `newmatwgt'
 		}
 		
-		if "`all'"!="" | "`unweighted'"!="" {
+		if `meiuw' {
 			** Set up for lincom calculation
 			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
 				bospec("`bospec'") prefix("")
 			local term_base `"`r(term)'"'
+			local meiub_`m'_1 `"`term_base'"'
 			
 			** Unweighted (mean) amount of inequality in base model
 			_mei_nlcom (`term_base')/(`nc'), name(mean_base) level(`level') quietly(`quietly')
@@ -1096,6 +1145,8 @@ forvalues ithvar=1/`numvars' {
 			local term_com `"`r(term)'"'
 			
 			local wgt_term_com `term_com'
+			local meiwb_`m'_1 `"`wgt_term_base'"'
+			local meiwc_`m'_1 `"`wgt_term_com'"'
 			 
 			_mei_nlcom `wgt_term_base', name(wgt_base) level(`level') quietly(`quietly')
 			return scalar wem1`ithvar'`bolvlspec' = r(table)[1,1]
@@ -1130,7 +1181,7 @@ forvalues ithvar=1/`numvars' {
 		} // end: weighted meinequality
 		
 		** unweighted calculation
-		if "`all'"!="" | "`unweighted'"!="" {
+		if `meiuw' {
 						
 			*Load terms for calculation
 			_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
@@ -1146,6 +1197,8 @@ forvalues ithvar=1/`numvars' {
 			local term_com `"`r(term)'"'
 			
 			local abs_term_com `term_com'		
+			local meiub_`m'_1 `"`abs_term_base'"'
+			local meiuc_`m'_1 `"`abs_term_com'"'
 			
 			*Unweighted (mean) amount of inequality in base model
 			_mei_nlcom (`abs_term_base')/(`nc'), name(mean_base) level(`level') quietly(`quietly')
@@ -1222,6 +1275,7 @@ forvalues ithvar=1/`numvars' {
 					bospec("`bospec'") prefix("`dvnum'._predict#") weighted ///
 					psamp(`psamp1') shsamp(`mecshsamp') mi(`mecismi') wspec(`mecwspec')
 				local term_base `"`r(term)'"'
+				local meiwb_`m'_`dvnum' `"`term_base'"'
 							
 			_mei_nlcom `term_base', name(wgt_base) level(`level') quietly(`quietly')
 			return scalar wem1`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
@@ -1238,7 +1292,7 @@ forvalues ithvar=1/`numvars' {
 			}	
 		} // end: weighted meinequality
 
-		if "`all'"!="" | "`unweighted'"!="" {
+		if `meiuw' {
 
 			forvalues dvnum = 1/`mod1cats'{
 
@@ -1250,6 +1304,7 @@ forvalues ithvar=1/`numvars' {
 				_mei_terms, nomvar(`nomvar') nlevel("`nlevel'") numlevels(`numlevels') ///
 					bospec("`bospec'") prefix("`dvnum'._predict#")
 				local term_base `"`r(term)'"'
+				local meiub_`m'_`dvnum' `"`term_base'"'
 				
 				** Unweighted (mean) amount of inequality in base model
 				_mei_nlcom (`term_base')/(`nc'), name(mean_base) level(`level') quietly(`quietly')
@@ -1358,6 +1413,8 @@ forvalues ithvar=1/`numvars' {
 				local term_com `"`r(term)'"'
 				
 				local wgt_term_com `term_com'
+				local meiwb_`m'_`dvnum' `"`wgt_term_base'"'
+				local meiwc_`m'_`dvnum' `"`wgt_term_com'"'
 				 
 				_mei_nlcom `wgt_term_base', name(wgt_base) level(`level') quietly(`quietly')
 				return scalar wem1`ithvar'_o`dvnum'`bolvlspec' = r(table)[1,1]
@@ -1395,7 +1452,7 @@ forvalues ithvar=1/`numvars' {
 		} // end: weighted meinequality
 				
 		** unweighted calculation
-		if "`all'"!="" | "`unweighted'"!="" {
+		if `meiuw' {
 						
 			forvalues dvnum = 1/`mod1cats'{			 
 			
@@ -1417,6 +1474,8 @@ forvalues ithvar=1/`numvars' {
 				local term_com `"`r(term)'"'
 				
 				local abs_term_com `term_com'		
+				local meiub_`m'_`dvnum' `"`abs_term_base'"'
+				local meiuc_`m'_`dvnum' `"`abs_term_com'"'
 				
 				*Unweighted (mean) amount of inequality in base model
 				_mei_nlcom (`abs_term_base')/(`nc'), name(mean_base) level(`level') quietly(`quietly')
@@ -1457,6 +1516,76 @@ forvalues ithvar=1/`numvars' {
 	} // end: nominal DVs for 2 models
 	
 	} // end: levels of by/over variables
+
+	*Diff. rows: the level pairs, weighted then unweighted, each over the outcomes, as the level rows are
+	local nout = cond(`mod1cats' < 3, 1, `mod1cats')
+	forvalues p = 1/`bod_n' {
+		local a = `bodA_`p''
+		local b = `bodB_`p''
+		forvalues dvnum = 1/`nout' {
+			local dvlevel : word `dvnum' of `dvlevels'
+			if `nummods' == 1 & `mod1cats' < 3 {
+				local wnames_`dvnum' `""ME Inequality:`nomvar' `bodlab_`p''""'
+				local unames_`dvnum' `""Unwgt. ME Inequality:`nomvar' `bodlab_`p''""'
+				}
+			else if `nummods' == 1 {
+				local wnames_`dvnum' `""`nomvar' `bodlab_`p'' ME Ineq.:Pr(`out_`dvlevel'')""'
+				local unames_`dvnum' `""`nomvar' `bodlab_`p'' Unwgt ME Ineq.:Pr(`out_`dvlevel'')""'
+				}
+			else {
+				local n1 "Model 1 (`mod1lab')"
+				local n2 "Model 2 (`mod2lab')"
+				local n3 "Cross-Model Diff."
+				if `mod1cats' >= 3 {
+					local n1 "`mod1lab' Pr(`out_`dvlevel'')"
+					local n2 "`mod2lab' Pr(`out_`dvlevel'')"
+					local n3 "Diff. Pr(`out_`dvlevel'')"
+					}
+				local wnames_`dvnum' `""`nomvar' `bodlab_`p'' ME Ineq.:`n1'" "`nomvar' `bodlab_`p'' ME Ineq.:`n2'" "`nomvar' `bodlab_`p'' ME Ineq.:`n3'""'
+				local unames_`dvnum' `""`nomvar' `bodlab_`p'' Unwgt ME Ineq.:`n1'" "`nomvar' `bodlab_`p'' Unwgt ME Ineq.:`n2'" "`nomvar' `bodlab_`p'' Unwgt ME Ineq.:`n3'""'
+				}
+			}
+		if "`unweighted'" == "" {
+			forvalues dvnum = 1/`nout' {
+				local osfx ""
+				if `mod1cats' >= 3  local osfx "_o`dvnum'"
+				if `nummods' == 1  _mei_bodrows, ba(`meiwb_`a'_`dvnum'') bb(`meiwb_`b'_`dvnum'') div1(1) level(`level') quietly(`quietly')
+				else  _mei_bodrows, ba(`meiwb_`a'_`dvnum'') bb(`meiwb_`b'_`dvnum'') div1(1) ca(`meiwc_`a'_`dvnum'') cb(`meiwc_`b'_`dvnum'') div2(1) level(`level') quietly(`quietly')
+				if r(zero)  local meizero = 1
+				return scalar wem1`ithvar'`osfx'`bodspec_`p'' = r(b1)
+				if `nummods' == 2 {
+					return scalar wem2`ithvar'`osfx'`bodspec_`p'' = r(b2)
+					return scalar wed`ithvar'`osfx'`bodspec_`p'' = r(bd)
+					}
+				matrix `newmatwgt' = r(rows)
+				matrix rownames `newmatwgt' = `wnames_`dvnum''
+				if `nummods' == 1 & `mod1cats' < 3 & "`all'" != ""  matrix `newmatall_w' = `newmatall_w' \ `newmatwgt'
+				else  matrix `newmatall' = `newmatall' \ `newmatwgt'
+				matrix drop `newmatwgt'
+				}
+			}
+		if `meiuw' {
+			forvalues dvnum = 1/`nout' {
+				local osfx ""
+				if `mod1cats' >= 3  local osfx "_o`dvnum'"
+				if `nummods' == 1  _mei_bodrows, ba(`meiub_`a'_`dvnum'') bb(`meiub_`b'_`dvnum'') div1(`nc') level(`level') quietly(`quietly')
+				else  _mei_bodrows, ba(`meiub_`a'_`dvnum'') bb(`meiub_`b'_`dvnum'') div1(`nc') ca(`meiuc_`a'_`dvnum'') cb(`meiuc_`b'_`dvnum'') div2(`nc') level(`level') quietly(`quietly')
+				if r(zero)  local meizero = 1
+				return scalar uwem1`ithvar'`osfx'`bodspec_`p'' = r(b1)
+				if `nummods' == 2 {
+					return scalar uwem2`ithvar'`osfx'`bodspec_`p'' = r(b2)
+					return scalar uwed`ithvar'`osfx'`bodspec_`p'' = r(bd)
+					}
+				matrix `newmatmean' = r(rows)
+				matrix rownames `newmatmean' = `unames_`dvnum''
+				if `nummods' == 1 & `mod1cats' < 3 & "`all'" != ""  matrix `newmatall_uw' = `newmatall_uw' \ `newmatmean'
+				else  matrix `newmatall' = `newmatall' \ `newmatmean'
+				matrix drop `newmatmean'
+				}
+			}
+		if `nummods' == 1  quietly est restore `mod1'
+		else  quietly est restore `meisys'
+		}
 	
 } // end: variables in varlist
 
@@ -1471,11 +1600,10 @@ if `nummods' == 1 & `mod1cats' < 3 & "`all'"!="" {
 	local numrows = rowsof(`newmatall_w')
 	mat `newmatall_w' = `newmatall_w'[2..`numrows', 1..`numcols']
 
-	local numcols = colsof(`newmatall_uw')
+	matrix `newmatall' = `newmatall_w'
+*Binary variables add no unweighted rows; append them only if any exist
 	local numrows = rowsof(`newmatall_uw')
-	mat `newmatall_uw' = `newmatall_uw'[2..`numrows', 1..`numcols']
-	
-	matrix `newmatall' = `newmatall_w' \ `newmatall_uw'
+	if `numrows' > 1  matrix `newmatall' = `newmatall' \ `newmatall_uw'[2..`numrows', 1..`numcols']
 
 }
 
@@ -1519,6 +1647,20 @@ if `nummods' == 2 {
 *Final table	
 matlist `newmatall', format(%10.`decimals'f) ///
 	title("`title' (`samp_info')") twidth(`twidth')
+
+*What each Diff. row subtracts
+forvalues p = 1/`bod_n' {
+	if `p' == 1  di as text ""
+	di as text "`bodfoot_`p''"
+	}
+
+if `meizero' {
+	di _newline(1)
+	di as err "NOTE: a Diff. row shown as 0 with no z or p-value is zero by " /*
+	*/ "construction: the model does not let the effect vary across the levels " /*
+	*/ "of `byovervar' (for example, a linear model without an interaction), " /*
+	*/ "so there is nothing to test."
+	}
 
 if `meisemiss' > 0 {
 	di _newline(1)
@@ -1620,6 +1762,56 @@ program define _mei_nlcom, rclass
 	return add
 end
 
+*Diff. rows for one pair of by/over levels: level a minus level b for model 1, model 2 and their cross-model difference
+capture program drop _mei_bodrows
+program define _mei_bodrows, rclass
+	version 16
+	syntax , ba(string asis) bb(string asis) div1(string) [ca(string asis) cb(string asis) div2(string)] level(string) [quietly(string)]
+	tempname rows q
+	_mei_zero, a(`ba') b(`bb')
+	local z1 = r(zero)
+	_mei_nlcom ((`ba') - (`bb'))/(`div1'), name(bod_m1) level(`level') quietly(`quietly')
+	matrix `rows' = r(table)[1,1], r(table)[2,1], r(table)[3,1], r(table)[4,1], r(table)[5,1], r(table)[6,1]
+	*A difference that is zero by construction is shown as 0 with no test
+	if `z1'  matrix `rows' = (0, 0, ., ., 0, 0)
+	return scalar b1 = `rows'[1,1]
+	local zero = `z1'
+	if `"`ca'"' != "" {
+		_mei_zero, a(`ca') b(`cb')
+		local z2 = r(zero)
+		_mei_nlcom ((`ca') - (`cb'))/(`div2'), name(bod_m2) level(`level') quietly(`quietly')
+		matrix `q' = r(table)[1,1], r(table)[2,1], r(table)[3,1], r(table)[4,1], r(table)[5,1], r(table)[6,1]
+		if `z2'  matrix `q' = (0, 0, ., ., 0, 0)
+		matrix `rows' = `rows' \ `q'
+		return scalar b2 = `q'[1,1]
+		_mei_nlcom ((`ba')/(`div1') - (`ca')/(`div2')) - ((`bb')/(`div1') - (`cb')/(`div2')), name(bod_diff) level(`level') quietly(`quietly')
+		matrix `q' = r(table)[1,1], r(table)[2,1], r(table)[3,1], r(table)[4,1], r(table)[5,1], r(table)[6,1]
+		if `z1' & `z2'  matrix `q' = (0, 0, ., ., 0, 0)
+		matrix `rows' = `rows' \ `q'
+		return scalar bd = `q'[1,1]
+		local zero = `z1' | `z2'
+		}
+	return scalar zero = `zero'
+	return matrix rows = `rows'
+end
+
+*Is (a) - (b) zero by construction: equal estimates and no variance in the difference
+capture program drop _mei_zero
+program define _mei_zero, rclass
+	version 16
+	syntax , a(string asis) b(string asis)
+	qui est restore meineq_margins
+	local zero = 0
+	capture nlcom (a: `a') (b: `b') (d: (`a') - (`b'))
+	if !_rc {
+		tempname e v
+		matrix `e' = r(b)
+		matrix `v' = r(V)
+		local zero = abs(`e'[1,3]) <= 1e-8 * (abs(`e'[1,1]) + abs(`e'[1,2])) & `v'[3,3] <= 1e-8 * (`v'[1,1] + `v'[2,2])
+	}
+	return scalar zero = `zero'
+end
+
 capture program drop _mei_dvlab
 program define _mei_dvlab, rclass
 *	The display label for one outcome level, abbreviated to fit
@@ -1632,6 +1824,41 @@ program define _mei_dvlab, rclass
 		return local lab = abbrev(`"`lab'"', 13)
 	}
 	else return local lab "Outcome `dvlevel'"
+end
+
+*Is name a factor variable, under any base, in a list of e(b) column names
+capture program drop _mei_isfv
+program define _mei_isfv, rclass
+	version 16
+	syntax, name(string) [cols(string asis)]
+	local found = 0
+	foreach c of local cols {
+		if regexm("#`c'#", "#[0-9]+[bno]*\.`name'#")  local found = 1
+	}
+	return scalar found = `found'
+end
+
+*Base level of each factor variable in a list of e(b) column names, as name:ib#.name
+capture program drop _mei_bases
+program define _mei_bases, rclass
+	version 16
+	syntax, [cols(string asis)]
+	local out ""
+	local seen ""
+	foreach c of local cols {
+		local c = subinstr("`c'", "#", " ", .)
+		foreach p of local c {
+			if regexm("`p'", "^([0-9]+)(bn?)o?\.(.+)$") {
+				local v = regexs(3)
+				local ib = cond(regexs(2) == "bn", "ibn", "ib" + regexs(1))
+				if !`: list v in seen' {
+					local seen `seen' `v'
+					local out `out' `v':`ib'.`v'
+				}
+			}
+		}
+	}
+	return local bases `out'
 end
 
 capture program drop _mei_ismi
