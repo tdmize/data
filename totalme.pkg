@@ -2,6 +2,6 @@ v 3
 d totalme - Total marginal effects estimates for nominal & ordinal models
 d Bing Han & Trenton D. Mize, Purdue University
 d Requires: suest2
-d Distribution-Date: 20260902
+d Distribution-Date: 20260923
 f totalme/totalme.ado
 f totalme/totalme.sthlp
