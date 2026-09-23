@@ -3,10 +3,17 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.4.2 Trenton Mize 2026-09-05  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.6.1 Trenton Mize 2026-09-23  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
+	*Stata 16 or later, including the version the caller sets
+	if _caller() < 16 {
+		di as err "{cmd:mecompare} requires version 16 or later; this call " /*
+		*/ "runs under version `=_caller()', set by a {cmd:version} " /*
+		*/ "statement. Set version 16 or later."
+		exit 9
+	}
 
 *Replay allows a plain mecompare call to reshow table of results
 	if replay() {
@@ -86,7 +93,7 @@ program define mecompare, eclass
 		/// models() optional, so the comma sits INSIDE the bracket.
 		[, MODels(string) ///
 		STATistics(string) amount(string) CENTERed UNCENTered COMMANDs DETAILs ///
-		GROUPs GROUPNames(string) GROUPMe GROUPSD start(string) COVariates(string) ///
+		GROUPs GROUPNames(string) GROUPMe GROUPSD start(string) end(string) COVariates(string) ///
 		DECimals(string) MOD1name(string) MOD2name(string) NOROWnum ///
 		STORE(name) BY(string) OVER(string) PWCompare MEINEQuality(string) ///
 		PREDict(string) ENGine(string) ///
@@ -123,16 +130,6 @@ if "`mecmissing'" != "" {
 	*/ "missing or incomplete. Not found:`mecmissing'. Install or update "  /*
 	*/ "{cmd:suest2} and try again."
 	exit 199
-	}
-
-*Check that SPost13 is installed
-capture which mlincom
-    if (_rc) {
-    di _newline(1)
-	di as err "{cmd:mecompare} requires the user-written package " /*
-	*/ "{cmd:SPost13}. Click on the link below to search for " /*
-	*/ "and install {cmd:SPost13}: {stata search spost13:  {bf:spost13}}"
-	exit
 	}
 
 *Sub-option by any unambiguous prefix: w/u/a are already unique.
@@ -184,14 +181,17 @@ local mecsupp "`mecsupp'xtreg (mle, fe, be, re, pa), "
 local mecsupp "`mecsupp'xtpoisson (re, fe, pa), xtcloglog (re, pa), "
 local mecsupp "`mecsupp'xtnbreg (re, pa) and xtmlogit (fe and re)"
 
-*covariates() and start(): varname=# or varname=(numlist); one list per option is lifted out
+*covariates(), start() and end(): varname=# or varname=(numlist); one list per option is lifted out
 local vlcovariatesvar ""
 local vlcovariatesvals ""
 local vlcovariatesn = 0
 local vlstartvar ""
 local vlstartvals ""
 local vlstartn = 0
-foreach optn in covariates start {
+local vlendvar ""
+local vlendvals ""
+local vlendn = 0
+foreach optn in covariates start end {
 	local optstr "``optn''"
 	if "`optstr'" != "" {
 		local keepatm : list posof "atmeans" in optstr
@@ -286,6 +286,63 @@ local stlistvar  "`vlstartvar'"
 local stlistvals "`vlstartvals'"
 local nstlist = `vlstartn'
 local stlistseen = 0
+local enlistvar  "`vlendvar'"
+local enlistvals "`vlendvals'"
+local nenlist = `vlendn'
+
+*end(): each variable must be in start() in the same form; a list pairs with a start() list of the same length
+if "`end'`enlistvar'" != "" {
+	if `: list posof "atmeans" in end' > 0 {
+		di as err "{opt end()} takes {it:varname}=# or {it:varname}=({it:numlist}); " /*
+		*/ "{opt atmeans} belongs in {opt start()} or {opt covariates()}."
+		exit 198
+		}
+	foreach mectk of local end {
+		local mecfx = substr("`mectk'", 1, strpos("`mectk'", "=") - 1)
+		local mecev = substr("`mectk'", strpos("`mectk'", "=") + 1, .)
+		local mecsv ""
+		foreach mecst of local start {
+			if substr("`mecst'", 1, strpos("`mecst'", "=")) == "`mecfx'="  local mecsv = substr("`mecst'", strpos("`mecst'", "=") + 1, .)
+			}
+		if "`mecsv'" == "" & "`mecfx'" == "`stlistvar'" {
+			di as err "{bf:`mecfx'} has a value list in {opt start()}, so {opt end()} " /*
+			*/ "needs a list of the same length, as in {opt end(`mecfx'=(# # ...))}."
+			exit 198
+			}
+		if "`mecsv'" == "" {
+			di as err "{opt end()} names {bf:`mecfx'} but {opt start()} does not. " /*
+			*/ "{opt end()} sets where the change ends and needs " /*
+			*/ "{opt start(`mecfx'=#)} to say where it begins."
+			exit 198
+			}
+		if `mecev' == `mecsv' {
+			di as err "{opt end(`mecfx'=`mecev')} equals {opt start(`mecfx'=`mecsv')}: " /*
+			*/ "there is no change to compute."
+			exit 198
+			}
+		}
+	if "`enlistvar'" != "" {
+		if "`enlistvar'" != "`stlistvar'" {
+			di as err "{bf:`enlistvar'} has a value list in {opt end()} but not in " /*
+			*/ "{opt start()}. Give {opt start()} a list of the same length, " /*
+			*/ "or {opt end()} a single value."
+			exit 198
+			}
+		if `nenlist' != `nstlist' {
+			di as err "The value lists for {bf:`enlistvar'} differ in length: " /*
+			*/ "`nstlist' in {opt start()} and `nenlist' in {opt end()}. " /*
+			*/ "Each start value needs one end value."
+			exit 198
+			}
+		forvalues ks = 1/`nstlist' {
+			if `: word `ks' of `stlistvals'' == `: word `ks' of `enlistvals'' {
+				di as err "Value `ks' of the {bf:`enlistvar'} lists is the same in " /*
+				*/ "{opt start()} and {opt end()}: there is no change to compute."
+				exit 198
+				}
+			}
+		}
+	}
 
 *marginsopt(): expression() comes out whole (gettoken bind keeps parentheses together); the rest is tested at the top level
 local mecexpr ""
@@ -446,13 +503,13 @@ if `"`models'"' == "" {
 
 	local ecmdnow "`e(cmd)'"
 
-*	TWO MODELS: only allowed in memory if from a suest2 system
+*	SEVERAL MODELS: only allowed in memory if from a suest2 system
 	if "`ecmdnow'" == "suest2" {
 		local models `"`e(names)'"'
 		local nfound : word count `models'
-		if `nfound' != 2 {
+		if `nfound' < 2 {
 			di as err "The {cmd:suest2} system in memory names `nfound' " /*
-			*/ "model(s); {cmd:mecompare} needs two. Name them in " /*
+			*/ "model(s); {cmd:mecompare} needs at least two. Name them in " /*
 			*/ "{opt models( )}."
 			exit 198
 			}
@@ -520,21 +577,22 @@ if `"`models'"' == "" {
 		}
 	}
 	
-*Change model names in table if requested 	
-if "`mod1name'" == "" {
-		local mod1lab : word 1 of `models'
-		}
-	else {
-		local mod1lab = substr("`mod1name'",1,10) // truncate name
-		}
-if "`mod2name'" == "" {
-		local mod2lab : word 2 of `models'
-		}	
-	else {
-		local mod2lab = substr("`mod2name'",1,10) // truncate name
-		}
+*Number of models; model labels (mod1name()/mod2name() rename the first two)
+local nummods : word count `models'
+if `nummods' == 0 {
+	di as err "Invalid number of models listed in {opt models( )} option. " /*
+	*/ "{cmd:mecompare} needs at least one model."
+	exit 198
+	}
+forvalues j = 1/`nummods' {
+	local mod`j' : word `j' of `models'
+	local mod`j'lab : word `j' of `models'
+	}
+if "`mod1name'" != ""  local mod1lab = substr("`mod1name'",1,10) // truncate name
+if "`mod2name'" != "" & `nummods' >= 2  local mod2lab = substr("`mod2name'",1,10)
+if `nummods' == 1  local mod2lab ""
 
-*v0.2.3: groupnames( ) labels the two groups (else labeled by model name)
+*v0.2.3: groupnames( ) labels the groups (else labeled by model name)
 if "`groupnames'" != "" & "`groups'" == "" {
 	di as err "The {opt groupnames} option requires the {opt groups} option. " /*
 	*/ "See {help mecompare##groups}."
@@ -550,11 +608,17 @@ if "`groupsd'" != "" & "`groups'" == "" {
 	*/ "See {help mecompare##groups}."
 	exit 198
 	}
+if "`groupme'" != "" & `nummods' >= 3 {
+	di as err "{opt groupme} reports the difference between two groups; with " /*
+	*/ "three or more models in {opt models( )} no cross-model difference " /*
+	*/ "is reported. Drop {opt groupme}."
+	exit 198
+	}
 if "`groupnames'" != "" {
-	local gn1 : word 1 of `groupnames'
-	local gn2 : word 2 of `groupnames'
-	local mod1lab = substr("`gn1'",1,10)
-	local mod2lab = substr("`gn2'",1,10)
+	forvalues j = 1/`nummods' {
+		local gn`j' : word `j' of `groupnames'
+		if "`gn`j''" != ""  local mod`j'lab = substr("`gn`j''",1,10)
+		}
 	}
 
 *Estimate gsem and margins command noisily or quietly based on details option
@@ -563,10 +627,8 @@ if "`details'" != "" {
 	}
 else {
 	local cmdqui "qui"
-	}	
-		
-*Check whether there are 1 or 2 models
-local nummods : word count `models'
+	}
+
 if `nummods' != 1 {
 	capture estimates drop _mec_src
 	macro drop MEC_SRC_N MEC_SRC_DV
@@ -580,33 +642,26 @@ if "`groups'" != "" & `nummods' == 1 {
 	exit 198
 	}
 
-*Create locals to refer to models by #
-forvalues i = 1/`nummods' {
-	local mod`i' : word `i' of `models'
-	}
-
-local rkey1 = strtoname(substr("`mod1'",1,28))
-local rkey2 ""
-if `nummods' == 2  local rkey2 = strtoname(substr("`mod2'",1,28))
+*Role tokens for e(b): one per model, Difference reserved, duplicates numbered
 local rkeyD "Difference"
-if "`rkey1'" == "`rkeyD'"  local rkey1 "`rkey1'_1"
-if "`rkey2'" == "`rkeyD'"  local rkey2 "`rkey2'_2"
-if "`rkey2'" == "`rkey1'"  local rkey2 "`rkey2'_2"
-
-*Error out if 0 or >= 3 models listed
-if `nummods' == 0 | `nummods' >= 3 {
-	di as err "Invalid number of models listed in {opt models( )} option. " /*
-	*/ "{cmd:mecompare} can only be used with one or two models."
-	exit 198
-} 
+forvalues j = 1/`nummods' {
+	local rkey`j' = strtoname(substr("`mod`j''",1,28))
+	if "`rkey`j''" == "`rkeyD'"  local rkey`j' "`rkey`j''_`j'"
+	local jm1 = `j' - 1
+	forvalues q = 1/`jm1' {
+		if "`rkey`j''" == "`rkey`q''"  local rkey`j' "`rkey`j''_`j'"
+		}
+	}
+if `nummods' == 1  local rkey2 ""
 
 *Set weight specification 
 if "`weight'" != "" {
 	local weightspec = "[`weight' `exp']"
 	}
 	
-local list_ivs1 ""
-local list_ivs2 ""
+forvalues j = 1/`nummods' {
+	local list_ivs`j' ""
+	}
 
 // Needed for one model path
 if `nummods' == 1 {
@@ -637,6 +692,12 @@ if "`engine'" == ""  local engine "suest2"
 if !inlist("`engine'", "gsem", "suest2") {
 	di _newline(1)
 	di as err "{opt engine()} must be {opt gsem} or {opt suest2}."
+	exit 198
+	}
+if "`engine'" == "gsem" & `nummods' >= 3 {
+	di _newline(1)
+	di as err "{opt engine(gsem)} combines two models; with three or more " /*
+	*/ "models use the default engine."
 	exit 198
 	}
 if "`engine'" == "suest2" {
@@ -776,9 +837,9 @@ else { 	// annotate the specified plain/factor varlist
 }
 
 ****************************************************************************
-// If 2 models, simultaneously estimate models with suest2 //
+// If 2 or more models, simultaneously estimate models with suest2 //
 ****************************************************************************
-if `nummods' == 2 {
+if `nummods' >= 2 {
 	forvalues i = 1/`nummods' {
 
 	qui est restore  `mod`i''
@@ -801,6 +862,7 @@ if `dpipe`i'' != 0 ///
 	local cmdline`i' = substr("`cmdline`i''", 1, `dpipe`i'' - 1)
 *Check the varlist
 _mec_ebcheck, name("`mod`i''")
+local meccoln`i' : colnames e(b)
 mec_share ebvars
 local fvivs`i' `"`s(fvvars)'"'
 local vcetype`i'	= "`e(vce)'" // Will produce warning below if not robust
@@ -910,23 +972,35 @@ else if `inpos' > 0 {
 
 
 
-} // End of looping through each of the two models
+} // End of looping through each of the models
 
-*With two models and no weight given, inherit the models' weight (both must agree)
+*With two or more models and no weight given, inherit the models' weight (all must agree)
 local wtinherit = 0
-if `nummods' == 2 {
-	if "`mwexp1'" != "`mwexp2'" | "`mwtype1'" != "`mwtype2'" {
-		di _newline(1)
-		di as err "The two models were fit with different weights, so they " /*
-		*/ "cannot be combined. Refit them with the same weight."
-		exit 198
+local mectwosp "two "
+local mecother "the other"
+local mecbothm "both models"
+local mecneither "neither"
+if `nummods' >= 3 {
+	local mectwosp ""
+	local mecother "another"
+	local mecbothm "all models"
+	local mecneither "none"
+	}
+if `nummods' >= 2 {
+	forvalues j = 2/`nummods' {
+		if "`mwexp`j''" != "`mwexp1'" | "`mwtype`j''" != "`mwtype1'" {
+			di _newline(1)
+			di as err "The `mectwosp'models were fit with different weights, so they " /*
+			*/ "cannot be combined. Refit them with the same weight."
+			exit 198
+			}
 		}
 *An explicit weight may restate the models' weight but not contradict it
 	if "`weight'" != "" {
-		mec_wcheck, gweight(`weight') gexp(`exp') mwtype(`mwtype1') /*
-			*/ mwexp(`mwexp1') prefix(`mprefix1') cmd(mecompare)
-		mec_wcheck, gweight(`weight') gexp(`exp') mwtype(`mwtype2') /*
-			*/ mwexp(`mwexp2') prefix(`mprefix2') cmd(mecompare)
+		forvalues j = 1/`nummods' {
+			mec_wcheck, gweight(`weight') gexp(`exp') mwtype(`mwtype`j'') /*
+				*/ mwexp(`mwexp`j'') prefix(`mprefix`j'') cmd(mecompare)
+			}
 		}
 	else if "`mwexp1'" != "" {
 		local weightspec "[`mwtype1' `mwexp1']"
@@ -934,24 +1008,64 @@ if `nummods' == 2 {
 		}
 	}
 
-*mi estimate combine prefix + mimrgns; both models must match on mi
-if `ismi1' == 1 | `ismi2' == 1 {
-	if `ismi1' != `ismi2' {
+*The combined estimates hold one base level per factor variable
+local mecbv ""
+local mecbt ""
+local mecbm ""
+forvalues j = 1/`nummods' {
+	_mec_bases, cols(`meccoln`j'')
+	foreach t in `r(bases)' {
+		gettoken v k : t, parse(":")
+		local k = substr("`k'", 2, .)
+		local p : list posof "`v'" in mecbv
+		if `p' == 0 {
+			local mecbv `mecbv' `v'
+			local mecbt `mecbt' `k'
+			local mecbm `mecbm' `mod`j''
+			}
+		else {
+			local l : word `p' of `mecbt'
+			local m : word `p' of `mecbm'
+			if "`l'" != "`k'" {
+				di _newline(1)
+				di as err "`v' enters `m' as `l' and `mod`j'' as `k'. The " /*
+				*/ "`mectwosp'models are combined into one set of estimates, which " /*
+				*/ "holds one base level per variable. Refit the models so the base " /*
+				*/ "levels match."
+				exit 198
+				}
+			}
+		}
+	}
+
+*mi estimate combine prefix + mimrgns; all models must match on mi
+local ismiany = 0
+local ismiall = 1
+local issvyany = 0
+local issvyall = 1
+forvalues j = 1/`nummods' {
+	if `ismi`j'' == 1  local ismiany = 1
+	else               local ismiall = 0
+	if `issvy`j'' == 1  local issvyany = 1
+	else                local issvyall = 0
+	}
+if `ismiany' == 1 {
+	if `ismiall' == 0 {
 		di _newline(1)
-		di as err "One model uses {cmd:mi estimate} and the other does not; " /*
-		*/ "both models must be {cmd:mi estimate} (or neither)."
+		di as err "One model uses {cmd:mi estimate} and `mecother' does not; " /*
+		*/ "`mecbothm' must be {cmd:mi estimate} (or `mecneither')."
 		exit 198
 		}
 	local marginscmd "mimrgns"
 	local mimarginsspec "predict(default) errorok esampvaryok"
 	local ismi = 1
 	}
-*svy: combine (both models must be svy, and not mixed with mi)
-if `issvy1' == 1 | `issvy2' == 1 {
-	if `issvy1' != `issvy2' {
+*svy: combine (all models must be svy, and not mixed with mi)
+if `issvyany' == 1 {
+	if `issvyall' == 0 {
 		di _newline(1)
-		di as err "One model uses the {opt svy:} prefix and the other does " /*
-		*/ "not; both models must be {opt svy:} (or neither)."
+		di as err "One model uses the {opt svy:} prefix and `mecother' does " /*
+		*/ "not; `mecbothm' must be {opt svy:} (or `mecneither')."
 		exit 198
 		}
 *mi estimate: svy: is supported; mi is the outer prefix
@@ -962,71 +1076,88 @@ if `issvy1' == 1 | `issvy2' == 1 {
 
 
 
-*Build the group sample tempvar from the two models' e(sample)s; samples must be distinct
+*Build the group sample tempvar from the models' e(sample)s; samples must be distinct
 tempvar mecgsamp
 if "`groups'" != "" {
 	qui gen `mecgsamp' = .
-	qui replace `mecgsamp' = 1 if `mod1samp' == 1
-	qui replace `mecgsamp' = 2 if `mod2samp' == 1
-	qui count if `mecgsamp' == 1
-	if `r(N)' != `Nsav1' {
-		di _newline(1)
-		di as err "The {opt groups} option requires distinct " /*
-		*/ "(non-overlapping) samples across the two models, but the " /*
-		*/ "samples overlap. See {help mecompare##groups}."
-		exit 198
+	forvalues j = 1/`nummods' {
+		qui replace `mecgsamp' = `j' if `mod`j'samp' == 1
+		}
+	forvalues j = 1/`nummods' {
+		qui count if `mecgsamp' == `j'
+		if `r(N)' != `Nsav`j'' {
+			di _newline(1)
+			di as err "The {opt groups} option requires distinct " /*
+			*/ "(non-overlapping) samples across the `mectwosp'models, but the " /*
+			*/ "samples overlap. See {help mecompare##groups}."
+			exit 198
+			}
 		}
 	}
 
-*Point to groups if the two samples do not overlap
+*Point to groups if the samples do not overlap
 if "`groups'" == "" & `ismi' != 1 {
-	qui count if `mod1samp' == 1 & `mod2samp' == 1
-	if `r(N)' == 0 {
-		di _newline(1)
-		di as err "The two models were fit on non-overlapping samples. If " /*
-		*/ "you intend to compare marginal effects across groups, specify " /*
-		*/ "the {opt groups} option. See {help mecompare##groups}."
-		exit 198
+	forvalues j = 2/`nummods' {
+		qui count if `mod1samp' == 1 & `mod`j'samp' == 1
+		if `r(N)' == 0 {
+			di _newline(1)
+			if `nummods' == 2  local mecovtxt "The two models"
+			else               local mecovtxt "Models `mod1' and `mod`j''"
+			di as err "`mecovtxt' were fit on non-overlapping samples. If " /*
+			*/ "you intend to compare marginal effects across groups, specify " /*
+			*/ "the {opt groups} option. See {help mecompare##groups}."
+			exit 198
+			}
 		}
 	}
 
-*Any two models are comparable when they return the same number of predictions
+*Any models are comparable when they return the same number of predictions
 
-*The number of predictions must agree across the two models
-if `nummods' == 2 & `mod1cats' != `mod2cats' {
-	di _newline(1)
-	di as err "The models return different numbers of predictions: `mod1' " /*
-	*/ "returns `mod1cats' and `mod2' returns `mod2cats'. {cmd:mecompare} " /*
-	*/ "compares models that return the same number of predictions. See " /*
-	*/ "{help mecompare##model_combos}"
-	exit 198
+*The number of predictions must agree across the models
+forvalues j = 2/`nummods' {
+	if `mod1cats' != `mod`j'cats' {
+		di _newline(1)
+		di as err "The models return different numbers of predictions: `mod1' " /*
+		*/ "returns `mod1cats' and `mod`j'' returns `mod`j'cats'. {cmd:mecompare} " /*
+		*/ "compares models that return the same number of predictions. See " /*
+		*/ "{help mecompare##model_combos}"
+		exit 198
+		}
 	}
-*Outcome values must also agree for multi-category pairs
-if `nummods' == 2 & `mod1cats' >= 3 {	
+*Outcome values must also agree for multi-category models
+if `nummods' >= 2 & `mod1cats' >= 3 {
 *Outcomes are matched positionally, so equal counts are not enough
 	qui levelsof `dv1name' if `mod1samp' == 1, local(mecoc1)
-	qui levelsof `dv2name' if `mod2samp' == 1, local(mecoc2)
-	if "`mecoc1'" != "`mecoc2'" {
-		di _newline(1)
-		di as err "The outcome categories differ across the models: " /*
-		*/ "`mod1' has `mecoc1' and `mod2' has `mecoc2'. {cmd:mecompare} " /*
-		*/ "matches outcomes in order, so the values must agree."
-		exit 198
-		}
-*	Values agree; warn if the value labels do not (model 1's are shown).
 	local meclb1 : value label `dv1name'
-	local meclb2 : value label `dv2name'
-	if "`meclb1'" != "`meclb2'" {
+	local meclbdiff ""
+	forvalues j = 2/`nummods' {
+		qui levelsof `dv`j'name' if `mod`j'samp' == 1, local(mecoc2)
+		if "`mecoc1'" != "`mecoc2'" {
+			di _newline(1)
+			di as err "The outcome categories differ across the models: " /*
+			*/ "`mod1' has `mecoc1' and `mod`j'' has `mecoc2'. {cmd:mecompare} " /*
+			*/ "matches outcomes in order, so the values must agree."
+			exit 198
+			}
+*	Values agree; warn if the value labels do not (model 1's are shown).
+		local meclb2 : value label `dv`j'name'
+		if "`meclb1'" != "`meclb2'"  local meclbdiff "`meclbdiff' `meclb2'"
+		}
+	if "`meclbdiff'" != "" {
 		di _newline(1)
-		di in red "NOTE: the two outcome variables carry different value " /*
-		*/ "labels (`meclb1' and `meclb2'). The outcome VALUES agree, so " /*
+		di in red "NOTE: the `mectwosp'outcome variables carry different value " /*
+		*/ "labels (`meclb1' and`meclbdiff'). The outcome VALUES agree, so " /*
 		*/ "the comparison is well defined; the table is labeled with the " /*
 		*/ "labels from `mod1'."
 		}
 }	
 
 *Warn if an if/in was stripped: the models are refit over mecompare's sample.
-if "`groups'" == "" & (`hadifin1' == 1 | `hadifin2' == 1) {
+local hadifinany = 0
+forvalues j = 1/`nummods' {
+	if `hadifin`j'' == 1  local hadifinany = 1
+	}
+if "`groups'" == "" & `hadifinany' == 1 {
 	di _newline(1)
 	if `wtinherit' == 1 & `issvy' != 1 {
 	di _newline(1)
@@ -1046,7 +1177,15 @@ di in red "NOTE: a model given in {opt models( )} was fit with an " /*
 	}	
 
 *Warn if vce(robust) not used on stored models
-if ("`vcetype1'" != "robust" | "`vcetype2'" != "robust") & `issvy' != 1 & `ismi' != 1 {
+local vcerobustall = 1
+local mecvcelist ""
+forvalues j = 1/`nummods' {
+	if "`vcetype`j''" != "robust"  local vcerobustall = 0
+	local mecvcelist "`mecvcelist' `mod`j'' ({cmd:`cmd`j''}),"
+	}
+local mecvcelist = substr(trim("`mecvcelist'"), 1, length(trim("`mecvcelist'")) - 1)
+if `vcerobustall' == 0 & `issvy' != 1 & `ismi' != 1 {
+	if `nummods' == 2 {
 	di in red "{cmd:mecompare} uses vce(robust) for all models. " /*
 	*/ "Standard errors from {cmd:mecompare} will differ from the " /*
 	*/ "specified model(s) because vce(robust) was not used on at " /*
@@ -1054,54 +1193,64 @@ if ("`vcetype1'" != "robust" | "`vcetype2'" != "robust") & `issvy' != 1 & `ismi'
 	*/ "option. We strongly recommend refitting the first " /*
 	*/ "({cmd:`cmd1'}) and second ({cmd:`cmd2'}) models with " /*
 	*/ "vce(robust). See {help vce_option} for details on vce(robust)."
+	}
+	else {
+	di in red "{cmd:mecompare} uses vce(robust) for all models. " /*
+	*/ "Standard errors from {cmd:mecompare} will differ from the " /*
+	*/ "specified model(s) because vce(robust) was not used on at " /*
+	*/ "least one of the models specified in the {it:models( )} " /*
+	*/ "option. We strongly recommend refitting the models " /*
+	*/ "(`mecvcelist') with " /*
+	*/ "vce(robust). See {help vce_option} for details on vce(robust)."
+	}
 	}	
 	
 *ME lists come from the e(b)-sourced fvivs locals
-local list_ivs1 `"`fvivs1'"'
-local list_ivs2 `"`fvivs2'"'
-local mecinmods    "`list_ivs1' `list_ivs2'"	// v0.2.45: for the check below
+local mecinmods ""
+forvalues j = 1/`nummods' {
+	local list_ivs`j' `"`fvivs`j''"'
+	local mecinmods "`mecinmods' `list_ivs`j''"	// v0.2.45: for the check below
 *Keep an unintersected copy of each model's IVs for the route guards
-local mecfull1 "`list_ivs1'"
-local mecfull2 "`list_ivs2'"
+	local mecfull`j' "`list_ivs`j''"
+	}
 
-*Allow plain variable names in varlist; annotate against both models
+*Allow plain variable names in varlist; annotate against all models
 if "`varlist'" != "" {
-	_mec_annotate, uservars("`mecuvl'") modelivs("`list_ivs1' `list_ivs2'")
+	_mec_annotate, uservars("`mecuvl'") modelivs("`mecinmods'")
 	local varlist "`r(annotated)'"
 	}
 
-if "`varlist'" == "" { // If empty, calculate MEs for all vars in either model
-	local list_ivs1 	: list uniq list_ivs1
-	local list_ivs2 	: list uniq list_ivs2
-	local combo_list 	"`list_ivs1' `list_ivs2'"
+if "`varlist'" == "" { // If empty, calculate MEs for all vars in any model
+	local combo_list ""
+	forvalues j = 1/`nummods' {
+		local list_ivs`j' 	: list uniq list_ivs`j'
+		local combo_list 	"`combo_list' `list_ivs`j''"
+		}
 	local list_ivs 		: list uniq combo_list
-	}			
+	}
 
 else {
-	local list_ivs1 : list varlist & list_ivs1
-	local list_ivs2 : list varlist & list_ivs2
-	local list_ivs "`varlist'"	
+	forvalues j = 1/`nummods' {
+		local list_ivs`j' : list varlist & list_ivs`j'
+		}
+	local list_ivs "`varlist'"
 	}
 
 *DV cloning lives in mec_gsem (gsem only); clone names come back in r()
 local mecdv1 ""
 local mecdv2 ""
 	
-di 	
+di
 *Include model specs. in output
 di 		_newline(1)
 *Echo each model's own stored command line (display only)
-local 	mec_cl1 = itrim(trim("`cmdline1'"))
-local 	mec_cl2 = itrim(trim("`cmdline2'"))
-local 	mod1specs "`mec_cl1'"
-local 	mod2specs "`mec_cl2'"
-
-	local 	mod1clean = itrim("`mod1specs'")
-	local 	mod2clean = itrim("`mod2specs'")
-	di 		as text "Model 1 (`mod1') is:"
-	di 		as result "     `mod1clean'"
-	di 		as text "Model 2 (`mod2') is:"
-	di 		as result "     `mod2clean'"
+forvalues j = 1/`nummods' {
+	local 	mec_cl`j' = itrim(trim("`cmdline`j''"))
+	local 	mod`j'specs "`mec_cl`j''"
+	local 	mod`j'clean = itrim("`mod`j'specs'")
+	di 		as text "Model `j' (`mod`j'') is:"
+	di 		as result "     `mod`j'clean'"
+	}
 	
 *listwise moved to mec_gsem with the rest of the gsem call.
 	
@@ -1123,12 +1272,17 @@ if "`engine'" == "gsem" {
 	local mecdv2 "`mec_gsem_dv2'"
 	}
 else {
+	local mecmodlist ""
+	forvalues j = 1/`nummods' {
+		local mecmodlist "`mecmodlist' `mod`j''"
+		}
+	local mecmodlist = trim("`mecmodlist'")
 	if "`commands'" != "" {
 		di _newline(1)
 		di as text "suest2 model is: "
-		di as result "    suest2 `mod1' `mod2', nowarn"
+		di as result "    suest2 `mecmodlist', nowarn"
 		}
-	`cmdqui' suest2 `mod1' `mod2', nowarn
+	`cmdqui' suest2 `mecmodlist', nowarn
 	}
 
 capture estimates drop `mecalt'
@@ -1155,22 +1309,30 @@ qui count if `mec_sample' == 1
 if r(N) == 0  local meclevif ""
 
 matrix 	n_mods = e(_N)
-local 	N1 = n_mods[1,1]
-local 	N2 = n_mods[1,2]
+forvalues j = 1/`nummods' {
+	local 	N`j' = n_mods[1,`j']
+	}
 
 *Note when the models' sample sizes differ
 if "`groups'" == "" {
-	if `Nsav1' != `Nsav2' {
+	local mecndiff = 0
+	local mecnlist ""
+	forvalues j = 1/`nummods' {
+		if `Nsav`j'' != `Nsav1'  local mecndiff = 1
+		local mecnlist "`mecnlist' N_`mod`j''=`Nsav`j'' ;"
+		}
+	local mecnlist = substr(trim("`mecnlist'"), 1, length(trim("`mecnlist'")) - 2)
+	if `mecndiff' == 1 {
 	di _newline(1)
 	if "`engine'" == "gsem" {
-	di in red "Sample size varies across the models: N_`mod1'=`Nsav1' ; " /*
-	*/ "N_`mod2'=`Nsav2'. The results from {cmd:mecompare} will not match " /*
+	di in red "Sample size varies across the models: `mecnlist'. " /*
+	*/ "The results from {cmd:mecompare} will not match " /*
 	*/ "those from the specified models as {cmd:mecompare} uses listwise " /*
 	*/ "deletion across the models resulting in N_mecompare = `N1'"
 	}
 	else {
-	di in red "Sample size varies across the models: N_`mod1'=`Nsav1' ; " /*
-	*/ "N_`mod2'=`Nsav2'. Each model keeps its own estimation sample, so the " /*
+	di in red "Sample size varies across the models: `mecnlist'. " /*
+	*/ "Each model keeps its own estimation sample, so the " /*
 	*/ "marginal effects are the ones each stored model implies. Note this " /*
 	*/ "differs from {cmd:engine(gsem)}, which restricts both models to the " /*
 	*/ "observations present in both."
@@ -1178,7 +1340,7 @@ if "`groups'" == "" {
 	}
 }
 
-}	// End of two model-specific options
+}	// End of multi-model-specific options
 
 *Weight for SDs/shares: mecompare's if given, else the models' own (pweight maps to aweight)
 local sdwtype ""
@@ -1197,7 +1359,7 @@ if "`sdwtype'" != "" & "`sdwexp'" != ""  local sdwspec "[`sdwtype' `sdwexp']"
 
 *marginsopt(expression()): one quantity, one model, in place of predict(); the count resets as for predict(outcome(#))
 if `"`mecexpr'"' != "" {
-	if `nummods' == 2 {
+	if `nummods' >= 2 {
 		di _newline(1)
 		di as err "{opt expression()} in {opt marginsopt()} returns one quantity, " /*
 		*/ "and the two-model table needs one prediction per model. Use " /*
@@ -1225,7 +1387,11 @@ if "`predict'" != "" {
 	local predoc = strpos("`plow'", "outcome(") > 0
 
 *mlogit xb is one per outcome equation, not a single quantity; refuse (do not delete this block)
-	if "`cmd1'" == "mlogit" | "`cmd2'" == "mlogit" {
+	local mecanymlogit = 0
+	forvalues j = 1/`nummods' {
+		if "`cmd`j''" == "mlogit"  local mecanymlogit = 1
+		}
+	if `mecanymlogit' == 1 {
 		if !(`nummods' == 1 & `predoc') {
 			di _newline(1)
 			di as err "{opt predict()} with {cmd:mlogit} needs a single-" /*
@@ -1235,11 +1401,12 @@ if "`predict'" != "" {
 			exit 198
 			}
 		}
-*Keyed on category counts: any one-per-category prediction is refused with two models
+*Keyed on category counts: any one-per-category prediction is refused with several models
 	local ordmod = 0
-	if `mod1cats' > 1  local ordmod = 1
-	if `nummods' == 2 & "`mod2cats'" != "" {
-		if `mod2cats' > 1  local ordmod = 1
+	forvalues j = 1/`nummods' {
+		if "`mod`j'cats'" != "" {
+			if `mod`j'cats' > 1  local ordmod = 1
+			}
 		}
 	if `predlin' == 0 & `ordmod' == 1 {
 		if !(`nummods' == 1 & `predoc') {
@@ -1255,8 +1422,9 @@ if "`predict'" != "" {
 
 *	the linear predictor is a single quantity per equation
 	if `predlin' == 1 {
-		local mod1cats = 1
-		local mod2cats = 1
+		forvalues j = 1/`nummods' {
+			local mod`j'cats = 1
+			}
 		}
 *so is an outcome(#) selection on the one-model path.
 	if `nummods' == 1 & `predoc' {
@@ -1286,7 +1454,11 @@ if "`by'`over'" != "" {
 		local byvars "`over'"
 		}
 	*A prefix on a by()/over() variable must agree with the model(s); the bare name is kept
-	_mec_annotate, uservars("`byvars'") modelivs("`clean_list1b' `fvivs1' `fvivs2'")
+	local mecallivs "`clean_list1b'"
+	forvalues j = 1/`nummods' {
+		local mecallivs "`mecallivs' `fvivs`j''"
+		}
+	_mec_annotate, uservars("`byvars'") modelivs("`mecallivs'")
 	local byvars ""
 	foreach mectk in `r(annotated)' {
 		local mectkb = regexr("`mectk'", "^i(b[0-9]+|bn)?\.", "")
@@ -1300,7 +1472,7 @@ if "`by'`over'" != "" {
 		exit 198
 		}
 *Every by()/over() variable must be a nominal (i.) predictor in the model(s)
-	local chkmods "`clean_list1b' `fvivs1' `fvivs2'"
+	local chkmods "`mecallivs'"
 *Test the factor term itself (ib2.var and ibn.var are categorical too)
 	local chkmods : subinstr local chkmods "#" " ", all
 	local nbyvars : word count `byvars'
@@ -1320,6 +1492,18 @@ if "`by'`over'" != "" {
 			}
 		qui levelsof `byv_`bk'' `meclevif', local(bylev_`bk')
 		local bylabn_`bk' : value label `byv_`bk''
+		}
+*A focal variable in by(): its own by() token is dropped from its own at() (below); say so once
+	if "`by'" != "" {
+		foreach mectk of local list_ivs {
+			local mectkb = regexr("`mectk'", "^(c|i(b[0-9]+|bn)?)\.", "")
+			if `: list posof "`mectkb'" in byvars' > 0 {
+				di as text "Note: {bf:`mectkb'} is both a focal and a {opt by()} " /*
+				*/ "variable. The {opt by()} level does not apply to its own " /*
+				*/ "marginal effect, so those rows repeat across the levels of " /*
+				*/ "{bf:`mectkb'}."
+				}
+			}
 		}
 	}
 
@@ -1347,15 +1531,25 @@ if "`covlistvar'" != "" {
 		*/ "and is also a {opt by()} variable. Use one or the other."
 		exit 198
 		}
-	foreach mectk of local list_ivs {
-		local mectkb = regexr("`mectk'", "^(c|i(b[0-9]+|bn)?)\.", "")
-		if "`mectkb'" == "`covlistvar'" {
-			di _newline(1)
-			di as err "{bf:`covlistvar'} carries a value list in " /*
-			*/ "{opt covariates()} but is a focal variable. A focal variable " /*
-			*/ "takes its values from {opt start()}."
-			exit 198
-			}
+	}
+*covariates() may not name a focal variable, as a fixed value or as a list
+local covnames "`covlistvar'"
+foreach mectk of local covariates {
+	local meceq = strpos("`mectk'", "=")
+	if `meceq' {
+		local mecfx = substr("`mectk'", 1, `meceq' - 1)
+		local covnames "`covnames' `mecfx'"
+		}
+	}
+foreach mectk of local list_ivs {
+	local mectkb = regexr("`mectk'", "^(c|i(b[0-9]+|bn)?)\.", "")
+	if `: list posof "`mectkb'" in covnames' > 0 {
+		di _newline(1)
+		di as err "{bf:`mectkb'} is in {opt covariates()} but is a focal " /*
+		*/ "variable (every model predictor is focal when no {it:varlist} is " /*
+		*/ "given). A focal variable is not held fixed; a continuous focal " /*
+		*/ "variable takes its start value from {opt start()}."
+		exit 198
 		}
 	}
 
@@ -1441,18 +1635,32 @@ if "`mecbadv'" != "" {
 	}
 
 *Refuse only an at() mixing variables a model has and lacks, or a fixed/grouping variable absent from one model
-if `s2spec1' == 1 | `s2spec2' == 1 {
+local s2specany = 0
+forvalues j = 1/`nummods' {
+	if "`s2spec`j''" != "" {
+		if `s2spec`j'' == 1  local s2specany = 1
+		}
+	}
+local mecbothtxt "BOTH"
+local mecbothtail "both"
+local mecnotetxt "both models; its marginal effect is shown only for the model that contains it, and no cross-model difference is reported for it."
+if `nummods' >= 3 {
+	local mecbothtxt "EVERY ONE of the"
+	local mecbothtail "all of them"
+	local mecnotetxt "all the models; its marginal effect is shown only for the model(s) that contain it."
+	}
+if `s2specany' == 1 {
 	local mecnotboth ""
 	foreach mectk of local list_ivs {
-		local in1 = 0
-		local in2 = 0
-		foreach mecm of local mecfull1 {
-			if "`mecm'" == "`mectk'"  local in1 = 1
+		local inall = 1
+		forvalues j = 1/`nummods' {
+			local inj = 0
+			foreach mecm of local mecfull`j' {
+				if "`mecm'" == "`mectk'"  local inj = 1
+				}
+			if `inj' == 0  local inall = 0
 			}
-		foreach mecm of local mecfull2 {
-			if "`mecm'" == "`mectk'"  local in2 = 1
-			}
-		if `nummods' == 2 & (`in1' == 0 | `in2' == 0) ///
+		if `nummods' >= 2 & `inall' == 0 ///
 			local mecnotboth "`mecnotboth' `mectk'"
 		}
 	*covariates()/by()/over() variables ride inside every at()
@@ -1471,30 +1679,29 @@ if `s2spec1' == 1 | `s2spec2' == 1 {
 		*Compare base-stripped names on both sides
 		local mectkb = subinstr("`mectk'", "i.", "", .)
 		local mectkb = subinstr("`mectkb'", "c.", "", .)
-		local in1 = 0
-		local in2 = 0
-		foreach mecm of local mecfull1 {
-			local mecmb = regexr("`mecm'","^i(b[0-9]+|bn)?\.","")
-			if "`mecmb'" == "`mectkb'"  local in1 = 1
+		local inall = 1
+		forvalues j = 1/`nummods' {
+			local inj = 0
+			foreach mecm of local mecfull`j' {
+				local mecmb = regexr("`mecm'","^i(b[0-9]+|bn)?\.","")
+				if "`mecmb'" == "`mectkb'"  local inj = 1
+				}
+			if `inj' == 0  local inall = 0
 			}
-		foreach mecm of local mecfull2 {
-			local mecmb = regexr("`mecm'","^i(b[0-9]+|bn)?\.","")
-			if "`mecmb'" == "`mectkb'"  local in2 = 1
-			}
-		if `nummods' == 2 & (`in1' == 0 | `in2' == 0) ///
+		if `nummods' >= 2 & `inall' == 0 ///
 			local mecfixnotboth "`mecfixnotboth' `mectk'"
 		}
 	if "`mecfixnotboth'" != "" {
 		di _newline(1)
 		di as err "{bf:`mecfixnotboth'} is fixed by " /*
 		*/ "{opt covariates()}/{opt by()}/{opt over()} but is not a " /*
-		*/ "predictor in BOTH models. For {cmd:`cmd1'} models every " /*
-		*/ "fixed or grouping variable must appear in both."
+		*/ "predictor in `mecbothtxt' models. For {cmd:`cmd1'} models every " /*
+		*/ "fixed or grouping variable must appear in `mecbothtail'."
 		exit 111
 		}
 	if "`mecnotboth'" != "" & trim("`mecfixvars'") != "" {
 		di _newline(1)
-		di as err "{bf:`mecnotboth'} is not a predictor in BOTH models. " /*
+		di as err "{bf:`mecnotboth'} is not a predictor in `mecbothtxt' models. " /*
 		*/ "For {cmd:`cmd1'} models this comparison is supported, but not " /*
 		*/ "combined with {opt covariates()}, {opt by()}, or {opt over()}: " /*
 		*/ "the fixed values cannot be applied inside the model that lacks " /*
@@ -1508,15 +1715,12 @@ if `s2spec1' == 1 | `s2spec2' == 1 {
 		if wordcount("`mecnb'") == wordcount("`list_ivs'") {
 			di _newline(1)
 			di as err "None of the requested variables ({bf:`mecnb'}) is a " /*
-			*/ "predictor in BOTH models, so there is no cross-model " /*
+			*/ "predictor in `mecbothtxt' models, so there is no cross-model " /*
 			*/ "comparison to make. Run the model that contains them " /*
 			*/ "alone instead."
 			exit 111
 			}
-		di as text "Note: {bf:`mecnotboth'} is not a predictor in both " /*
-		*/ "models; its marginal effect is shown only for the model " /*
-		*/ "that contains it, and no cross-model difference is reported " /*
-		*/ "for it."
+		di as text "Note: {bf:`mecnotboth'} is not a predictor in `mecnotetxt'"
 		}
 	}
 
@@ -1599,14 +1803,30 @@ if `numcats' == 1 {
 	*Exact token match when reading start() values
 	local hasiv 		: list posof "`v'" in start
 	local hasatmeans 	: list posof "atmeans" in start
+	*end(): the change runs from the start() value to the end() value; amount() and centering do not apply
+	local end = subinstr("`end'", "=", " ", .)
+	local hasend : list posof "`v'" in end
+	local hasendl`i' = ("`enlistvar'" != "" & "`enlistvar'" == "`v'")
 
 	*rate/slope/dydx: tiny centered step h; ME divided by h below to approximate the derivative
 	local israte`i' = 0
 	local istwosd`i' = 0
 	local istrim`i' = 0
+	local isrange`i' = 0
 	local preset`i' = 0
 	local isgroupsd`i' = 0
-	if inlist("`amount`cnum''", "rate", "slope", "dydx") {
+	if `hasend' > 0 | `hasendl`i'' == 1 {
+		local preset`i' = 1
+		if `hasend' > 0 {
+			local whereval = `hasiv' + 1
+			local startnum : word `whereval' of `start'
+			local whereend = `hasend' + 1
+			local endnum : word `whereend' of `end'
+			local startval "`v'=`startnum'"
+			local endval   "`v'=`endnum'"
+			}
+		}
+	else if inlist("`amount`cnum''", "rate", "slope", "dydx") {
 		local israte`i' = 1
 		local preset`i' = 1
 		_mec_misum `v' if `mec_sample' == 1, mi(`ismi') wspec(`sdwspec')
@@ -1650,73 +1870,65 @@ if `numcats' == 1 {
 		local startval "`v'=`p5'"
 		local endval   "`v'=`p95'"
 		}
+	else if "`amount`cnum''" == "range" {
+		local isrange`i' = 1
+		local preset`i' = 1
+		_mec_misum `v' if `mec_sample' == 1, mi(`ismi') wspec(`sdwspec')
+		local rmin = r(min)
+		local rmax = r(max)
+		local startval "`v'=`rmin'"
+		local endval   "`v'=`rmax'"
+		}
 	else if "`groups'" != "" & "`groupsd'" != "" & "`amount`cnum''" == "sd" {
-		*groupsd: each group uses its own SD and mean
+		*groupsd: each group uses its own SD and mean; two at() per group
 		local isgroupsd`i' = 1
 		local preset`i' = 1
-		qui sum `v' if `mecgsamp' == 1
-		local gsd1 = r(sd)
-		local gmn1 = r(mean)
-		qui sum `v' if `mecgsamp' == 2
-		local gsd2 = r(sd)
-		local gmn2 = r(mean)
-		local gh1 = `gsd1' / 2
-		local gh2 = `gsd2' / 2
-		if `hasiv' == 0 & `hasatmeans' == 0 {
-			if "`centered'" != "" {
-				local gsda1 "`v'=gen(`v' - `gh1')"
-				local gsda2 "`v'=gen(`v' + `gh1')"
-				local gsda3 "`v'=gen(`v' - `gh2')"
-				local gsda4 "`v'=gen(`v' + `gh2')"
+		local gsd_atspec`i' ""
+		forvalues j = 1/`nummods' {
+			qui sum `v' if `mecgsamp' == `j'
+			local gsdj = r(sd)
+			local gmnj = r(mean)
+			local ghj = `gsdj' / 2
+			if `hasiv' == 0 & `hasatmeans' == 0 {
+				if "`centered'" != "" {
+					local gsdaA "`v'=gen(`v' - `ghj')"
+					local gsdaB "`v'=gen(`v' + `ghj')"
+					}
+				else {
+					local gsdaA "`v'=gen(`v')"
+					local gsdaB "`v'=gen(`v' + `gsdj')"
+					}
+				}
+			else if `hasiv' == 0 & `hasatmeans' != 0 {
+				if "`centered'" != "" {
+					local sj = `gmnj' - `ghj'
+					local ej = `gmnj' + `ghj'
+					}
+				else {
+					local sj = `gmnj'
+					local ej = `gmnj' + `gsdj'
+					}
+				local gsdaA "`v'=`sj'"
+				local gsdaB "`v'=`ej'"
 				}
 			else {
-				local gsda1 "`v'=gen(`v')"
-				local gsda2 "`v'=gen(`v' + `gsd1')"
-				local gsda3 "`v'=gen(`v')"
-				local gsda4 "`v'=gen(`v' + `gsd2')"
+				local wherevar : list posof "`v'" in start
+				local whereval = `wherevar' + 1
+				local startnum : word `whereval' of `start'
+				if "`centered'" != "" {
+					local sj = `startnum' - `ghj'
+					local ej = `startnum' + `ghj'
+					}
+				else {
+					local sj = `startnum'
+					local ej = `startnum' + `gsdj'
+					}
+				local gsdaA "`v'=`sj'"
+				local gsdaB "`v'=`ej'"
 				}
+			if `j' > 1  local gsd_atspec`i' "`gsd_atspec`i'' "
+			local gsd_atspec`i' "`gsd_atspec`i''at(`covspec' `gsdaA') at(`covspec' `gsdaB')"
 			}
-		else if `hasiv' == 0 & `hasatmeans' != 0 {
-			if "`centered'" != "" {
-				local s1 = `gmn1' - `gh1' 
-				local e1 = `gmn1' + `gh1' 
-				local s2 = `gmn2' - `gh2' 
-				local e2 = `gmn2' + `gh2' 
-				}
-			else {
-				local s1 = `gmn1' 
-				local e1 = `gmn1' + `gsd1' 
-				local s2 = `gmn2' 
-				local e2 = `gmn2' + `gsd2' 
-				}
-			local gsda1 "`v'=`s1'"
-			local gsda2 "`v'=`e1'"
-			local gsda3 "`v'=`s2'"
-			local gsda4 "`v'=`e2'"
-			}
-		else {
-			local wherevar : list posof "`v'" in start
-			local whereval = `wherevar' + 1
-			local startnum : word `whereval' of `start'
-			if "`centered'" != "" {
-				local s1 = `startnum' - `gh1' 
-				local e1 = `startnum' + `gh1' 
-				local s2 = `startnum' - `gh2' 
-				local e2 = `startnum' + `gh2' 
-				}
-			else {
-				local s1 = `startnum' 
-				local e1 = `startnum' + `gsd1' 
-				local s2 = `startnum' 
-				local e2 = `startnum' + `gsd2' 
-				}
-			local gsda1 "`v'=`s1'"
-			local gsda2 "`v'=`e1'"
-			local gsda3 "`v'=`s2'"
-			local gsda4 "`v'=`e2'"
-			}
-		local gsd_atspec`i' "at(`covspec' `gsda1') at(`covspec' `gsda2')"
-		local gsd_atspec`i' "`gsd_atspec`i'' at(`covspec' `gsda3') at(`covspec' `gsda4')"
 		}
 		
 	if `hasiv' == 0  & `hasatmeans' == 0 & `preset`i'' == 0 {	// as observed
@@ -1759,10 +1971,10 @@ if `numcats' == 1 {
 	local startval_1 "`startval'"
 	local endval_1 "`endval'"
 	if "`stlistvar'" != "" & "`vbase'" == "`stlistvar'" {
-		if `istrim`i'' == 1 | `isgroupsd`i'' == 1 {
+		if `istrim`i'' == 1 | `isrange`i'' == 1 | `isgroupsd`i'' == 1 {
 			di _newline(1)
 			di as err "A value list in {opt start()} cannot be combined with " /*
-			*/ "{opt amount(trimrange)} or {opt groupsd}."
+			*/ "{opt amount(trimrange)}, {opt amount(range)} or {opt groupsd}."
 			exit 198
 			}
 		local stlistseen = 1
@@ -1774,7 +1986,12 @@ if `numcats' == 1 {
 			}
 		forvalues ks = 1/`nstlist' {
 			local sbk : word `ks' of `stlistvals'
-			if `israte`i'' == 1 {
+			if `hasendl`i'' == 1 {
+				local ebk : word `ks' of `enlistvals'
+				local startval_`ks' "`v'=`sbk'"
+				local endval_`ks'   "`v'=`ebk'"
+				}
+			else if `israte`i'' == 1 {
 				local rsa = `sbk' - `rh2'
 				local rea = `sbk' + `rh2'
 				local startval_`ks' "`v'=`rsa'"
@@ -1790,12 +2007,21 @@ if `numcats' == 1 {
 		}
 	*Set labels for table
 	if "`centered'" != "" {
-		local centerlab ""
+		local centerlab " (centered)"
 		}
 	if "`centered'" == "" {
 		local centerlab " (uncentered)"
 		}
-	if `istrim`i'' == 1 {
+	if `hasend' > 0 {
+		local change`vnum' "`v' `startnum' to `endnum'"
+		}
+	else if `hasendl`i'' == 1 {
+		local change`vnum' "`v'"
+		}
+	else if `isrange`i'' == 1 {
+		local change`vnum' "`v' (min-max)"
+		}
+	else if `istrim`i'' == 1 {
 		local change`vnum' "`v' (5-95%)"
 		}
 	else if `israte`i'' == 1 {
@@ -1835,9 +2061,10 @@ if `numcats' == 2 {
 	local 	lbe : value label `varname'
 	local 	numlbe = strlen("`lbe'")	// store whether value labels exist
 	local 	catsnom = "`r(levels)'"
-	local mspec`i' ""	// one at() per cell (by() level x covariates() value)
+	local mspec`i' ""	// one at() per cell (by() level x covariates() value); a focal by() variable's own token is dropped
 	forvalues bc = 1/`nbocells' {
-		local mspec`i' "`mspec`i'' at(`covspec' `boat_`bc'' `varname'=(`catsnom'))"
+		local boatv = trim(regexr(" `boat_`bc''", " `varname'=[^ ]+", ""))
+		local mspec`i' "`mspec`i'' at(`covspec' `boatv' `varname'=(`catsnom'))"
 		}
 	
 	local totcats : word count `levels'
@@ -1867,7 +2094,7 @@ if `numcats' >= 3 {
 		}
 	if "`basenum'" == "" {		// ibn. (no base): use the first level
 		local mectk : word 1 of `fvlist'
-		local basenum = substr("`mectk'",1,strpos("`mectk'",".")-1)
+		if regexm("`mectk'", "^([0-9]+)")  local basenum = regexs(1)
 		}
 	local 	fv = strpos("`v'", ".") + 1 	// find where . is
 	local 	varname = substr("`v'",`fv',.) 	// strip fv prefix
@@ -1877,9 +2104,10 @@ if `numcats' >= 3 {
 	local 	catsnom = "`r(levels)'"
 	local 	catsnob = subinstr("`catsnom'", "`basenum'", "", 1) // remove base	
 	local 	catspred = "`basenum' `catsnob'" // make base 1st prediction
-	local mspec`i' ""	// one at() per cell (by() level x covariates() value)
+	local mspec`i' ""	// one at() per cell (by() level x covariates() value); a focal by() variable's own token is dropped
 	forvalues bc = 1/`nbocells' {
-		local mspec`i' "`mspec`i'' at(`covspec' `boat_`bc'' `varname'=(`catspred'))"
+		local boatv = trim(regexr(" `boat_`bc''", " `varname'=[^ ]+", ""))
+		local mspec`i' "`mspec`i'' at(`covspec' `boatv' `varname'=(`catspred'))"
 		}
 	
 	local totcats : word count `catspred'
@@ -1909,14 +2137,12 @@ if `numcats' >= 3 {
 			local mcineqpos_`vnum'_`vp' = `atpos_`vp''
 			}
 *Level shares from _mec_share over the analysis sample (each model's own sample under groups)
-		local psamp1 "`mec_sample' == 1"
-		local psamp2 "`mec_sample' == 1"
-		if "`groups'" != "" {
-			local psamp1 "`mec_sample' == 1 & `mecgsamp' == 1"
-			local psamp2 "`mec_sample' == 1 & `mecgsamp' == 2"
+		forvalues mm = 1/`nummods' {
+			local psamp`mm' "`mec_sample' == 1"
+			if "`groups'" != ""  local psamp`mm' "`mec_sample' == 1 & `mecgsamp' == `mm'"
 			}
 		*Shares = aweighted mean of a level indicator; same weight as the SDs
-		forvalues mm = 1/2 {
+		forvalues mm = 1/`nummods' {
 			foreach vp of local levels {
 				mec_share `varname' if `psamp`mm'', level(`vp') /*
 					*/ mi(`ismi') wspec(`sdwspec')
@@ -1997,12 +2223,11 @@ if "`predict'" != "" {
 		local predspec "predict(eta outcome(`gdv1')) predict(eta outcome(`gdv2'))"
 		}
 	else {
-*Under suest2 each model keeps its own prediction names; two-selector form
-		if `predlin' == 1 {
-			local predspec "predict(model(`mod1') xb) predict(model(`mod2') xb)"
-			}
-		else {
-			local predspec "predict(model(`mod1') `predict') predict(model(`mod2') `predict')"
+*Under suest2 each model keeps its own prediction names; one selector per model
+		local predspec ""
+		forvalues j = 1/`nummods' {
+			if `predlin' == 1  local predspec "`predspec' predict(model(`mod`j'') xb)"
+			else               local predspec "`predspec' predict(model(`mod`j'') `predict')"
 			}
 		}
 	}
@@ -2027,9 +2252,12 @@ if "`commands'" != "" {		// show command line if requested
 		*/ `overspec' `atmeans' `marginsopt' post  
 
 
-*What margins says it is predicting, for the table header
+*What margins says it is predicting, for the table header: model j's label is its first prediction
 local plab1 "`r(predict1_label)'"
-local plab2 "`r(predict2_label)'"
+forvalues j = 2/`nummods' {
+	local mecpj = 1 + (`j' - 1)*`mod1cats'
+	local plab`j' "`r(predict`mecpj'_label)'"
+	}
 if "`plab1'" == ""  local plab1 "`r(predict_label)'"
 if "`plab1'" == ""  local plab1 "`e(predict1_label)'"
 if "`plab1'" == ""  local plab1 "`e(predict_label)'"
@@ -2042,29 +2270,28 @@ qui est 	store mec_margins	// For use with post-estimation metest
 // Define the cross-walk from the models/predictions and how margins 
 *Label the predictions: #_# = model_outcome; over() appends the group level
 
+forvalues j = 1/`nummods' {
+	local g`j'spec ""
+	}
 if "`groups'" != "" {
-	local g1spec = "#1.`mecgsamp'"
-	local g2spec = "#2.`mecgsamp'"
+	forvalues j = 1/`nummods' {
+		local g`j'spec = "#`j'.`mecgsamp'"
+		}
 *Specialized route: no over() level in the names; the equation encodes the group
 	if "`s2spec1'" != "" & `s2spec1' == 1 {
-		local g1spec = ""
-		local g2spec = ""
+		forvalues j = 1/`nummods' {
+			local g`j'spec = ""
+			}
 		}
-	}
-else {
-	local g1spec = ""
-	local g2spec = ""	
 	}
 if `nummods' == 1 & `mod1cats' == 1 {
 	local prnum1_1 = ""
 	}
-if `nummods' == 2 & `mod1cats' == 1 {
-	local prnum1_1 = "1._predict#"
-	local prnum2_1 = "2._predict#"
+if `nummods' >= 2 & `mod1cats' == 1 {
+	forvalues j = 1/`nummods' {
+		local prnum`j'_1 = "`j'._predict#"
 *Specialized stripe labels each model by equation (_b[m1:1bn._at]) instead of N._predict#
-	if `s2spec1' == 1 {
-		local prnum1_1 = "`mod1':"
-		local prnum2_1 = "`mod2':"
+		if `s2spec1' == 1  local prnum`j'_1 = "`mod`j'':"
 		}
 	}
 if `nummods' == 1 & `mod1cats' != 1 {
@@ -2072,17 +2299,13 @@ if `nummods' == 1 & `mod1cats' != 1 {
 		local prnum1_`outc' = "`outc'._predict#"
 		}
 	}
-if `nummods' == 2 & `mod1cats' != 1 {
-	forvalues outc = 1/`mod1cats' {
-		local prnum1_`outc' = "`outc'._predict#"
-		local margnum = `outc' + `mod1cats'
-		local prnum2_`outc' = "`margnum'._predict#"
-		}
-*Specialized multi-outcome: each model numbers predicts 1..k inside its own equation
-	if `s2spec1' == 1 {
+if `nummods' >= 2 & `mod1cats' != 1 {
+	forvalues j = 1/`nummods' {
 		forvalues outc = 1/`mod1cats' {
-			local prnum1_`outc' = "`mod1':`outc'._predict#"
-			local prnum2_`outc' = "`mod2':`outc'._predict#"
+			local margnum = `outc' + (`j' - 1)*`mod1cats'
+			local prnum`j'_`outc' = "`margnum'._predict#"
+*Specialized multi-outcome: each model numbers predicts 1..k inside its own equation
+			if `s2spec1' == 1  local prnum`j'_`outc' = "`mod`j'':`outc'._predict#"
 			}
 		}
 	*groups with a multi-outcome model on this route is not yet verified
@@ -2096,10 +2319,10 @@ if `nummods' == 2 & `mod1cats' != 1 {
 	}	
 
 if `mod1cats' != 1 {	// label DV categories for m/ologit
-*With two models every row is labeled from model 1's value labels
+*With two or more models every row is labeled from model 1's value labels
 	forvalues modnum = 1/`nummods' {
 		local lbsrc `dv`modnum'name'
-		if `nummods' == 2  local lbsrc `dv1name'
+		if `nummods' >= 2  local lbsrc `dv1name'
 		qui levelsof `lbsrc' if `mec_sample' == 1, local(levels_dv)	// v0.2.45
 		qui ds `lbsrc', has(vallabel)
 	local m = 1
@@ -2169,8 +2392,9 @@ if "`over'" != "" {		// single- or two-model over(): one row set per cell of the
 			}
 		if `ovkeep' {
 			local ++bo_j
-			local bog1_`bo_j' "`ovg_`c''"
-			local bog2_`bo_j' "`ovg_`c''"	// models split by _predict, not over
+			forvalues j = 1/`nummods' {
+				local bog`j'_`bo_j' "`ovg_`c''"	// models split by _predict, not over
+				}
 			local bymult_`bo_j' = 0			// over() reuses _at positions (no shift)
 			local bolab_`bo_j' "`ovlab_`c''"
 			local bocln_`bo_j' "`ovcln_`c''"
@@ -2181,8 +2405,9 @@ if "`over'" != "" {		// single- or two-model over(): one row set per cell of the
 else if "`by'`covlistvar'" != "" {	// by()/covariates() cells: counterfactual via at(); the _at
 	local nlev_me = `nbocells'	// positions repeat per cell, so the ME reads a shifted index
 	forvalues bo_j = 1/`nbocells' {
-		local bog1_`bo_j' ""
-		local bog2_`bo_j' ""
+		forvalues j = 1/`nummods' {
+			local bog`j'_`bo_j' ""
+			}
 		local bymult_`bo_j' = `bo_j' - 1	// shift = (cell-1) * (#at per cell)
 		local bolab_`bo_j' "`bolabc_`bo_j''"
 		local bocln_`bo_j' "`boclnc_`bo_j''"
@@ -2190,8 +2415,9 @@ else if "`by'`covlistvar'" != "" {	// by()/covariates() cells: counterfactual vi
 	}
 else {
 	local nlev_me = 1
-	local bog1_1 "`g1spec'"
-	local bog2_1 "`g2spec'"
+	forvalues j = 1/`nummods' {
+		local bog`j'_1 "`g`j'spec'"
+		}
 	local bymult_1 = 0
 	local bolab_1 "`mod1lab'"
 	local bocln_1 "`mod1lab'"
@@ -2213,25 +2439,25 @@ forvalues i = 1/`numvars' {
 *	The variable's position in its own list; keys the per-variable macros
 	local vnum = `i'
 *Exact membership test, not substring
-	local inm1 = 0
-	local inm2 = 0
-	foreach mectok of local list_ivs1 {
-		if "`mectok'" == "`var'"  local inm1 = 1
-		}
-	foreach mectok of local list_ivs2 {
-		if "`mectok'" == "`var'"  local inm2 = 1
+	forvalues j = 1/`nummods' {
+		local inm`j' = 0
+		foreach mectok of local list_ivs`j' {
+			if "`mectok'" == "`var'"  local inm`j' = 1
+			}
 		}
 	fvexpand `var' `meclevif'
 	local numcats : word count `r(varlist)' 
 	
 	local rpre ""
 	local rsuf ""
-	*for groupsd continuous vars, model 2 reads its own group's SD
-	local m2a1 = `atnum1'
-	local m2a2 = `atnum2'
-	if "`isgroupsd`i''" == "1" {
-		local m2a1 = `atnum1' + 2
-		local m2a2 = `atnum2' + 2
+	*each model's _at base; under groupsd every group has its own SD pair
+	forvalues j = 1/`nummods' {
+		local m`j'a1 = `atnum1'
+		local m`j'a2 = `atnum2'
+		if "`isgroupsd`i''" == "1" {
+			local m`j'a1 = `atnum1' + 2*(`j' - 1)
+			local m`j'a2 = `atnum2' + 2*(`j' - 1)
+			}
 		}
 	*Continuous IVs
 	if `numcats' == 1 {
@@ -2240,8 +2466,9 @@ forvalues i = 1/`numvars' {
 		local nlev_me0 = `nlev_me'
 		if `nsl`i'' > 1 {
 			forvalues bo = 1/`nlev_me0' {
-				local bog1s_`bo' "`bog1_`bo''"
-				local bog2s_`bo' "`bog2_`bo''"
+				forvalues j = 1/`nummods' {
+					local bog`j's_`bo' "`bog`j'_`bo''"
+					}
 				local bymults_`bo' = `bymult_`bo''
 				local bolabs_`bo' "`bolab_`bo''"
 				local boclns_`bo' "`bocln_`bo''"
@@ -2252,22 +2479,30 @@ forvalues i = 1/`numvars' {
 					local ++xn
 					local sbk : word `ks' of `stlistvals'
 					local stok = strtoname("at`sbk'")
-					local bog1x_`xn' "`bog1s_`bo''"
-					local bog2x_`xn' "`bog2s_`bo''"
+					local slab "at `sbk'"
+					if `hasendl`i'' == 1 {
+						local ebk : word `ks' of `enlistvals'
+						local stok = strtoname("at`sbk'to`ebk'")
+						local slab "`sbk' to `ebk'"
+						}
+					forvalues j = 1/`nummods' {
+						local bog`j'x_`xn' "`bog`j's_`bo''"
+						}
 					if `nlev_me0' > 1 {
-						local bolabx_`xn' "`bolabs_`bo'' at `sbk'"
+						local bolabx_`xn' "`bolabs_`bo'' `slab'"
 						local boclnx_`xn' "`boclns_`bo''_`stok'"
 						}
 					else {
-						local bolabx_`xn' "at `sbk'"
+						local bolabx_`xn' "`slab'"
 						local boclnx_`xn' "`stok'"
 						}
 					}
 				}
 			local nlev_me = `xn'
 			forvalues c = 1/`xn' {
-				local bog1_`c' "`bog1x_`c''"
-				local bog2_`c' "`bog2x_`c''"
+				forvalues j = 1/`nummods' {
+					local bog`j'_`c' "`bog`j'x_`c''"
+					}
 				local bymult_`c' = `c' - 1
 				local bolab_`c' "`bolabx_`c''"
 				local bocln_`c' "`boclnx_`c''"
@@ -2287,30 +2522,23 @@ forvalues i = 1/`numvars' {
 			local sectitle "`change`vnum''"
 			local totdiv = cond(`mod1cats' > 1, 2, 1)
 			local totsub = 0
-			if `nummods' == 2 | `nlev_me' > 1  local totsub = 1
+			if `nummods' >= 2 | `nlev_me' > 1  local totsub = 1
 			forvalues bo = 1/`nlev_me' {	// per by/over level
-				local m1e_`bo' 0
-				local m2e_`bo' 0
-				local a1 = `atnum1' + `bymult_`bo''*`nc_at'
-				local a2 = `atnum2' + `bymult_`bo''*`nc_at'
-				local am1 = `m2a1' + `bymult_`bo''*`nc_at'
-				local am2 = `m2a2' + `bymult_`bo''*`nc_at'
-				forvalues oo = 1/`mod1cats' {
-					local dh = _b[`prnum1_`oo''`a2'._at`bog1_`bo''] - _b[`prnum1_`oo''`a1'._at`bog1_`bo'']
-					local sg = cond(`dh' < 0, -1, 1)
-					local m1e_`bo' `m1e_`bo'' + `sg'* ///
-						(_b[`prnum1_`oo''`a2'._at`bog1_`bo''] - _b[`prnum1_`oo''`a1'._at`bog1_`bo''])
-					if `nummods' == 2 {
-						local dh2 = _b[`prnum2_`oo''`am2'._at`bog2_`bo''] - _b[`prnum2_`oo''`am1'._at`bog2_`bo'']
-						local sg2 = cond(`dh2' < 0, -1, 1)
-						local m2e_`bo' `m2e_`bo'' + `sg2'* ///
-							(_b[`prnum2_`oo''`am2'._at`bog2_`bo''] - _b[`prnum2_`oo''`am1'._at`bog2_`bo''])
+				forvalues j = 1/`nummods' {
+					local m`j'e_`bo' 0
+					local aj1 = `m`j'a1' + `bymult_`bo''*`nc_at'
+					local aj2 = `m`j'a2' + `bymult_`bo''*`nc_at'
+					forvalues oo = 1/`mod1cats' {
+						local dh = _b[`prnum`j'_`oo''`aj2'._at`bog`j'_`bo''] - _b[`prnum`j'_`oo''`aj1'._at`bog`j'_`bo'']
+						local sg = cond(`dh' < 0, -1, 1)
+						local m`j'e_`bo' `m`j'e_`bo'' + `sg'* ///
+							(_b[`prnum`j'_`oo''`aj2'._at`bog`j'_`bo''] - _b[`prnum`j'_`oo''`aj1'._at`bog`j'_`bo''])
 						}
 					}
 				}
 			if `totsub' == 1 {		// "Total ME" subheader
 				if `i' == 1 & "`meineqinit'`totmeinit'" == "" {
-					qui mlincom 1, stat(`stats')
+					qui mec_mlincom 1, stat(`stats')
 					_mec_addz, matrix(_mlincom) rowname("`sectitle':{it}Total ME    ") top
 					mat tempmat = _mlincom
 					_mec_matselrc tempmat _mlincom, row(1)
@@ -2330,33 +2558,23 @@ forvalues i = 1/`numvars' {
 					local ++me_num
 					}
 				}
-			else {				// two models: m1, m2, Difference per level
-				forvalues bo = 1/`nlev_me' {
-					if `nlev_me' > 1  local Lt "`mod1lab' `bolab_`bo''"
-					else              local Lt "`mod1lab'"
-					local Lt = substr("`Lt'", 1, 28)
-					local mexp`me_num' `rpre'(`m1e_`bo'')`rsuf'/`totdiv'
-					qui mec_mlincom `mexp`me_num'', add rowname(`sectitle':{sf}`Lt') stat(`stats')
-					local MEC_eqn "`MEC_eqn' `var'"
-					local MEC_rol "`MEC_rol' `rkey1'"
-					if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
-					else              local MEC_lev "`MEC_lev' ."
-					local MEC_ctr "`MEC_ctr' TotME"
-					local ++me_num
+			else {				// several models: one row per model per level, Difference with two
+				forvalues j = 1/`nummods' {
+					forvalues bo = 1/`nlev_me' {
+						if `nlev_me' > 1  local Lt "`mod`j'lab' `bolab_`bo''"
+						else              local Lt "`mod`j'lab'"
+						local Lt = substr("`Lt'", 1, 28)
+						local mexp`me_num' `rpre'(`m`j'e_`bo'')`rsuf'/`totdiv'
+						qui mec_mlincom `mexp`me_num'', add rowname(`sectitle':{sf}`Lt') stat(`stats')
+						local MEC_eqn "`MEC_eqn' `var'"
+						local MEC_rol "`MEC_rol' `rkey`j''"
+						if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
+						else              local MEC_lev "`MEC_lev' ."
+						local MEC_ctr "`MEC_ctr' TotME"
+						local ++me_num
+						}
 					}
-				forvalues bo = 1/`nlev_me' {
-					if `nlev_me' > 1  local Lt "`mod2lab' `bolab_`bo''"
-					else              local Lt "`mod2lab'"
-					local Lt = substr("`Lt'", 1, 28)
-					local mexp`me_num' `rpre'(`m2e_`bo'')`rsuf'/`totdiv'
-					qui mec_mlincom `mexp`me_num'', add rowname(`sectitle':{sf}`Lt') stat(`stats')
-					local MEC_eqn "`MEC_eqn' `var'"
-					local MEC_rol "`MEC_rol' `rkey2'"
-					if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
-					else              local MEC_lev "`MEC_lev' ."
-					local MEC_ctr "`MEC_ctr' TotME"
-					local ++me_num
-					}
+				if `nummods' == 2 {
 				forvalues bo = 1/`nlev_me' {
 					if `nlev_me' > 1  local Lt "Difference `bolab_`bo''"
 					else              local Lt "Difference"
@@ -2370,6 +2588,7 @@ forvalues i = 1/`numvars' {
 					local MEC_ctr "`MEC_ctr' TotME"
 					local ++me_num
 					}
+				}
 				}
 			if `i' == 1  local totmeinit = 1
 			}
@@ -2386,11 +2605,11 @@ forvalues i = 1/`numvars' {
 	
 	*---- model 1 marginal effect (looped over over() levels) ----
 	forvalues bo = 1/`nlev_me' {
-	if `nummods' == 2 & `nlev_me' > 1  local L1 "`mod1lab' `bolab_`bo''"
+	if `nummods' >= 2 & `nlev_me' > 1  local L1 "`mod1lab' `bolab_`bo''"
 	else                               local L1 "`bolab_`bo''"
 *Cap the display row name (Stata rejects an over-long one)
 	local _lv ""
-	if `nummods' == 2 & `nlev_me' > 1  local _lv "`bolab_`bo''"
+	if `nummods' >= 2 & `nlev_me' > 1  local _lv "`bolab_`bo''"
 	local _md "`mod1lab'"
 	if `nummods' == 1  local _md "`bolab_`bo''"	// one model: the level labels the row
 	_mec_rowlab, cat("`cat1name'") mod("`_md'") lev("`_lv'") /*
@@ -2403,7 +2622,7 @@ forvalues i = 1/`numvars' {
 		local mexp`me_num' `rpre'(_b[`prnum1_`o''`a2'._at`bog1_`bo''] - ///
 							 _b[`prnum1_`o''`a1'._at`bog1_`bo''])`rsuf'
 		qui mec_mlincom `mexp`me_num'', ///
-			add rowname(`sectitle':`_rn1') stat(`stats') 
+			add rowname(`sectitle':`_rn1') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `var'"
 		local MEC_rol "`MEC_rol' `R1'"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
@@ -2411,10 +2630,10 @@ forvalues i = 1/`numvars' {
 		local MEC_ctr "`MEC_ctr' ."
 		local ++me_num
 		}
-	else if `nummods' == 2 {
+	else if `nummods' >= 2 {
 		capture confirm matrix _mlincom
-		if _rc {		// first table row: a faux mlincom gives the blank row its columns
-			qui mlincom 1, stat(`stats')
+		if _rc {		// first table row: a faux row gives the blank row its columns
+			qui mec_mlincom 1, stat(`stats')
 			_mec_addz, matrix(_mlincom) rowname("`sectitle':`_rn1'") top
 			mat tempmat = _mlincom
 			_mec_matselrc tempmat _mlincom, row(1)
@@ -2422,45 +2641,43 @@ forvalues i = 1/`numvars' {
 		else  _mec_addz, matrix(_mlincom) rowname("`sectitle':`_rn1'")
 		}
 	}
-	*---- model 2 marginal effect ----
+	*---- models 2..k marginal effects ----
+	forvalues j = 2/`nummods' {
 	forvalues bo = 1/`nlev_me' {
-	if `nlev_me' > 1  local L2 "`mod2lab' `bolab_`bo''"
-	else              local L2 "`mod2lab'"
 	local _lv ""
 	if `nlev_me' > 1  local _lv "`bolab_`bo''"
-	_mec_rowlab, cat("`cat2name'") mod("`mod2lab'") lev("`_lv'") /*
+	_mec_rowlab, cat("`cat1name'") mod("`mod`j'lab'") lev("`_lv'") /*
 		*/ width(`=`twidth' - 2')
 	local _rn2 "`r(lab)'"
-	local R2 "`rkey2'"
-	if `inm2' > 0 & `nummods' == 2 {		// If var is in model 2
-		local am1 = `m2a1' + `bymult_`bo''*`nc_at'	// by() shifts model-2 _at index
-		local am2 = `m2a2' + `bymult_`bo''*`nc_at'
-		local mexp`me_num' `rpre'(_b[`prnum2_`o''`am2'._at`bog2_`bo''] - ///
-							 _b[`prnum2_`o''`am1'._at`bog2_`bo''])`rsuf'
+	if `inm`j'' > 0 {		// If var is in model j
+		local am1 = `m`j'a1' + `bymult_`bo''*`nc_at'	// by() shifts the _at index
+		local am2 = `m`j'a2' + `bymult_`bo''*`nc_at'
+		local mexp`me_num' `rpre'(_b[`prnum`j'_`o''`am2'._at`bog`j'_`bo''] - ///
+							 _b[`prnum`j'_`o''`am1'._at`bog`j'_`bo''])`rsuf'
 		qui mec_mlincom `mexp`me_num'', ///
 				add rowname(`sectitle':`_rn2') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `var'"
-		local MEC_rol "`MEC_rol' `R2'"
+		local MEC_rol "`MEC_rol' `rkey`j''"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' ."
 		local ++me_num
 		}
-	else if `nummods' == 2 {
+	else {
 		_mec_addz, matrix(_mlincom) rowname("`sectitle':`_rn2'")
 		}
 	}
-	*---- cross-model Difference (var in both models) ----
+	}
+	*---- cross-model Difference (two models, var in both) ----
+	if `nummods' == 2 {
 	forvalues bo = 1/`nlev_me' {
-	if `nlev_me' > 1  local LD "Difference `bolab_`bo''"
-	else              local LD "Difference"
 	local _lv ""
 	if `nlev_me' > 1  local _lv "`bolab_`bo''"
 	_mec_rowlab, cat("`catDname'") mod("Difference") lev("`_lv'") /*
 		*/ width(`=`twidth' - 2')
 	local _rnD "`r(lab)'"
 	local RD "`rkeyD'"
-	if `inm1' > 0 & `inm2' > 0 & `nummods' == 2 {
+	if `inm1' > 0 & `inm2' > 0 {
 		local a1  = `atnum1' + `bymult_`bo''*`nc_at'	// by() shifts both models'
 		local a2  = `atnum2' + `bymult_`bo''*`nc_at'	//   _at index per level
 		local am1 = `m2a1'  + `bymult_`bo''*`nc_at'
@@ -2470,22 +2687,23 @@ forvalues i = 1/`numvars' {
 							(_b[`prnum2_`o''`am2'._at`bog2_`bo''] - ///
 							_b[`prnum2_`o''`am1'._at`bog2_`bo''])`rsuf'
 		qui mec_mlincom `mexp`me_num'', ///
-			add rowname(`sectitle':`_rnD') stat(`stats') 
+			add rowname(`sectitle':`_rnD') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `var'"
 		local MEC_rol "`MEC_rol' `RD'"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' ."
-		local ++me_num	
+		local ++me_num
 		}
-	else if `nummods' == 2 {
+	else {
 		_mec_addz, matrix(_mlincom) rowname("`sectitle':`_rnD'")
 		}
 	}
 	}
-	if "`isgroupsd`i''" == "1" {		// groupsd uses 4 at() per var
-		local atnum1 = `atnum1' + 4
-		local atnum2 = `atnum2' + 4
+	}
+	if "`isgroupsd`i''" == "1" {		// groupsd uses 2 at() per group
+		local atnum1 = `atnum1' + 2*`nummods'
+		local atnum2 = `atnum2' + 2*`nummods'
 		}
 	else {
 		local bymul = `nbocells' * `nsl`i''	// the var's at() pairs repeat per cell and per base
@@ -2494,8 +2712,9 @@ forvalues i = 1/`numvars' {
 		}
 	if `nsl`i'' > 1 {	// put the cell scaffold back for the next variable
 		forvalues bo = 1/`nlev_me0' {
-			local bog1_`bo' "`bog1s_`bo''"
-			local bog2_`bo' "`bog2s_`bo''"
+			forvalues j = 1/`nummods' {
+				local bog`j'_`bo' "`bog`j's_`bo''"
+				}
 			local bymult_`bo' = `bymults_`bo''
 			local bolab_`bo' "`bolabs_`bo''"
 			local bocln_`bo' "`boclns_`bo''"
@@ -2520,7 +2739,7 @@ forvalues i = 1/`numvars' {
 
 	if `i' == 1 & `o' == 1 {
 		*Create a quick faux table to get category label row
-		qui mlincom 1, stat(`stats') 
+		qui mec_mlincom 1, stat(`stats') 
 		_mec_addz, matrix(_mlincom) rowname("`varname':{it}`sectitle'    ") top
 		mat tempmat = _mlincom
 		_mec_matselrc tempmat _mlincom, row(1)
@@ -2535,24 +2754,17 @@ forvalues i = 1/`numvars' {
 		qui est restore mec_margins
 		local totdiv = cond(`mod1cats' > 1, 2, 1)
 		local totsub = 0
-		if `nummods' == 2 | `nlev_me' > 1  local totsub = 1
+		if `nummods' >= 2 | `nlev_me' > 1  local totsub = 1
 		forvalues bo = 1/`nlev_me' {	// per by/over level
-			local m1e_`bo' 0
-			local m2e_`bo' 0
-			local a1 = `atnum1' + `bymult_`bo''*`nc_at'
-			local a2 = `atnum2' + `bymult_`bo''*`nc_at'
-			local am1 = `m2a1' + `bymult_`bo''*`nc_at'
-			local am2 = `m2a2' + `bymult_`bo''*`nc_at'
-			forvalues oo = 1/`mod1cats' {
-				local dh = _b[`prnum1_`oo''`a2'._at`bog1_`bo''] - _b[`prnum1_`oo''`a1'._at`bog1_`bo'']
-				local sg = cond(`dh' < 0, -1, 1)
-				local m1e_`bo' `m1e_`bo'' + `sg'* ///
-					(_b[`prnum1_`oo''`a2'._at`bog1_`bo''] - _b[`prnum1_`oo''`a1'._at`bog1_`bo''])
-				if `nummods' == 2 {
-					local dh2 = _b[`prnum2_`oo''`am2'._at`bog2_`bo''] - _b[`prnum2_`oo''`am1'._at`bog2_`bo'']
-					local sg2 = cond(`dh2' < 0, -1, 1)
-					local m2e_`bo' `m2e_`bo'' + `sg2'* ///
-						(_b[`prnum2_`oo''`am2'._at`bog2_`bo''] - _b[`prnum2_`oo''`am1'._at`bog2_`bo''])
+			forvalues j = 1/`nummods' {
+				local m`j'e_`bo' 0
+				local aj1 = `m`j'a1' + `bymult_`bo''*`nc_at'
+				local aj2 = `m`j'a2' + `bymult_`bo''*`nc_at'
+				forvalues oo = 1/`mod1cats' {
+					local dh = _b[`prnum`j'_`oo''`aj2'._at`bog`j'_`bo''] - _b[`prnum`j'_`oo''`aj1'._at`bog`j'_`bo'']
+					local sg = cond(`dh' < 0, -1, 1)
+					local m`j'e_`bo' `m`j'e_`bo'' + `sg'* ///
+						(_b[`prnum`j'_`oo''`aj2'._at`bog`j'_`bo''] - _b[`prnum`j'_`oo''`aj1'._at`bog`j'_`bo''])
 					}
 				}
 			}
@@ -2570,35 +2782,24 @@ forvalues i = 1/`numvars' {
 				local ++me_num
 				}
 			}
-		else {				// two models: m1, m2, Difference per level
-			forvalues bo = 1/`nlev_me' {
-				if `nlev_me' > 1  local Lt "`mod1lab' `bolab_`bo''"
-				else              local Lt "`mod1lab'"
-				local Lt = substr("`Lt'", 1, 28)
-				local mexp`me_num' (`m1e_`bo'')/`totdiv'
-				local _mcrn = substr("`Lt'", 1, 28)
-				qui mec_mlincom `mexp`me_num'', add rowname(`varname':{sf}`_mcrn') stat(`stats')
-				local MEC_eqn "`MEC_eqn' `varname'"
-				local MEC_rol "`MEC_rol' `rkey1'"
-				if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
-				else              local MEC_lev "`MEC_lev' ."
-				local MEC_ctr "`MEC_ctr' TotME"
-				local ++me_num
+		else {				// several models: one row per model per level, Difference with two
+			forvalues j = 1/`nummods' {
+				forvalues bo = 1/`nlev_me' {
+					if `nlev_me' > 1  local Lt "`mod`j'lab' `bolab_`bo''"
+					else              local Lt "`mod`j'lab'"
+					local Lt = substr("`Lt'", 1, 28)
+					local mexp`me_num' (`m`j'e_`bo'')/`totdiv'
+					local _mcrn = substr("`Lt'", 1, 28)
+					qui mec_mlincom `mexp`me_num'', add rowname(`varname':{sf}`_mcrn') stat(`stats')
+					local MEC_eqn "`MEC_eqn' `varname'"
+					local MEC_rol "`MEC_rol' `rkey`j''"
+					if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
+					else              local MEC_lev "`MEC_lev' ."
+					local MEC_ctr "`MEC_ctr' TotME"
+					local ++me_num
+					}
 				}
-			forvalues bo = 1/`nlev_me' {
-				if `nlev_me' > 1  local Lt "`mod2lab' `bolab_`bo''"
-				else              local Lt "`mod2lab'"
-				local Lt = substr("`Lt'", 1, 28)
-				local mexp`me_num' (`m2e_`bo'')/`totdiv'
-				local _mcrn = substr("`Lt'", 1, 28)
-				qui mec_mlincom `mexp`me_num'', add rowname(`varname':{sf}`_mcrn') stat(`stats')
-				local MEC_eqn "`MEC_eqn' `varname'"
-				local MEC_rol "`MEC_rol' `rkey2'"
-				if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
-				else              local MEC_lev "`MEC_lev' ."
-				local MEC_ctr "`MEC_ctr' TotME"
-				local ++me_num
-				}
+			if `nummods' == 2 {
 			forvalues bo = 1/`nlev_me' {
 				if `nlev_me' > 1  local Lt "Difference `bolab_`bo''"
 				else              local Lt "Difference"
@@ -2614,15 +2815,16 @@ forvalues i = 1/`numvars' {
 				local ++me_num
 				}
 			}
+			}
 		}
 		
 	*---- model 1 marginal effect (looped over over() levels) ----
 	forvalues bo = 1/`nlev_me' {
-	if `nummods' == 2 & `nlev_me' > 1  local L1 "`mod1lab' `bolab_`bo''"
+	if `nummods' >= 2 & `nlev_me' > 1  local L1 "`mod1lab' `bolab_`bo''"
 	else                               local L1 "`bolab_`bo''"
 *Cap the display row name (Stata rejects an over-long one)
 	local _lv ""
-	if `nummods' == 2 & `nlev_me' > 1  local _lv "`bolab_`bo''"
+	if `nummods' >= 2 & `nlev_me' > 1  local _lv "`bolab_`bo''"
 	_mec_rowlab, cat("`cat1name'") mod("`mod1lab'") lev("`_lv'") /*
 		*/ width(`=`twidth' - 2')
 	local _rn1 "`r(lab)'"
@@ -2634,7 +2836,7 @@ forvalues i = 1/`numvars' {
 							 _b[`prnum1_`o''`a1'._at`bog1_`bo''])`rsuf'
 		local _mcrn = substr("`cat1name'`L1'", 1, 28)	// coef name <= 32 (with {sf})
 		qui mec_mlincom `mexp`me_num'', ///
-			add rowname(`varname':{sf}`_mcrn') stat(`stats') 
+			add rowname(`varname':{sf}`_mcrn') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `varname'"
 		local MEC_rol "`MEC_rol' `R1'"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
@@ -2642,52 +2844,43 @@ forvalues i = 1/`numvars' {
 		local MEC_ctr "`MEC_ctr' ."
 		local ++me_num
 		}
-	else if `nummods' == 2 { 
+	else if `nummods' >= 2 {
 		local _mcrn = substr("`out_1_`o''`L1'", 1, 28)
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
 		}
 	}
-	*---- model 2 marginal effect ----
+	*---- models 2..k marginal effects ----
+	forvalues j = 2/`nummods' {
 	forvalues bo = 1/`nlev_me' {
-	if `nlev_me' > 1  local L2 "`mod2lab' `bolab_`bo''"
-	else              local L2 "`mod2lab'"
-	local _lv ""
-	if `nlev_me' > 1  local _lv "`bolab_`bo''"
-	_mec_rowlab, cat("`cat2name'") mod("`mod2lab'") lev("`_lv'") /*
-		*/ width(`=`twidth' - 2')
-	local _rn2 "`r(lab)'"
-	local R2 "`rkey2'"
-	if `inm2' > 0 & `nummods' == 2 {		// If var is in model 2
-		local am1 = `m2a1' + `bymult_`bo''*`nc_at'	// by() shifts model-2 _at index
-		local am2 = `m2a2' + `bymult_`bo''*`nc_at'
-		local mexp`me_num' `rpre'(_b[`prnum2_`o''`am2'._at`bog2_`bo''] - ///
-							 _b[`prnum2_`o''`am1'._at`bog2_`bo''])`rsuf'
-		local _mcrn = substr("`cat2name'`L2'", 1, 28)	// coef name <= 32 (with {sf})
+	if `nlev_me' > 1  local L2 "`mod`j'lab' `bolab_`bo''"
+	else              local L2 "`mod`j'lab'"
+	if `inm`j'' > 0 {		// If var is in model j
+		local am1 = `m`j'a1' + `bymult_`bo''*`nc_at'	// by() shifts the _at index
+		local am2 = `m`j'a2' + `bymult_`bo''*`nc_at'
+		local mexp`me_num' `rpre'(_b[`prnum`j'_`o''`am2'._at`bog`j'_`bo''] - ///
+							 _b[`prnum`j'_`o''`am1'._at`bog`j'_`bo''])`rsuf'
+		local _mcrn = substr("`cat1name'`L2'", 1, 28)	// coef name <= 32 (with {sf})
 		qui mec_mlincom `mexp`me_num'', ///
-			add rowname(`varname':{sf}`_mcrn') stat(`stats') 
+			add rowname(`varname':{sf}`_mcrn') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `varname'"
-		local MEC_rol "`MEC_rol' `R2'"
+		local MEC_rol "`MEC_rol' `rkey`j''"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' ."
-		local ++me_num	
+		local ++me_num
 		}
-	else if `nummods' == 2 {
-		local _mcrn = substr("`out_2_`o''`L2'", 1, 28)
+	else {
+		local _mcrn = substr("`out_1_`o''`L2'", 1, 28)
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
 		}
 	}
-	*---- cross-model Difference (var in both models) ----
+	}
+	*---- cross-model Difference (two models, var in both) ----
+	if `nummods' == 2 {
 	forvalues bo = 1/`nlev_me' {
 	if `nlev_me' > 1  local LD "Difference `bolab_`bo''"
 	else              local LD "Difference"
-	local _lv ""
-	if `nlev_me' > 1  local _lv "`bolab_`bo''"
-	_mec_rowlab, cat("`catDname'") mod("Difference") lev("`_lv'") /*
-		*/ width(`=`twidth' - 2')
-	local _rnD "`r(lab)'"
-	local RD "`rkeyD'"
-	if `inm1' > 0 & `inm2' > 0 & `nummods' == 2 {
+	if `inm1' > 0 & `inm2' > 0 {
 		local a1  = `atnum1' + `bymult_`bo''*`nc_at'	// by() shifts both models'
 		local a2  = `atnum2' + `bymult_`bo''*`nc_at'	//   _at index per level
 		local am1 = `m2a1'  + `bymult_`bo''*`nc_at'
@@ -2698,19 +2891,20 @@ forvalues i = 1/`numvars' {
 							_b[`prnum2_`o''`am1'._at`bog2_`bo''])`rsuf'
 		local _mcrn = substr("`catDname'`LD'", 1, 28)	// coef name <= 32 (with {sf})
 		qui mec_mlincom `mexp`me_num'', ///
-			add rowname(`varname':{sf}`_mcrn') stat(`stats') 
+			add rowname(`varname':{sf}`_mcrn') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `varname'"
-		local MEC_rol "`MEC_rol' `RD'"
+		local MEC_rol "`MEC_rol' `rkeyD'"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' ."
-		local ++me_num	
+		local ++me_num
 		}
-	else if `nummods' == 2 {
+	else {
 		local _mcrn = substr("`catDname'`LD'", 1, 28)
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
 		}
 		}		// close forvalues bo (over levels) for Difference
+		}		// close if nummods == 2
 		}		// close forvalues o (DV categories)
 	local bymul = `nbocells'		// at() specs repeat per cell
 	local atnum1 = `atnum1' + 2*`bymul'	// advance _at label # in margins table
@@ -2729,8 +2923,9 @@ forvalues i = 1/`numvars' {
 	if "`meinequality'" != "" {
 		qui est restore mec_margins		// activate predictions for the signs
 		local Lc   = `mcineqL_`vnum''
-		local Ntot1 = `mcineqN1_`vnum''
-		local Ntot2 = `mcineqN2_`vnum''
+		forvalues j = 1/`nummods' {
+			local Ntot`j' = `mcineqN`j'_`vnum''
+			}
 		local mineqNC = `Lc' * (`Lc' - 1) / 2	// # pairwise comparisons
 		if "`meineqtype'" == "all"          local wtypes "weighted unweighted"
 		else if "`meineqtype'" == "unweighted"  local wtypes "unweighted"
@@ -2745,10 +2940,10 @@ forvalues i = 1/`numvars' {
 			local mtok "MEineq"
 			}
 		local mineqsub = 0			// subheader when >1 ME-inequality row
-		if `mod1cats' > 1 | `nummods' == 2 | `nlev_me' > 1  local mineqsub = 1
+		if `mod1cats' > 1 | `nummods' >= 2 | `nlev_me' > 1  local mineqsub = 1
 		if `mineqsub' == 1 {			// add the subheader
 			if `i' == 1 & "`meineqinit'`totmeinit'" == "" {	// first table row: faux init
-				qui mlincom 1, stat(`stats')
+				qui mec_mlincom 1, stat(`stats')
 				_mec_addz, matrix(_mlincom) ///
 					rowname("`varname':{it}`mineqlab'    ") top
 				mat tempmat = _mlincom
@@ -2762,17 +2957,18 @@ forvalues i = 1/`numvars' {
 		forvalues oo = 1/`mod1cats' {		// one ME inequality per outcome
 			if `mod1cats' == 1 {
 				local ocat1 ""
-				local ocat2 ""
 				}
 			else {
 				local ocat1 "`out_1_`oo'' - "
-				local ocat2 "`out_2_`oo'' - "
 				}
 			*Collect each prediction's net coefficient (same quantity, compact expression)
-			tempname MC1 MC2
+			forvalues j = 1/`nummods' {
+				tempname MC`j'
+				}
 			forvalues bo = 1/`nlev_me' {	// build per by/over level
-				matrix `MC1' = J(1, `Lc', 0)
-				matrix `MC2' = J(1, `Lc', 0)
+				forvalues j = 1/`nummods' {
+					matrix `MC`j'' = J(1, `Lc', 0)
+					}
 				local si = 0
 				foreach va of local levels {
 					local ++si
@@ -2782,42 +2978,34 @@ forvalues i = 1/`numvars' {
 						local ++sj
 						if `si' < `sj' {
 							local pb = `atnum1' + `mcineqpos_`vnum'_`vb'' - 1 + `bymult_`bo''*`nc_at'
-							if "`wt'" == "unweighted" {	// mean of |contrasts|
-								local wab1 = 1 / `mineqNC'
-								local wab2 = `wab1'
-								}
-							else {				// (p_a+p_b)/(L-1), each model's own shares
-								local wab1 = (`mcineqn1_`vnum'_`va'' + `mcineqn1_`vnum'_`vb'') ///
-										/ `Ntot1' / (`Lc' - 1)
-								local wab2 = (`mcineqn2_`vnum'_`va'' + `mcineqn2_`vnum'_`vb'') ///
-										/ `Ntot2' / (`Lc' - 1)
-								}
-							local d1 = _b[`prnum1_`oo''`pa'._at`bog1_`bo''] - _b[`prnum1_`oo''`pb'._at`bog1_`bo'']
-							local s1 = cond(`d1' < 0, -1, 1)
-							matrix `MC1'[1,`si'] = `MC1'[1,`si'] + `wab1'*`s1'
-							matrix `MC1'[1,`sj'] = `MC1'[1,`sj'] - `wab1'*`s1'
-							if `nummods' == 2 {
-								local d2 = _b[`prnum2_`oo''`pa'._at`bog2_`bo''] - _b[`prnum2_`oo''`pb'._at`bog2_`bo'']
-								local s2 = cond(`d2' < 0, -1, 1)
-								matrix `MC2'[1,`si'] = `MC2'[1,`si'] + `wab2'*`s2'
-								matrix `MC2'[1,`sj'] = `MC2'[1,`sj'] - `wab2'*`s2'
+							forvalues j = 1/`nummods' {
+								if "`wt'" == "unweighted" {	// mean of |contrasts|
+									local wabj = 1 / `mineqNC'
+									}
+								else {				// (p_a+p_b)/(L-1), each model's own shares
+									local wabj = (`mcineqn`j'_`vnum'_`va'' + `mcineqn`j'_`vnum'_`vb'') ///
+											/ `Ntot`j'' / (`Lc' - 1)
+									}
+								local d1 = _b[`prnum`j'_`oo''`pa'._at`bog`j'_`bo''] - _b[`prnum`j'_`oo''`pb'._at`bog`j'_`bo'']
+								local s1 = cond(`d1' < 0, -1, 1)
+								matrix `MC`j''[1,`si'] = `MC`j''[1,`si'] + `wabj'*`s1'
+								matrix `MC`j''[1,`sj'] = `MC`j''[1,`sj'] - `wabj'*`s1'
 								}
 							}
 						}
 					}
-				local m1e_`bo' 0
-				local m2e_`bo' 0
+				forvalues j = 1/`nummods' {
+					local m`j'e_`bo' 0
+					}
 				local si = 0
 				foreach va of local levels {
 					local ++si
 					local pa = `atnum1' + `mcineqpos_`vnum'_`va'' - 1 + `bymult_`bo''*`nc_at'
-					if `MC1'[1,`si'] != 0 {
-						local cfm : display %21x (`MC1'[1,`si'])
-						local m1e_`bo' `m1e_`bo'' + (`cfm')*_b[`prnum1_`oo''`pa'._at`bog1_`bo'']
-						}
-					if `nummods' == 2 & `MC2'[1,`si'] != 0 {
-						local cfm2 : display %21x (`MC2'[1,`si'])
-						local m2e_`bo' `m2e_`bo'' + (`cfm2')*_b[`prnum2_`oo''`pa'._at`bog2_`bo'']
+					forvalues j = 1/`nummods' {
+						if `MC`j''[1,`si'] != 0 {
+							local cfm : display %21x (`MC`j''[1,`si'])
+							local m`j'e_`bo' `m`j'e_`bo'' + (`cfm')*_b[`prnum`j'_`oo''`pa'._at`bog`j'_`bo'']
+							}
 						}
 					}
 				}
@@ -2843,35 +3031,24 @@ forvalues i = 1/`numvars' {
 					local ++me_num
 					}
 				}
-			else {					// two models: m1, m2, Difference per level
-				forvalues bo = 1/`nlev_me' {	// model 1
-					if `nlev_me' > 1  local Lm "`mod1lab' `bolab_`bo''"
-					else              local Lm "`mod1lab'"
-					local mexp`me_num' (`m1e_`bo'')
+			else {					// several models: one row per model per level, Difference with two
+				forvalues j = 1/`nummods' {
+				forvalues bo = 1/`nlev_me' {
+					if `nlev_me' > 1  local Lm "`mod`j'lab' `bolab_`bo''"
+					else              local Lm "`mod`j'lab'"
+					local mexp`me_num' (`m`j'e_`bo'')
 					local _mcrn = substr("`ocat1'`Lm'", 1, 28)
 					qui mec_mlincom `mexp`me_num'', ///
 						add rowname(`varname':{sf}`_mcrn') stat(`stats')
 					local MEC_eqn "`MEC_eqn' `varname'"
-					local MEC_rol "`MEC_rol' `rkey1'"
+					local MEC_rol "`MEC_rol' `rkey`j''"
 					if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 					else              local MEC_lev "`MEC_lev' ."
 					local MEC_ctr "`MEC_ctr' `mtok'"
 					local ++me_num
 					}
-				forvalues bo = 1/`nlev_me' {	// model 2
-					if `nlev_me' > 1  local Lm "`mod2lab' `bolab_`bo''"
-					else              local Lm "`mod2lab'"
-					local mexp`me_num' (`m2e_`bo'')
-					local _mcrn = substr("`ocat2'`Lm'", 1, 28)
-					qui mec_mlincom `mexp`me_num'', ///
-						add rowname(`varname':{sf}`_mcrn') stat(`stats')
-					local MEC_eqn "`MEC_eqn' `varname'"
-					local MEC_rol "`MEC_rol' `rkey2'"
-					if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
-					else              local MEC_lev "`MEC_lev' ."
-					local MEC_ctr "`MEC_ctr' `mtok'"
-					local ++me_num
-					}
+				}
+				if `nummods' == 2 {
 				forvalues bo = 1/`nlev_me' {	// cross-model Difference
 					if `nlev_me' > 1  local Lm "Difference `bolab_`bo''"
 					else              local Lm "Difference"
@@ -2887,6 +3064,7 @@ forvalues i = 1/`numvars' {
 					local ++me_num
 					}
 				}
+				}
 			}					// end outcome loop
 		if `i' == 1  local meineqinit = 1	// after 1st type: skip contrast faux
 		}					// end weighting-type loop
@@ -2896,8 +3074,9 @@ forvalues i = 1/`numvars' {
 	if "`totalme'" != "" {
 		qui est restore mec_margins
 		local Lc   = `mcineqL_`vnum''
-		local Ntot1 = `mcineqN1_`vnum''
-		local Ntot2 = `mcineqN2_`vnum''
+		forvalues j = 1/`nummods' {
+			local Ntot`j' = `mcineqN`j'_`vnum''
+			}
 		local totdiv = cond(`mod1cats' > 1, 2, 1)
 		if "`totmetype'" == "all"              local twtypes "weighted unweighted"
 		else if "`totmetype'" == "unweighted"  local twtypes "unweighted"
@@ -2911,11 +3090,14 @@ forvalues i = 1/`numvars' {
 				local tmlab "Total ME Ineq."
 				local tmtok "TotMEIneq"
 				}
-			tempname TC1 TC2
+			forvalues j = 1/`nummods' {
+				tempname TC`j'
+				}
 			forvalues bo = 1/`nlev_me' {	// per by/over level
 				*Collect each prediction's net coefficient (same quantity, compact expression)
-				matrix `TC1' = J(`mod1cats', `Lc', 0)
-				matrix `TC2' = J(`mod1cats', `Lc', 0)
+				forvalues j = 1/`nummods' {
+					matrix `TC`j'' = J(`mod1cats', `Lc', 0)
+					}
 				forvalues oo = 1/`mod1cats' {
 					local si = 0
 					foreach va of local levels {
@@ -2926,55 +3108,47 @@ forvalues i = 1/`numvars' {
 							local ++sj
 							if `si' < `sj' {
 								local pb = `atnum1' + `mcineqpos_`vnum'_`vb'' - 1 + `bymult_`bo''*`nc_at'
-								if "`wt'" == "unweighted" {
+								forvalues j = 1/`nummods' {
+									if "`wt'" == "unweighted" {
 *Divide by the number of pairs: the mean absolute pairwise ME
-									local tmNC = `Lc' * (`Lc' - 1) / 2
-									local wab1 = 1 / `tmNC'
-									local wab2 = `wab1'
-									}
-								else {			// each model's own shares
-									local wab1 = (`mcineqn1_`vnum'_`va'' + `mcineqn1_`vnum'_`vb'') ///
-											/ `Ntot1' / (`Lc' - 1)
-									local wab2 = (`mcineqn2_`vnum'_`va'' + `mcineqn2_`vnum'_`vb'') ///
-											/ `Ntot2' / (`Lc' - 1)
-									}
-								local dh = _b[`prnum1_`oo''`pa'._at`bog1_`bo''] - _b[`prnum1_`oo''`pb'._at`bog1_`bo'']
-								local sg = cond(`dh' < 0, -1, 1)
-								matrix `TC1'[`oo',`si'] = `TC1'[`oo',`si'] + `wab1'*`sg'
-								matrix `TC1'[`oo',`sj'] = `TC1'[`oo',`sj'] - `wab1'*`sg'
-								if `nummods' == 2 {
-									local dh2 = _b[`prnum2_`oo''`pa'._at`bog2_`bo''] - _b[`prnum2_`oo''`pb'._at`bog2_`bo'']
-									local sg2 = cond(`dh2' < 0, -1, 1)
-									matrix `TC2'[`oo',`si'] = `TC2'[`oo',`si'] + `wab2'*`sg2'
-									matrix `TC2'[`oo',`sj'] = `TC2'[`oo',`sj'] - `wab2'*`sg2'
+										local tmNC = `Lc' * (`Lc' - 1) / 2
+										local wabj = 1 / `tmNC'
+										}
+									else {			// each model's own shares
+										local wabj = (`mcineqn`j'_`vnum'_`va'' + `mcineqn`j'_`vnum'_`vb'') ///
+												/ `Ntot`j'' / (`Lc' - 1)
+										}
+									local dh = _b[`prnum`j'_`oo''`pa'._at`bog`j'_`bo''] - _b[`prnum`j'_`oo''`pb'._at`bog`j'_`bo'']
+									local sg = cond(`dh' < 0, -1, 1)
+									matrix `TC`j''[`oo',`si'] = `TC`j''[`oo',`si'] + `wabj'*`sg'
+									matrix `TC`j''[`oo',`sj'] = `TC`j''[`oo',`sj'] - `wabj'*`sg'
 									}
 								}
 							}
 						}
 					}
-				local m1e_`bo' 0
-				local m2e_`bo' 0
+				forvalues j = 1/`nummods' {
+					local m`j'e_`bo' 0
+					}
 				forvalues oo = 1/`mod1cats' {
 					local si = 0
 					foreach va of local levels {
 						local ++si
 						local pa = `atnum1' + `mcineqpos_`vnum'_`va'' - 1 + `bymult_`bo''*`nc_at'
-						if `TC1'[`oo',`si'] != 0 {
-							local cf : display %21x (`TC1'[`oo',`si'])
-							local m1e_`bo' `m1e_`bo'' + (`cf')*_b[`prnum1_`oo''`pa'._at`bog1_`bo'']
-							}
-						if `nummods' == 2 & `TC2'[`oo',`si'] != 0 {
-							local cf2 : display %21x (`TC2'[`oo',`si'])
-							local m2e_`bo' `m2e_`bo'' + (`cf2')*_b[`prnum2_`oo''`pa'._at`bog2_`bo'']
+						forvalues j = 1/`nummods' {
+							if `TC`j''[`oo',`si'] != 0 {
+								local cf : display %21x (`TC`j''[`oo',`si'])
+								local m`j'e_`bo' `m`j'e_`bo'' + (`cf')*_b[`prnum`j'_`oo''`pa'._at`bog`j'_`bo'']
+								}
 							}
 						}
 					}
 				}
 			local totsub = 0
-			if `nummods' == 2 | `nlev_me' > 1  local totsub = 1
+			if `nummods' >= 2 | `nlev_me' > 1  local totsub = 1
 			if `totsub' == 1 {
 				if `i' == 1 & "`meineqinit'`totmeinit'" == "" {
-					qui mlincom 1, stat(`stats')
+					qui mec_mlincom 1, stat(`stats')
 					_mec_addz, matrix(_mlincom) rowname("`varname':{it}`tmlab'    ") top
 					mat tempmat = _mlincom
 					_mec_matselrc tempmat _mlincom, row(1)
@@ -2994,35 +3168,24 @@ forvalues i = 1/`numvars' {
 					local ++me_num
 					}
 				}
-			else {					// two models: m1, m2, Difference per level
+			else {					// several models: one row per model per level, Difference with two
+				forvalues j = 1/`nummods' {
 				forvalues bo = 1/`nlev_me' {
-					if `nlev_me' > 1  local Lt "`mod1lab' `bolab_`bo''"
-					else              local Lt "`mod1lab'"
+					if `nlev_me' > 1  local Lt "`mod`j'lab' `bolab_`bo''"
+					else              local Lt "`mod`j'lab'"
 					local Lt = substr("`Lt'", 1, 28)
-					local mexp`me_num' (`m1e_`bo'')/`totdiv'
+					local mexp`me_num' (`m`j'e_`bo'')/`totdiv'
 					local _mcrn = substr("`Lt'", 1, 28)
 					qui mec_mlincom `mexp`me_num'', add rowname(`varname':{sf}`_mcrn') stat(`stats')
 					local MEC_eqn "`MEC_eqn' `varname'"
-					local MEC_rol "`MEC_rol' `rkey1'"
+					local MEC_rol "`MEC_rol' `rkey`j''"
 					if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 					else              local MEC_lev "`MEC_lev' ."
 					local MEC_ctr "`MEC_ctr' `tmtok'"
 					local ++me_num
 					}
-				forvalues bo = 1/`nlev_me' {
-					if `nlev_me' > 1  local Lt "`mod2lab' `bolab_`bo''"
-					else              local Lt "`mod2lab'"
-					local Lt = substr("`Lt'", 1, 28)
-					local mexp`me_num' (`m2e_`bo'')/`totdiv'
-					local _mcrn = substr("`Lt'", 1, 28)
-					qui mec_mlincom `mexp`me_num'', add rowname(`varname':{sf}`_mcrn') stat(`stats')
-					local MEC_eqn "`MEC_eqn' `varname'"
-					local MEC_rol "`MEC_rol' `rkey2'"
-					if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
-					else              local MEC_lev "`MEC_lev' ."
-					local MEC_ctr "`MEC_ctr' `tmtok'"
-					local ++me_num
-					}
+				}
+				if `nummods' == 2 {
 				forvalues bo = 1/`nlev_me' {
 					if `nlev_me' > 1  local Lt "Difference `bolab_`bo''"
 					else              local Lt "Difference"
@@ -3037,6 +3200,7 @@ forvalues i = 1/`numvars' {
 					local MEC_ctr "`MEC_ctr' `tmtok'"
 					local ++me_num
 					}
+				}
 			}
 			if `i' == 1  local totmeinit = 1
 			}
@@ -3047,8 +3211,10 @@ forvalues i = 1/`numvars' {
 		*Absolute _at positions for this contrast's lower/higher levels
 		local pclo = `atnum1' + `mcctrlo_`vnum'_`h'' - 1
 		local pchi = `atnum1' + `mcctrhi_`vnum'_`h'' - 1
-		local m2a1 = `pclo'
-		local m2a2 = `pchi'
+		forvalues j = 1/`nummods' {
+			local m`j'a1 = `pclo'
+			local m`j'a2 = `pchi'
+			}
 		forvalues o = 1/`mod1cats' { // Loop through all categories of DV
 	
 	_mec_catlabs, ncats(`mod1cats') out1("`out_1_`o''") out2("`out_2_`o''")
@@ -3060,14 +3226,14 @@ forvalues i = 1/`numvars' {
 
 		*If first in table, create quick faux table to get category label row	
 		if `i' == 1 & `h' == 1 & `mod1cats' == 1 & "`meineqinit'`totmeinit'" == "" {
-			qui mlincom 1, stat(`stats') 
+			qui mec_mlincom 1, stat(`stats') 
 			_mec_addz, matrix(_mlincom) ///
 				rowname("`varname':{it}`sectitle'    ") top
 			mat tempmat = _mlincom
 			_mec_matselrc tempmat _mlincom, row(1)
 		}
 		else if `i' == 1 & `h' == 1 & `mod1cats' != 1 & `o' == 1 & "`meineqinit'`totmeinit'" == "" {
-			qui mlincom 1, stat(`stats') 
+			qui mec_mlincom 1, stat(`stats') 
 			_mec_addz, matrix(_mlincom) ///
 				rowname("`varname':{it}`sectitle'    ") top
 			mat tempmat = _mlincom
@@ -3080,15 +3246,17 @@ forvalues i = 1/`numvars' {
 		
 	*---- model 1 marginal effect (looped over over() levels) ----
 	forvalues bo = 1/`nlev_me' {
-	if `nummods' == 2 & `nlev_me' > 1  local L1 "`mod1lab' `bolab_`bo''"
+	if `nummods' >= 2 & `nlev_me' > 1  local L1 "`mod1lab' `bolab_`bo''"
 	else                               local L1 "`bolab_`bo''"
 *Cap the display row name (Stata rejects an over-long one)
 	local _lv ""
-	if `nummods' == 2 & `nlev_me' > 1  local _lv "`bolab_`bo''"
+	if `nummods' >= 2 & `nlev_me' > 1  local _lv "`bolab_`bo''"
 	_mec_rowlab, cat("`cat1name'") mod("`mod1lab'") lev("`_lv'") /*
 		*/ width(`=`twidth' - 2')
 	local _rn1 "`r(lab)'"
 	local R1 "`rkey1'"		// MEC_rol = pure model role; level -> MEC_lev
+	local __ctr : subinstr local sectitle " - " "v", all
+	local __ctr : subinstr local __ctr " " "", all
 	if `inm1' > 0 | `nummods' == 1 {		// If var is in model 1
 		local a1 = `pclo' + `bymult_`bo''*`nc_at'	// by() shifts the _at index
 		local a2 = `pchi' + `bymult_`bo''*`nc_at'	//   per level; 0 for over/none
@@ -3096,64 +3264,51 @@ forvalues i = 1/`numvars' {
 							 _b[`prnum1_`o''`a1'._at`bog1_`bo''])`rsuf'
 		local _mcrn = substr("`cat1name'`L1'", 1, 28)	// coef name <= 32 (with {sf})
 		qui mec_mlincom `mexp`me_num'', ///
-			add rowname(`varname':{sf}`_mcrn') stat(`stats') 
+			add rowname(`varname':{sf}`_mcrn') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `varname'"
-		local __ctr : subinstr local sectitle " - " "v", all
-		local __ctr : subinstr local __ctr " " "", all
 		local MEC_rol "`MEC_rol' `R1'"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' `__ctr'"
 		local ++me_num
 		}
-	else if `nummods' == 2 { 
+	else if `nummods' >= 2 {
 		local _mcrn = substr("`out_1_`o''`L1'", 1, 28)
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
 		}
 	}
-	*---- model 2 marginal effect ----
+	*---- models 2..k marginal effects ----
+	forvalues j = 2/`nummods' {
 	forvalues bo = 1/`nlev_me' {
-	if `nlev_me' > 1  local L2 "`mod2lab' `bolab_`bo''"
-	else              local L2 "`mod2lab'"
-	local _lv ""
-	if `nlev_me' > 1  local _lv "`bolab_`bo''"
-	_mec_rowlab, cat("`cat2name'") mod("`mod2lab'") lev("`_lv'") /*
-		*/ width(`=`twidth' - 2')
-	local _rn2 "`r(lab)'"
-	local R2 "`rkey2'"
-	if `inm2' > 0 & `nummods' == 2 {		// If var is in model 2
-		local am1 = `m2a1' + `bymult_`bo''*`nc_at'	// by() shifts model-2 _at index
-		local am2 = `m2a2' + `bymult_`bo''*`nc_at'
-		local mexp`me_num' `rpre'(_b[`prnum2_`o''`am2'._at`bog2_`bo''] - ///
-							 _b[`prnum2_`o''`am1'._at`bog2_`bo''])`rsuf'
-		local _mcrn = substr("`cat2name'`L2'", 1, 28)	// coef name <= 32 (with {sf})
+	if `nlev_me' > 1  local L2 "`mod`j'lab' `bolab_`bo''"
+	else              local L2 "`mod`j'lab'"
+	if `inm`j'' > 0 {		// If var is in model j
+		local am1 = `m`j'a1' + `bymult_`bo''*`nc_at'	// by() shifts the _at index
+		local am2 = `m`j'a2' + `bymult_`bo''*`nc_at'
+		local mexp`me_num' `rpre'(_b[`prnum`j'_`o''`am2'._at`bog`j'_`bo''] - ///
+							 _b[`prnum`j'_`o''`am1'._at`bog`j'_`bo''])`rsuf'
+		local _mcrn = substr("`cat1name'`L2'", 1, 28)	// coef name <= 32 (with {sf})
 		qui mec_mlincom `mexp`me_num'', ///
-			add rowname(`varname':{sf}`_mcrn') stat(`stats') 
+			add rowname(`varname':{sf}`_mcrn') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `varname'"
-		local __ctr : subinstr local sectitle " - " "v", all
-		local __ctr : subinstr local __ctr " " "", all
-		local MEC_rol "`MEC_rol' `R2'"
+		local MEC_rol "`MEC_rol' `rkey`j''"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' `__ctr'"
 		local ++me_num
 		}
-	else if `nummods' == 2 { 
-		local _mcrn = substr("`out_2_`o''`L2'", 1, 28)
+	else {
+		local _mcrn = substr("`out_1_`o''`L2'", 1, 28)
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
 		}
 	}
-	*---- cross-model Difference (var in both models) ----
+	}
+	*---- cross-model Difference (two models, var in both) ----
+	if `nummods' == 2 {
 	forvalues bo = 1/`nlev_me' {
 	if `nlev_me' > 1  local LD "Difference `bolab_`bo''"
 	else              local LD "Difference"
-	local _lv ""
-	if `nlev_me' > 1  local _lv "`bolab_`bo''"
-	_mec_rowlab, cat("`catDname'") mod("Difference") lev("`_lv'") /*
-		*/ width(`=`twidth' - 2')
-	local _rnD "`r(lab)'"
-	local RD "`rkeyD'"
-	if `inm1' > 0 & `inm2' > 0 & `nummods' == 2 {
+	if `inm1' > 0 & `inm2' > 0 {
 		local a1  = `pclo' + `bymult_`bo''*`nc_at'	// by() shifts both models'
 		local a2  = `pchi' + `bymult_`bo''*`nc_at'	//   _at index per level
 		local am1 = `m2a1'  + `bymult_`bo''*`nc_at'
@@ -3164,22 +3319,21 @@ forvalues i = 1/`numvars' {
 							_b[`prnum2_`o''`am1'._at`bog2_`bo''])`rsuf'
 		local _mcrn = substr("`catDname'`LD'", 1, 28)	// coef name <= 32 (with {sf})
 		qui mec_mlincom `mexp`me_num'', ///
-			add rowname(`varname':{sf}`_mcrn') stat(`stats') 
+			add rowname(`varname':{sf}`_mcrn') stat(`stats')
 		local MEC_eqn "`MEC_eqn' `varname'"
-		local __ctr : subinstr local sectitle " - " "v", all
-		local __ctr : subinstr local __ctr " " "", all
-		local MEC_rol "`MEC_rol' `RD'"
+		local MEC_rol "`MEC_rol' `rkeyD'"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' `__ctr'"
-		local ++me_num	
+		local ++me_num
 		}
-	else if `nummods' == 2 { 
+	else {
 		local _mcrn = substr("`catDname'`LD'", 1, 28)
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
 		}
 
 		}		// close forvalues bo (over levels) for Difference
+		}		// close if nummods == 2
 		}		// close forvalues o (DV categories)
 		}		// close forvalues h (IV contrasts)
 		local bymul = `nbocells'		// the var's k at() positions repeat per cell
@@ -3201,6 +3355,15 @@ if `nummods' == 2 {
 	local N_title 	"Marginal effects and cross-model differences" /*
 				*/	"(N_`mod1lab'=`N1') (N_`mod2lab'=`N2')"
 	}
+if `nummods' >= 3 {
+	local mecntxt ""
+	forvalues j = 1/`nummods' {
+		if `j' > 1  local mecntxt "`mecntxt' "
+		local mecntxt "`mecntxt'(N_`mod`j'lab'=`N`j'')"
+		}
+	local N_title 	"Marginal effects across models" /*
+				*/	"`mecntxt'"
+	}
 	
 *Relabel columns with nicer labels
 local estimate_col 	"Estimate"
@@ -3221,11 +3384,7 @@ foreach s in `stats' {
 matrix 	colnames _mlincom = `statcols'
 local 	numcols : word count `statcols'	// for formatting table
 	
-qui mlincom, title("`N_title'") ///
-			twidth(`twidth') width(`width') ///
-			stat(`stats') decimals(`dec') 
-
-mat _mecompare = _mlincom 	// Rename mlincom table
+mat _mecompare = _mlincom 	// Rename the table
 
 *Add extra column to table with ME # 
 if `addnums' == 1 {
@@ -3255,13 +3414,15 @@ if `addnums' == 1 {
 	}
 }
 
-// per-outcome role-row span for two-model multi-outcome tables (3 roles x
-// nlev_me levels); = "&&&" when no by()/over().
+// per-outcome role-row span for multi-model multi-outcome tables (roles x
+// nlev_me levels); roles = models, plus the Difference with two models.
+local mcnrolef = `nummods'
+if `nummods' == 2  local mcnrolef = 3
 local mcoutamp ""
-local mc3lev = 3 * `nlev_me'
+local mc3lev = `mcnrolef' * `nlev_me'
 // Set row spec for final table based on # models, # outcomes, var type //
-if `nummods' == 1 & `mod1cats' == 1 {	
-	local rowspec "&-" 
+if `nummods' == 1 & `mod1cats' == 1 {
+	local rowspec "&-"
 	*single-model over() adds (nlev_me-1) data rows per section
 	local extra_amps ""
 	forvalues c = 2/`nlev_me' {
@@ -3273,7 +3434,7 @@ if `nummods' == 1 & `mod1cats' == 1 {
 	}
 
 if `nummods' == 1 & `mod1cats' != 1 {
-	local rowspec "&-" 
+	local rowspec "&-"
 	*multi-outcome: mod1cats rows per section, multiplied by over()/by() levels
 	local mcnout = `mod1cats' * `nlev_me'
 	local extra_amps ""
@@ -3284,11 +3445,11 @@ if `nummods' == 1 & `mod1cats' != 1 {
 	local bvspec "&`extra_amps'-"
 	local nvspec "&&`extra_amps'"
 	}
-	
-if `nummods' == 2 {
-	local rowspec "&-" 
-	*over() gives 3 role rows (m1/m2/diff) per level
-	local nrole = 3 * `nlev_me'
+
+if `nummods' >= 2 {
+	local rowspec "&-"
+	*over() gives one row per role (models, plus Difference with two) per level
+	local nrole = `mcnrolef' * `nlev_me'
 	local extra ""
 	forvalues c = 2/`nrole' {
 		local extra "`extra'&"
@@ -3296,7 +3457,7 @@ if `nummods' == 2 {
 	local cvspec "`extra'-"
 	local bvspec "&`extra'-"
 	local nvspec "&`extra'&"
-	forvalues c = 1/`mc3lev' {	// per-extra-outcome fill = 3 roles x nlev_me
+	forvalues c = 1/`mc3lev' {	// per-extra-outcome fill = roles x nlev_me
 		local mcoutamp "`mcoutamp'&"
 		}
 	}
@@ -3306,13 +3467,11 @@ forvalues i = 1/`numvars' {
 *	The variable's position in its own list; keys the per-variable macros
 	local vnum = `i'
 *Exact membership test, not substring
-	local inm1 = 0
-	local inm2 = 0
-	foreach mectok of local list_ivs1 {
-		if "`mectok'" == "`var'"  local inm1 = 1
-		}
-	foreach mectok of local list_ivs2 {
-		if "`mectok'" == "`var'"  local inm2 = 1
+	forvalues j = 1/`nummods' {
+		local inm`j' = 0
+		foreach mectok of local list_ivs`j' {
+			if "`mectok'" == "`var'"  local inm`j' = 1
+			}
 		}
 	fvexpand `var' `meclevif'
 	local numcats : word count `r(varlist)' 
@@ -3326,63 +3485,63 @@ forvalues i = 1/`numvars' {
 	if `nsl`i'' > 1 {
 		local nrows_i = `nlv_i'
 		if `nummods' == 1 & `mod1cats' != 1  local nrows_i = `mod1cats' * `nlv_i'
-		if `nummods' == 2                     local nrows_i = 3 * `nlv_i'
+		if `nummods' >= 2                     local nrows_i = `mcnrolef' * `nlv_i'
 		local cvspec_i ""
 		forvalues c = 2/`nrows_i' {
 			local cvspec_i "`cvspec_i'&"
 			}
 		local cvspec_i "`cvspec_i'-"
 		local mcoutamp_i ""
-		if `nummods' == 2 {
-			forvalues c = 1/`=3 * `nlv_i'' {
+		if `nummods' >= 2 {
+			forvalues c = 1/`=`mcnrolef' * `nlv_i'' {
 				local mcoutamp_i "`mcoutamp_i'&"
 				}
 			}
 		}
 	if "`totalme'" != "" {	// Total ME row(s): (subhdr) + role x level
-		local totsub = cond(`nummods' == 2 | `nlv_i' > 1, 1, 0)
-		local trolef = cond(`nummods' == 2, 3, 1)
+		local totsub = cond(`nummods' >= 2 | `nlv_i' > 1, 1, 0)
+		local trolef = `mcnrolef'
 		local totrows = `totsub' + `trolef' * `nlv_i'
 		forvalues tr = 1/`totrows' {
 			local rowspec "`rowspec'&"
 			}
 		}
-	if `mod1cats' != 1 & `nummods' == 2 {
+	if `mod1cats' != 1 & `nummods' >= 2 {
 			forvalues c = 2/`mod1cats' {
 				local rowspec "`rowspec'`mcoutamp_i'"
-				
-					if `c' == `mod1cats' { 
-						local rowspec "`rowspec'`cvspec_i'"				
+
+					if `c' == `mod1cats' {
+						local rowspec "`rowspec'`cvspec_i'"
 					}
 			}
-		}	
-	else { 	
+		}
+	else {
 		local rowspec "`rowspec'`cvspec_i'"
 		}
 	}
-	
+
 	if `numcats' == 2 {		// binary IVs
 		if "`totalme'" != "" {	// Total ME row(s): (subhdr) + role x level
-			local totsub = cond(`nummods' == 2 | `nlev_me' > 1, 1, 0)
-			local trolef = cond(`nummods' == 2, 3, 1)
+			local totsub = cond(`nummods' >= 2 | `nlev_me' > 1, 1, 0)
+			local trolef = `mcnrolef'
 			local totrows = `totsub' + `trolef' * `nlev_me'
 			forvalues tr = 1/`totrows' {
 				local rowspec "`rowspec'&"
 				}
 			}
-		if `mod1cats' != 1 & `nummods' == 2 {
+		if `mod1cats' != 1 & `nummods' >= 2 {
 			forvalues c = 2/`mod1cats' {
 				local rowspec "`rowspec'`mcoutamp'"
-				
-					if `c' == `mod1cats' { 
-						local rowspec "`rowspec'`bvspec'"				
+
+					if `c' == `mod1cats' {
+						local rowspec "`rowspec'`bvspec'"
 					}
 			}
-		}	
+		}
 		else {
 			local rowspec "`rowspec'`bvspec'"
 		}
-	
+
 	}
 	
 	if `numcats' >= 3 {		// nominal IVs
@@ -3394,9 +3553,8 @@ forvalues i = 1/`numvars' {
 	
 		if "`meinequality'" != "" {
 			local mineqsub = 0			// subheader row?
-			if `mod1cats' > 1 | `nummods' == 2 | `nlev_me' > 1  local mineqsub = 1
-			local mrolef = 1			// rows per outcome per level (m1/m2/diff = 3)
-			if `nummods' == 2  local mrolef = 3
+			if `mod1cats' > 1 | `nummods' >= 2 | `nlev_me' > 1  local mineqsub = 1
+			local mrolef = `mcnrolef'		// rows per outcome per level (models, + Difference with two)
 			local mnwt = 1				// weighted+unweighted with all
 			if "`meineqtype'" == "all"  local mnwt = 2
 			local mineqrows = `mnwt' * (`mineqsub' + `mod1cats' * `mrolef' * `nlev_me')
@@ -3407,9 +3565,8 @@ forvalues i = 1/`numvars' {
 
 		if "`totalme'" != "" {		// Total ME Ineq. row(s) (summed over outcomes)
 			local totsub = 0
-			if `nummods' == 2 | `nlev_me' > 1  local totsub = 1
-			local trolef = 1
-			if `nummods' == 2  local trolef = 3
+			if `nummods' >= 2 | `nlev_me' > 1  local totsub = 1
+			local trolef = `mcnrolef'
 			local tnwt = 1
 			if "`totmetype'" == "all"  local tnwt = 2
 			local totrows = `tnwt' * (`totsub' + `trolef' * `nlev_me')
@@ -3418,7 +3575,7 @@ forvalues i = 1/`numvars' {
 				}
 			}
 
-		if `mod1cats' != 1 & `nummods' == 2 {
+		if `mod1cats' != 1 & `nummods' >= 2 {
 			forvalues h = 1/`ncontr' {		// Loop through the contrast list
 			local rowspec "`rowspec'`nvspec'"
 		
@@ -3453,13 +3610,21 @@ local 	rowspec "`rowspec'&"		// so end of table does not have line
 *What is being predicted
 if "`plab1'" != "" {
 	di _newline(1)
-	if `nummods' == 1 | "`plab2'" == "" | "`plab1'" == "`plab2'" {
+	local mecplabsame = 1
+	forvalues j = 2/`nummods' {
+		if "`plab`j''" != "" & "`plab`j''" != "`plab1'"  local mecplabsame = 0
+		}
+	if `nummods' == 1 | `mecplabsame' == 1 {
 		di as text "Predicting: " as result "`plab1'"
 		}
 	else {
-		di as text "Predicting: " as result "`plab1'" /*
-		*/ as text " (`mod1lab'), " as result "`plab2'" /*
-		*/ as text " (`mod2lab')"
+		local mecplabtxt ""
+		forvalues j = 1/`nummods' {
+			if "`plab`j''" == ""  continue
+			if "`mecplabtxt'" != ""  local mecplabtxt "`mecplabtxt', "
+			local mecplabtxt "`mecplabtxt'`plab`j'' (`mod`j'lab')"
+			}
+		di as text "Predicting: " as result "`mecplabtxt'"
 		}
 	}
 
@@ -3471,13 +3636,19 @@ if "`groups'" != "" & "`amount'" == "sd" {
 	di _newline(1)
 	if "`groupsd'" != "" {
 *		groupsd: each group's SD, from that group's own observations
-		di as text "NOTE: SD's are group-specific: `mod1lab' uses its own " /*
-		*/ "`N1' observations and `mod2lab' its own `N2'."
+		local mecgsdtxt "`mod1lab' uses its own `N1' observations"
+		forvalues j = 2/`nummods' {
+			if `j' == `nummods'  local mecgsdtxt "`mecgsdtxt' and `mod`j'lab' its own `N`j''"
+			else                 local mecgsdtxt "`mecgsdtxt', `mod`j'lab' its own `N`j''"
+			}
+		di as text "NOTE: SD's are group-specific: `mecgsdtxt'."
 		}
 	else {
 		qui count if `mec_sample' == 1
+		local mecgrptxt "both groups"
+		if `nummods' >= 3  local mecgrptxt "the groups"
 		di as text "NOTE: SD's are based on all `r(N)' observations pooled " /*
-		*/ "across both groups."
+		*/ "across `mecgrptxt'."
 		}
 	}
 
@@ -3485,6 +3656,36 @@ if "`warn_twosd'" != "" {
 	di _newline(1)
 	di as text "NOTE: for twosd we recommend a centered change (now the " /*
 	*/ "default); you specified {opt uncentered}."
+	}
+
+*Survival routes: say which survival-time quantity the rows are on (margins' default differs by command)
+local mecsstreg ""
+local mecsmest ""
+forvalues j = 1/`nummods' {
+	if "`cmd`j''" == "streg"    local mecsstreg "`mecsstreg' `mod`j''"
+	if "`cmd`j''" == "mestreg"  local mecsmest "`mecsmest' `mod`j''"
+	}
+if "`mecsstreg'`mecsmest'" != "" {
+	local mecsext " Predicted survival times extrapolate beyond the observed follow-up when spells are censored."
+	if `"`predict'`mecexpr'"' != "" {
+		local mecsurv "the survival-model rows are changes in the prediction you requested"
+		local mecsext ""
+		}
+	else if `nummods' == 1 {
+		if "`mecsstreg'" != ""  local mecsurv "after {cmd:streg} the marginal effects are changes in the predicted median survival time (margins' default; after {cmd:mestreg} it is the predicted mean)"
+		else                    local mecsurv "after {cmd:mestreg} the marginal effects are changes in the predicted mean survival time (margins' default; after {cmd:streg} it is the predicted median)"
+		}
+	else {
+		if "`mecsstreg'" != ""  local mecsurv "the rows for`mecsstreg' ({cmd:streg}) are changes in the predicted median survival time"
+		if "`mecsmest'" != "" & "`mecsurv'" != ""  local mecsurv "`mecsurv' and the rows for`mecsmest' ({cmd:mestreg}) in the predicted mean survival time"
+		if "`mecsmest'" != "" & "`mecsurv'" == ""  local mecsurv "the rows for`mecsmest' ({cmd:mestreg}) are changes in the predicted mean survival time"
+		local mecsurv "`mecsurv' (margins' defaults)"
+		}
+	di _newline(1)
+	di as text "NOTE: `mecsurv'.`mecsext' Jones and Metzger (2019) and " /*
+	*/ "Metzger and Jones (2022) recommend interpreting duration models through " /*
+	*/ "survival probabilities at chosen times, which {cmd:mecompare} does not " /*
+	*/ "compute. See {help mecompare##survival}."
 	}
 
 *One difference per outcome; under groupme each model averages over its own group
@@ -3523,7 +3724,7 @@ local K = `me_num' - 1
 
 if `K' > 0 {
 
-	*Coefficient names: two models -> eq=variable, coef=model; one model -> variable only
+	*Coefficient names: several models -> eq=variable, coef=model; one model -> variable only
 	local eqnames ""
 	local conames ""
 	forvalues j = 1/`K' {
@@ -3539,7 +3740,7 @@ if `K' > 0 {
 			else            local rawc`j' "`vj'_`cj'"
 			if "`lvj'" != "" local rawc`j' "`rawc`j''_`lvj'"
 			}
-		else {					// two models: eq = variable(_contrast),
+		else {					// several models: eq = variable(_contrast),
 			if "`cj'" == "" local rawe`j' "`vj'"	// coef = model(_level) so
 			else            local rawe`j' "`vj'_`cj'"	// coefplot can select one
 			if "`lvj'" == "" local rawc`j' "`rj'"		// model across all vars
@@ -3693,7 +3894,7 @@ if `K' > 0 {
 	matrix colnames `__b' = `conames'
 	matrix colnames `__V' = `conames'
 	matrix rownames `__V' = `conames'
-	if `nummods' != 1 {			// two models: group coefs by variable
+	if `nummods' != 1 {			// several models: group coefs by variable
 		matrix coleq `__b' = `eqnames'
 		matrix coleq `__V' = `eqnames'
 		matrix roweq `__V' = `eqnames'
@@ -3715,8 +3916,11 @@ if `K' > 0 {
 			local role`j' "`rj'"
 			}
 		*Roles keyed by internal tokens, never display labels
-		if `nummods' == 1 local rolelist "`rkey1'"
-		else              local rolelist "`rkey1' `rkey2' `rkeyD'"
+		local rolelist ""
+		forvalues j = 1/`nummods' {
+			local rolelist "`rolelist' `rkey`j''"
+			}
+		if `nummods' == 2  local rolelist "`rolelist' `rkeyD'"
 		foreach R of local rolelist {
 			if "`R'" == "`rkeyD'" local sfx "diff"
 			else                  local sfx "`R'"
@@ -3777,7 +3981,11 @@ if `K' > 0 {
 			matrix rownames `Vpiece' = `vars'
 			*role-specific N (they differ under groups)
 			local Nrole = `N1'
-			if "`R'" == "`rkey2'" & "`groups'" != ""  local Nrole = `N2'
+			if "`groups'" != "" {
+				forvalues j = 2/`nummods' {
+					if "`R'" == "`rkey`j''"  local Nrole = `N`j''
+					}
+				}
 			ereturn post `bpiece' `Vpiece', obs(`Nrole')
 			ereturn local cmd        "mecompare"
 			ereturn local properties "b V"
@@ -3842,12 +4050,17 @@ if `K' > 0 {
 	ereturn local cmd        "mecompare"
 	ereturn local title      "Marginal-effect comparison"
 	ereturn local properties "b V"
-*Post the prediction label(s); two macros only when the models disagree
+*Post the prediction label(s); per-model macros only when the models disagree
 	if `"`plab1'"' != "" {
 		ereturn local predict_label `"`plab1'"'
-		if `"`plab2'"' != "" & `"`plab2'"' != `"`plab1'"' {
-			ereturn local predict1_label `"`plab1'"'
-			ereturn local predict2_label `"`plab2'"'
+		local mecplabdiff = 0
+		forvalues j = 2/`nummods' {
+			if `"`plab`j''"' != "" & `"`plab`j''"' != `"`plab1'"'  local mecplabdiff = 1
+			}
+		if `mecplabdiff' == 1 {
+			forvalues j = 1/`nummods' {
+				ereturn local predict`j'_label `"`plab`j''"'
+				}
 		}
 	}
 	if `"`marginsopt'"' != ""  ereturn local marginsopt `"`marginsopt'"'
@@ -4147,6 +4360,29 @@ program define _mec_ebcheck
 	di as err "model {bf:`name'} carries no coefficient vector e(b), so " /*
 	*/ "{cmd:mecompare} cannot read which predictors it holds"
 	exit 111
+end
+
+*Base level of each factor variable in a list of e(b) column names, as name:ib#.name
+capture program drop _mec_bases
+program define _mec_bases, rclass
+	version 16
+	syntax, [cols(string asis)]
+	local out ""
+	local seen ""
+	foreach c of local cols {
+		local c = subinstr("`c'", "#", " ", .)
+		foreach p of local c {
+			if regexm("`p'", "^([0-9]+)(bn?)o?\.(.+)$") {
+				local v = regexs(3)
+				local ib = cond(regexs(2) == "bn", "ibn", "ib" + regexs(1))
+				if !`: list v in seen' {
+					local seen `seen' `v'
+					local out `out' `v':`ib'.`v'
+				}
+			}
+		}
+	}
+	return local bases `out'
 end
 
 capture program drop _mec_annotate

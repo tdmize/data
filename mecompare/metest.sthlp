@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-07-30 Trenton D Mize}{...}
+{* 2026-09-23 Trenton D Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -224,6 +224,12 @@ switching between models of the two kinds.
 
 {psee}
 {help mecompare}, {help nlcom}, {help test}, {help mlincom}
+
+{title:Stata version}
+
+{pstd}{cmd:metest} requires Stata 16 or later. A do-file that sets
+{help version} must set version 16 or later; under an older version the
+command stops with a message.{p_end}
 
 {title:Authorship}
 

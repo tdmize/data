@@ -15,7 +15,7 @@
 
 *   DO: trap errors from lincom
 capture program drop mec_mlincom
-*! mec_mlincom v0.1.3 Trenton Mize 2026-08-03
+*! mec_mlincom v0.1.4 Trenton Mize 2026-09-17
 * Revision notes
 * - v0.1.3 two user-facing messages still named melincom, which is retired
 *          and replaced by metest. The first told users to combine marginal
@@ -114,6 +114,20 @@ program define mec_mlincom
         exit 301
     }
 
+*   A bare integer is the n-th non-omitted coefficient of e(b), as in mlincom
+    if regexm(`"`anything'"', "^[1-9][0-9]*$") {
+        tempname b
+        matrix `b' = e(b)
+        local orignms : colfullnames `b'
+        local noomitnms ""
+        foreach var of local orignms {
+            _ms_parse_parts `var'
+            if (!`r(omit)') local noomitnms `noomitnms' `var'
+        }
+        local bnm : word `anything' of `noomitnms'
+        local anything "_b[`bnm']"
+    }
+
 /*  dropped in 1.0.2 to allow mlincom to work with all estimation commands
     if "`e(cmd)'"!="margins" & "`force'"=="" {
         display as error ///
@@ -170,7 +184,7 @@ program define mec_mlincom
 //  run lincom and compute stats
 
     `quietly' lincom "`anything'"
-    _rm_lincom_stats
+    _mec_lincom_stats
     scalar estimate = r(est)
     scalar se = r(se)
     scalar zvalue = r(z)
@@ -332,5 +346,43 @@ program define _parse_stat, sclass
     }
     sreturn local stat "`stat'"
     sreturn local isbad "`isbad'"
+end
+
+*Statistics from lincom's returns (Long and Freese's _rm_lincom_stats 1.1.0)
+capture program drop _mec_lincom_stats
+program define _mec_lincom_stats, rclass
+
+    tempname estval seval levelval levelpval cifactorval ///
+        zval pval lbval ubval df
+
+    scalar `df' = r(df)
+    scalar `estval'     = r(estimate)
+    scalar `seval'      = r(se)
+    scalar `zval'       = `estval'/`seval'
+
+    if `df' < . {
+        scalar `pval'       = 2*(1-t(`df',abs(`zval')))
+        scalar `levelval'   = $S_level
+        scalar `levelpval'  = ( 1 - (`levelval'/100) )/2
+        scalar `cifactorval' = abs(invt(`df',`levelpval'))
+    }
+    else {
+        scalar `pval'       = 2*(1-normal(abs(`zval')))
+        scalar `levelval'   = $S_level
+        scalar `levelpval'  = ( 1 - (`levelval'/100) )/2
+        scalar `cifactorval' = abs(invnormal(`levelpval'))
+    }
+
+    scalar `lbval'      = `estval' - (`cifactorval'*`seval')
+    scalar `ubval'      = `estval' + (`cifactorval'*`seval')
+
+    return scalar est   = `estval'
+    return scalar se    = `seval'
+    return scalar z     = `zval'
+    return scalar p     = `pval'
+    return scalar lb    = `lbval'
+    return scalar ub    = `ubval'
+    return scalar level = `levelval'
+
 end
 exit

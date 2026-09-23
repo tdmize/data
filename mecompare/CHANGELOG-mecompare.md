@@ -5,6 +5,312 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.6.1 -- 23sep2026, version 16 or later (mecomp 1.0.1, metest 0.3.2)
+
+A caller running under version 15 or older -- a `version 15` line at the
+top of a do-file, as in Bing Han's example files -- is now refused at once by mecompare
+and metest, rc 9, with a message naming the version to set. Under such a line every
+two-model comparison had stopped inside suest2 with r(509) "matrix
+operators that return matrices not allowed in this context"
+(`probe_bing_*_v1_0`, 22sep2026); the same pairs run at version 16 or later
+(`probe_bing_checks_v1_0` B2). The suite supports version 16 or later only
+(owner, 23sep2026). The check reads `_caller()`. Help: a "Stata version"
+section. Nothing else moves; results at version 16 or later are unchanged.
+`mecomp` hands the caller's version on to `mecompare`, so the alias is
+checked too.
+
+## v1.6.0 -- 21sep2026, amount(range); end()
+
+Two additions to the continuous-variable change, both the owner's
+(21sep2026). Nothing else moves: every existing call gives the same at()
+strings, so the same e(b), e(V) and names, byte for byte.
+
+**`amount(range)`.** The change from the minimum to the maximum of the
+variable in the estimation sample, the sixth keyword next to `one`, `sd`,
+`#`, `2sd`, `trimrange` and `rate`, read case-insensitively and mixable in
+the list. It rides the `trimrange` path (`:1866-1874`): `_mec_misum` on the
+estimation sample (weights as the SDs; averaged across imputations under mi),
+the two values written into the at() pair as fixed values, so a scalar
+`start()` and centering do not apply, and a `start()` value list is refused
+with the same message as `trimrange`, which now names both (`:1967-1971`).
+Label `age (min-max)`, beside `age (5-95%)`. The coverage inventory's A21
+("change over the full observed range", worked around as `start(x=min)
+amount(max-min) uncentered`) is a direct call.
+
+**`end(varname=#)`.** With `start(age=20) end(age=30)` the change runs from
+20 to 30; the route `start(age=20) amount(10) uncentered` stays and gives the
+same at() strings, so the two are byte-identical in e(b), e(V) and names
+(gate 58 B.1-B.4). `end()` is read by the `covariates()`/`start()` parser
+(`:177-187`), so its entries are `varname=#` or `varname=(numlist)`, one list
+per option, no variable twice. Checked up front (`:286-338`), r(198) each: a
+variable in `end()` must be in `start()`; a scalar against a `start()` list,
+a list against a scalar, lists of different lengths, `end(atmeans)`, and an
+end equal to its start (no change to compute) are refused. An end below the
+start is a decrease. Per variable (`:1799-1821`): when `end()` names it, the at()
+pair is `start` and `end` and the amount branch is skipped, so `amount()`
+(including `rate`, `trimrange`, `range`), `centered` and `uncentered` do not
+apply to that variable -- the owner's choice (3a, 21sep2026), the same rule
+`trimrange` already applies to `start()` -- while the amount list is still
+consumed in order for the other continuous variables. Label
+`age 20 to 30`.
+
+**Paired lists.** `start(age=(30 60)) end(age=(40 70))` gives one row per
+pair -- 30 to 40, 60 to 70 -- on the start-list scaffold (`:1982-1986`, `:2475-2480`; the rows
+of one variable, cells outer, pairs inner), labelled `30 to 40` and named
+`age_at30to40`, so `metest 1 - 2` tests the ME of aging 30-40 against 60-70
+in one call (coverage A39 / A-S1, two calls before). Lists follow the
+start-list rules: refused with `over()` and `groups`.
+
+Help: `range` row in the amount() table; `end()` under start(), whose
+heading now reads "starting and ending values"; one range example and two
+end() examples. The end() examples and the existing start() list example
+use in-sample ages -- `start(age=35) end(age=40)`, `start(age=(35 40))
+end(age=(40 45))`, `start(age=(35 40 45))` -- since nlsw88's ages run
+34-46 (owner, 21sep2026). `.pkg` date 20260921.
+
+Pinned by `test_range_end_gate58_v1_0`: amount(range) against hand `margins
+at(min) at(max)` + `lincom` (1e-10), against the workaround, case, a mixed
+list, two models, by(), a scalar start() ignored, the list refusal, and
+totalme 1.7.4's amount(range) on a logit and an ologit (gate-52 identity);
+end() byte-identical to the amount route (mreldif 0 on e(b) and e(V), names
+equal) on one model, two models and by(), against hand margins, a decrease,
+the amount list feeding the other variable, six option combinations that
+must not move the result, paired lists on one model, by() and two models
+with every row against hand margins and metest against a hand second
+difference, store(), replay, and thirteen refusals each with a control.
+Help examples regenerated as `test_help_examples_v1_13` (v1_12 ran the
+out-of-sample values, 175 / 0, and is superseded).
+
+## v1.5.2 -- 17sep2026, no SPost13 needed (mec_mlincom 0.1.4)
+
+mecompare no longer needs SPost13. Owner, 17sep2026: "I would like to
+delete the SPost13 dependency and have our package be as self-contained as
+possible." Only mecompare used it (meinequality, totalme, metest and the
+suest2 package call nothing from SPost13), in two ways:
+
+- `mlincom` itself. Seven `qui mlincom 1, stat(`stats')` calls started the
+  `_mlincom` table with the right columns before a blank heading row was put
+  on top and the started row cut away. They are now
+  `qui mec_mlincom 1, stat(`stats')` (`:2429, 2524, 2630, 2834, 3039, 3117,
+  3124`). One more call, `qui mlincom, title(...) twidth() width() stat()
+  decimals()` after the columns are relabelled, is removed: with no
+  expression mlincom only lists `_mlincom`, and under `quietly` that listing
+  is not shown. The table users see is `matlist _mecompare` (`:3520`), which
+  carries the ME # column that `_mlincom` does not. Part Q of
+  `test_nospost_v1_0` measures this.
+- `_rm_lincom_stats`, SPost13's helper that turns lincom's returns into the
+  estimate, SE, z, p and confidence limits; `mec_mlincom` called it for every
+  row.
+
+The SPost13 check (`capture which mlincom`, formerly `:128-136`) is gone,
+and with it a refusal that ended with a bare `exit`, so a missing SPost13
+returned rc 0.
+
+**mec_mlincom 0.1.4.** A bare positive integer is read as the n-th
+non-omitted coefficient of `e(b)`, as mlincom does (`:117-129`); the
+expressions mecompare passes are never bare integers. `_mec_lincom_stats`
+(`:351-387`) is SPost13's `_rm_lincom_stats` 1.1.0 under our name, the same
+statements (t statistic when `r(df)` is finite, `$S_level` for the
+interval), called at `:187`. Credited in the file.
+
+Help: the banner, and `mlincom` is dropped from the "can also be used
+directly" sentence and from the examples under it (owner, 17sep2026: the
+package no longer needs SPost13, so the help should not send users to it;
+`metest` covers the same ground by ME number). No `{stata}` line moves, so
+`test_help_examples_v1_11` stays current. `.pkg` date 20260917; the file
+list is unchanged.
+
+Pinned by `test_nospost_v1_1`: **248 / 0** (17sep2026, 15:59). 1.5.1 with
+SPost13 and 1.5.2 with SPost13's folder off the adopath give the same
+return code, printed output, `e()`, `r()`, table matrices and scalars on
+all 23 calls; with SPost13 hidden `mlincom` cannot be found, calling it
+fails r(199), and neither it nor `_rm_lincom_stats` is ever loaded;
+`mec_mlincom` and `_mec_lincom_stats` equal SPost13's `mlincom` and
+`_rm_lincom_stats` exactly (logit, regress, level 90, `svy:`,
+`margins, post`, start-then-add, expression vs number). Part Q: the closing
+`qui mlincom, title(...)` call printed 0 lines, the same call without
+`quietly` printed the raw 19-line `_mlincom` table, and the ME # column is
+in `_mecompare` only. Nine of the 23 calls ran a table-start call, covering
+the binary, nominal (single and multi-outcome), ME inequality, Total ME and
+Total ME inequality headings. Its v1.0 stopped at 56 / 0 on an instrument
+defect (`c(adopath)` wraps entries in compound quotes, r(198) on display);
+no code cell had failed.
+
+## v1.5.1 -- 16sep2026, ibn. models; models with different base levels
+
+Measured with `probe_ibase_siblings_v1_0` alongside the meinequality 1.9.2
+and totalme 1.7.3 base-level fixes. mecompare already reads factor
+variables from `e(b)`, so `ib#.` models, typed prefixes, by()/over() and
+two `ib3.` models all matched the `i.` results; two cases did not.
+
+**`ibn.` models.** `logit union ibn.race ..., noconstant` then
+`mecompare race` stopped with "1bn invalid name". For a nominal variable
+with no base level the first level stands in as the base (`:1998-2002`),
+but it was read as everything before the dot of the first expanded token,
+which for `1bn.race` is `1bn`; `local q1 = 1bn` then failed. Now the
+leading digits are read (`regexm("`mectk'", "^([0-9]+)")`), as the
+`#b.` branch above it already did. The contrasts are then taken against the
+first level, as the existing comment says.
+
+**Different base levels across models.** Two or more models whose base
+levels differ for any shared factor variable (focal or not) are refused
+before they are combined (`:954-982`), r(198): "race enters m1 as
+ib1.race and m2 as ib3.race. The two models are combined into one set of
+estimates, which holds one base level per variable. Refit the models so
+the base levels match." ("The models are" with three or more.) Before,
+suest2 stopped with a bare "race: factor variable base category
+conflict", which official `suest` also gives. Each model's `e(b)` column
+names are kept at `:808`; `_mec_bases` (`:4267-4288`) lists each
+variable's base as `name:ib#.name`, and each model is checked against the
+first model that holds the variable.
+
+Binary variables are unchanged by design (owner, 16sep2026): with
+`ib1.married` the row is still "Married - Single", the 1-minus-0 change;
+nominal contrasts follow the model's base.
+
+Help: banner date only. Pinned by `test_ibase_siblings_v1_1` (148 / 0, 16sep2026).
+
+## v1.5.0 -- 13sep2026, models() takes any number of models
+
+`models()` accepted one or two names; `suest2` already stacks any number.
+mecompare now takes any number, and every increment is the same rule
+applied per model: `nummods` counts the list and the two-model checks run
+over `j = 2..nummods` against model 1 (weights `:931-939`, mi/svy, sample
+overlap `:1012-1024`, prediction counts `:1029-1038`, outcome values and
+value labels `:1039-1064`, vce(robust) `:1091-1118`), the stored names go to
+`suest2` as one list (`:1197`, `nowarn`), margins' predict-less default
+supplies one `_predict` level per model, and the crosswalk reads model j's
+outcome o at `_predict` number `o + (j-1)*mod1cats` (`:2174-2182`; the
+equation-named suest2 stripe keeps `mod`j':`). The table lists every
+model's rows in `models()` order under each variable (`:2511-2536`,
+`:2719-2744`, `:3147-3171`; blank row where the variable is absent from that
+model), the Total ME / ME inequality summaries get one row per model
+(`:2428`, `:2652`, `:2901`, `:3038`), and the Difference rows are reported
+only with two models -- with three or more no cross-model test is chosen for
+the user; `metest` does it (`metest 1 - 2` after `models(m1 m2 m3)` is the
+two-model Difference, same estimate and SE). Row spans follow
+`mcnrolef` = number of models, 3 with two (`:3290-3291`); the title with
+three or more is `Marginal effects across models (N_m1=..) (N_m2=..)
+(N_m3=..)` (`:3231`); the `Predicting:` line labels each model's quantity
+when they differ (`:3484-3498`); `e(predict#_label)` is posted per model in
+that case (`:3897-3905`). Fixed on the way (gate 56 v1.0 log, 13sep2026):
+model j's label is now margins' prediction `1 + (j-1)*mod1cats`
+(`:2130-2133`); 1.4.4 read prediction j, which for a multi-category
+outcome is model 1's j-th outcome, so two ologits printed "Predicting:
+Pr(hours_ord==0) (o1), Pr(hours_ord==30) (o2)" and posted
+`e(predict2_label)` the same way -- now one label, as with one model.
+Also new (owner, 13sep2026, from the gsem design work): a note under the
+table on the survival routes (`:3532-3561`). margins' default prediction
+differs by command -- after `streg` the rows are changes in the predicted
+MEDIAN survival time, after `mestreg` in the predicted MEAN survival time
+(`probe_gsem_survival_v1_0`, cancer: age -1.473 vs -1.619; mestreg's rows
+equal streg's `predict(mean time)` to the digit) -- and nothing in
+mecompare chose either, so the note names the quantity (one model: "after
+streg the marginal effects are changes in the predicted median survival
+time (margins' default; after mestreg it is the predicted mean)"; several
+models: "the rows for m1 m2 (streg) are changes in ... and the rows for
+m3 (mestreg) in ..."; with predict()/expression(): "the survival-model
+rows are changes in the prediction you requested"), says that predicted
+survival times extrapolate beyond the observed follow-up under censoring
+(default case only), and cites Jones and Metzger (2019) and Metzger and
+Jones (2022) for interpreting duration models through probabilities at
+chosen times, which mecompare does not compute. Detection is the
+canonical command name (`streg`, `mestreg`; svy and mi prefixes
+included). Help: a "Survival models" section (`{marker survival}`) and
+the two references. Gate 56 v1.2 PART F reads the note from a captured
+copy (streg, mestreg, two stregs, predict(mean time), a logit control). `groups` takes one model per group for any number
+of groups (the `groupsd` at() block holds one SD pair per group, `:1817`,
+advance `2*nummods`, `:2572`; the SD note names every group, `:3510-3514`);
+`groupnames()` takes one name per model, and a name left out no longer
+blanks that model's label; `groupme` (a two-group difference) and the
+undocumented `engine(gsem)` are refused with three or more models (`:555`,
+`:642`). The not-in-all-models note reads "... is not a predictor in all the
+models; its marginal effect is shown only for the model(s) that contain
+it." (`:1635`; the two-model note keeps its bytes). `store()` saves one
+estimate per model and `_diff` only with two
+(`:3760-3764`); the role-specific N under `groups` is read per model
+(`:3823-3829`). Role tokens for e(b) are built per model with the same
+Difference-collision and duplicate-name rules (`:589-598`). The one- and
+two-model paths are unchanged: every message a 1.4.4 gate pins keeps its
+bytes (the two-model texts are chosen by `nummods == 2`; the two that
+moved are the models() count refusal, now "needs at least one model", and
+the suest2-in-memory refusal, now "needs at least two"), the two-model
+e(b)/e(V), row names and title are byte-identical, and the model-j rows of a
+k-model call equal the same model's rows in a two-model call (`suest2`
+posts each model's own coefficients whatever the stack). Help: `models()`,
+`groups`/`groupnames()`/`groupme`, `mod1name()`/`mod2name()`, `store()`,
+the prediction and comparability sections, e() list, a `metest` paragraph
+on testing across three or more models, and -- the owner's choice,
+14sep2026 -- the four nested logits of Example 6.2 of Mize, Doan and Long
+(2019) in one call (gss_cme from tdmize.github.io; `mecompare college,
+models(m1 m2 m3 m4)`, then `metest 1 - 2, add`, `metest 2 - 3, add`,
+`metest 3 - 4, add`: whether the college effect diminishes in each
+subsequent model; the owner cut the block to that from a draft that also
+carried wages and occprest and the article's six pairwise tests). Gate 57
+(`test_cme62_fourmodels_gate57_v1_0`, network) pins the four-model rows
+to the six pairwise two-model calls, the (m3 m4) wages call and the
+one-model occprest call, and each `metest i - j` to that pair's
+Difference row -- the two-model route is the one the corpus C cells
+verified against the article. Pinned
+by `test_kmodels_gate56_v1_2` (v1.1 ran 193 / 0 on build v2, 13sep2026; v1.0 ran 182 / 9 on the first build:
+the nine were its own expectation that a group's SE under `groups`
+equals the group model's own robust SE; it equals it times
+sqrt([N_g/(N_g-1)] / [N/(N-1)]), N the pooled sample, because `suest2`
+-- like `suest` -- applies the N/(N-1) factor with the pooled N, to
+1e-10 in every cell, and the two-group route has always done the same;
+v1.1 pins that factor). The rev62 battery is the regression run once the
+increment is confirmed.
+
+## v1.4.4 -- 13sep2026, a focal variable in by() no longer flips its own sign; a focal variable in covariates() is refused
+
+`by(collgrad)` with `collgrad` also focal built `at(collgrad=0
+collgrad=(0 1)) at(collgrad=1 collgrad=(0 1))`: margins keeps the
+`collgrad=(0 1)` part, so both blocks were the ordinary (pooled) AME, and
+it orders a block's at-rows by first appearance inside the at() -- [0, 1]
+in the first block, [1, 0] in the second (`probe_focal_at_v1_0`, 13sep2026,
+nlsw88: row 4 - row 3 = -AME, reldif 0). mecompare reads every ME as the
+second at-row minus the first by position (`:2657` for a binary), so the focal variable's
+own College-grad rows came back as -0.102 / -0.052 / -0.050 (owner's
+output, 13sep2026; the binary-mediation handoff of 12sep2026 found the same
+on `probit y i.x` / `probit y i.x m`, `by(x)`). The other focal variables'
+by() rows were right. Fix (`:1862`, `:1905`): a focal variable's own by()
+token is dropped from its own at() (`" varname=value"` removed by
+`regexr`; any other by() variables and covariates() stay), so its by()
+cells become identical at() blocks -- the probe's PART B/C: margins accepts
+duplicate at() blocks and returns the same value in each -- and its rows
+are the same effect at every level of itself, or its effect by the other
+by() variables. Nothing else moves: the at() count per cell, the `_at`
+index arithmetic, the row counts and the metest numbering are untouched.
+A note prints once per such variable (`:1324-1335`): "collgrad is both a
+focal and a by() variable. The by() level does not apply to its own
+marginal effect, so those rows repeat across the levels of collgrad."
+over() is unchanged: with a focal variable it is the effect within each
+observed group of that variable (for a reduced/full model pair the natural
+direct effects and, in the Difference rows, the natural indirect effects,
+matching Stata's `mediate` -- handoff, 750 reps). Second defect, same
+route: `covariates(collgrad=0)` with `collgrad` focal was not refused (only
+the value-list form was) and its at() prefix was silently ignored; the
+refusal now covers a fixed value as well as a list (`:1363-1381`, message
+"... is in covariates() but is a focal variable ..."). Help: one sentence
+under covariates(), one paragraph under by()/over() (the focal-in-by()
+behaviour and what over(x) with x focal reports; owner's wording,
+13sep2026). Pinned by `test_focal_byover_gate54_v1_0`.
+
+## v1.4.3 -- 10sep2026, centered changes are labelled
+
+The row label for a continuous IV tagged only the uncentered case (`age + SD
+(uncentered)`), so the default -- centered since v0.2.0 -- could be learned
+only from the help file; `totalme` prints `+ SD (centered)`. `centerlab` is
+now ` (centered)` for the default (`:1792-1797`), so the labels read `age +
+1 (centered)`, `age + SD (centered)`, `age + 2SD (centered)`, `age + 10
+(centered)`; `(uncentered)` unchanged; `(5-95%)` and `(rate)` carry no tag
+because centering does not apply to them. Display only: the label is the
+equation part of the table's row names and nothing else reads it (the
+posted e(b) names and `store()` names come from the variable and contrast).
+Help unchanged (it already documents the default). Pinned by
+`test_amount_display_gate52_v1_0` PART C, one centered and one uncentered
+call, label text read from the row names.
+
 ## v1.4.2 -- 05sep2026, factor syntax is optional and must agree with the model
 
 A prefix on a variable in the varlist or in `by()`/`over()` is for clarity
@@ -811,6 +1117,11 @@ line.
 `*! mecomp v1.0.0 Trenton Mize 2026-07-30`. Short-name alias; hands
 everything to `mecompare` unchanged. Banner names this changelog as of
 30aug2026; no other change.
+
+## mec_mlincom.ado -- v0.1.4, 17sep2026
+
+See mecompare v1.5.2 above: bare-integer references and `_mec_lincom_stats`,
+so the file no longer calls SPost13. `*! mec_mlincom v0.1.4`.
 
 ## mec_mlincom.ado -- rev43, banner only
 

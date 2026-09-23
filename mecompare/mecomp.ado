@@ -1,4 +1,4 @@
-*! mecomp v1.0.0 Trenton Mize 2026-07-30  | history: CHANGELOG-mecompare.md (repo)
+*! mecomp v1.0.1 Trenton Mize 2026-09-23  | history: CHANGELOG-mecompare.md (repo)
 
 *Short-name alias for mecompare, so that mecomp and mecompare are
 *	interchangeable. Stata does not abbreviate ado-commands, so the shorter
@@ -16,5 +16,6 @@
 capture program drop mecomp
 program define mecomp
 	version 16.0
-	mecompare `0'
+*	the caller's version goes on, so mecompare's version check sees it
+	version `=_caller()': mecompare `0'
 end

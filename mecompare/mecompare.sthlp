@@ -1,14 +1,15 @@
 {smcl}
-{* 2026-09-05 Trenton D Mize -- matches mecompare v1.4.2}{...}
+{* 2026-09-23 Trenton D Mize -- matches mecompare v1.6.1}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
 {p2col:{cmdab:mecomp:are} {hline 2}}{cmdab:mecomp:are} 
 ({bf:M}arginal {bf:E}ffects {bf:Compar[e]}ison) calculates marginal effects 
-from one or two models for easy comparisons of effects within and across models. 
-When two models are specified, {cmdab:mecomp:are}
-uses seemingly unrelated estimation to combine the model estimates, 
-and provides tests of the equality of marginal effects across models.{p_end}
+from one or more models for easy comparisons of effects within and across models.
+When two or more models are specified, {cmdab:mecomp:are}
+uses seemingly unrelated estimation to combine the model estimates; with two
+models it also provides tests of the equality of marginal effects across
+the models.{p_end}
 {p2colreset}{...}
 
 {title:General syntax}
@@ -21,11 +22,13 @@ and provides tests of the equality of marginal effects across models.{p_end}
 {title:Overview}
 
 {pstd}
-{cmdab:mecomp:are} calculates marginal effects from one or two models. 
-When two models are specified, {cmdab:mecomp:are} combines the model estimates 
-using seemingly unrelated estimation via the {help suest2} command and then calculates 
-marginal effects for each model, as well as the cross-model comparisons of 
-the marginal effects.
+{cmdab:mecomp:are} calculates marginal effects from one or more models.
+When two or more models are specified, {cmdab:mecomp:are} combines the model
+estimates using seemingly unrelated estimation via the {help suest2} command
+and then calculates marginal effects for each model. With two models it also
+reports the cross-model difference in each marginal effect; with three or more
+models it lists every model's marginal effects and leaves the comparisons to
+{help metest}, which can test any of them.
 
 {pstd}
 Factor syntax should have been used on the stored model estimates to ensure 
@@ -62,7 +65,7 @@ shown in the {cmdab:mecomp:are} table. See
 	{help mecompare##required:Specifying the models}
 	{help mecompare##stats:Which statistics to include in table}
 	{help mecompare##amount:Amount of change to compute for continuous variables}
-	{help mecompare##start:Setting starting values of variables in varlist}
+	{help mecompare##start:Setting starting and ending values of variables in varlist}
 	{help mecompare##covariates:Setting values of covariates}	
 	{help mecompare##byover:Marginal effects within levels of a variable (by, over)}
 	{help mecompare##nominal:Summary measures for nominal and ordinal variables}
@@ -70,6 +73,7 @@ shown in the {cmdab:mecomp:are} table. See
 	{help mecompare##options:Optional options for formatting, reporting, missing data, etc.}
 	{help mecompare##predictopt:Specifying the prediction}
 	{help mecompare##model_combos:Model combinations that can be compared}
+	{help mecompare##survival:Survival models}
 	{help mecompare##svy_mi:svy and mi est support}
 	{help mecompare##weights:Weights}
 	{help mecompare##posttest:Testing and combining the marginal effects}
@@ -83,7 +87,7 @@ shown in the {cmdab:mecomp:are} table. See
 {title:Supported estimators}
 
 {pstd}
-{cmdab:mecomp:are} accepts one or two models from the following families.
+{cmdab:mecomp:are} accepts one or more models from the following families.
 
 {dlgtab:Ordinary single-level models}
 
@@ -167,10 +171,15 @@ cross-family combinations that are supported.
 {dlgtab:Specifying the models}
 
 {p2colset 5 18 19 0}
-{p2col:{opt mod:els(list)}} names the stored model estimates to use. 
-{cmdab:mecomp:are} is limited to one or two models; with two models, each model 
-must have been estimated and saved using {help estimates store} before running 
-{cmd:mecompare}. 
+{p2col:{opt mod:els(list)}} names the stored model estimates to use: one
+or more models that were saved using {help estimates store} before running
+{cmd:mecompare}. With two models the table reports each
+model's marginal effects and, beneath them, the cross-model {res}Difference{txt}
+in each. With three or more models the table lists every model's marginal
+effects, one set of rows per model, and reports no differences: choose the
+comparisons you want and test them with {help metest} (e.g.
+{cmd:metest 1 - 2}). A focal variable absent from one of the models gets a
+blank row for that model.
 {p_end}
 
 {pstd}
@@ -179,8 +188,8 @@ must have been estimated and saved using {help estimates store} before running
 {p_end}
 
 {phang2}
-o If {help suest2} was just run, the two models of that system are used, and 
-the results are identical to naming them in {opt mod:els( )}. 
+o If {help suest2} was just run, the models of that system are used, and
+the results are identical to naming them in {opt mod:els( )}.
 {p_end}
 
 {phang2}
@@ -236,6 +245,8 @@ useful for comparing continuous effects to categorical effects.
 {p2col :{ul:{bf:trimrange}}}A change across the trimmed range of the 
 variable, from its 5th to its 95th percentile. Suggested by Mize and Han (2025) 
 as a more robust alternative to 2sd for comparing effects across variables. {p_end}
+{p2col :{ul:{bf:range}}}A change across the full observed range of the 
+variable, from its minimum to its maximum{p_end}
 {p2col :{ul:{bf:rate}}}An instantaneous rate of change, i.e. the 
 derivative, approximated with a small centered change; {bf:slope} and 
 {bf:dydx} are synonyms{p_end}
@@ -253,7 +264,7 @@ rather than the default centered change.
 {p_end}
 
 {marker start}
-{dlgtab:Setting starting values of variables in varlist}
+{dlgtab:Setting starting and ending values of variables in varlist}
 {p2colset 8 25 25 0}
 {p2col:{opt start(list)}}By default, the observed values of the focal independent 
 variables specified in the {it:varlist} are used as the starting points for 
@@ -272,6 +283,16 @@ per value, in rows labelled {it:at 20}, {it:at 30}, {it:at 60}, numbered so
 that {cmd:metest} can compare them.
 {p_end}
 
+{marker end}{...}
+{p2col:{opt end(list)}}sets where the change of a focal variable ends, e.g. 
+{opt start(age=35) end(age=40)} for the change from age 35 to age 40. 
+{opt end()} is used with {opt start()}: every variable in {opt end()} must 
+also be in {opt start()}, and for that variable {opt amount()}, {opt centered} 
+and {opt uncentered} do not apply. With a {it:numlist} in both, e.g. 
+{opt start(age=(35 40)) end(age=(40 45))}, the values pair up: one row for 
+the change from 35 to 40 and one for the change from 40 to 45.
+{p_end}
+
 {marker covariates}
 {dlgtab:Setting values of covariates}
 {p2colset 8 25 25 0}
@@ -283,8 +304,10 @@ covariates can instead be held at their sample means by specifying
 {opt covariates(atmeans)}, or simply {opt atmeans}. 
 Other covariate values can be specified within the 
 {opt covariates( )} option, e.g. {opt covariates(woman=1)} would calculate all 
-marginal effects holding the value of woman at 1. Multiple covariates 
+marginal effects holding the value of woman at 1. Multiple covariates
 can be listed in {opt covariates( )}, e.g. covariates(woman=1 polviews=5).
+A focal independent variable may not be named in {opt covariates( )}; a
+continuous focal variable takes its starting value from {opt start( )}.
 {p_end}
 
 {pmore}One covariate may be given a {it:numlist} of values, e.g.
@@ -330,8 +353,20 @@ listed values; see {help mecompare##covariates:covariates()}.
 For the {opt by()} or {opt over()} options, each variable must be a 
 binary or nominal variable entered with a factor 
 prefix in the model(s) ({cmd:i.} or {cmd:ib#.}). Both may name multiple
-variables. The two may not be specified together, and neither may be 
-combined with {opt groups}. 
+variables. The two may not be specified together, and neither may be
+combined with {opt groups}.
+{p_end}
+
+{pstd}
+A variable may be both a focal variable and a {opt by()} variable, e.g.
+{cmd:mecompare woman age, by(woman)}: the rows for {it:age} are reported at
+each level of {it:woman} as usual, while the {opt by()} level cannot apply to
+the marginal effect of {it:woman} itself, so its own rows repeat the same
+effect at each level (a note says so). With {opt over()}, a focal variable's
+own rows are its effect within each of its observed groups: for a binary
+{it:x}, {cmd:mecompare x, models(reduced full) over(x)} reports the effect of
+{it:x} computed over the observations with {it:x} = 0 (the {it:x} = 0 rows)
+and over those with {it:x} = 1 (the {it:x} = 1 rows).
 {p_end}
 
 {marker nominal}
@@ -389,23 +424,25 @@ weights; labeled {res}Unwgt Total ME Ineq.{txt}.{p_end}
 {dlgtab:Group options}
 
 {p2colset 5 18 19 0}
-{p2col:{opt group:s}} specifies that the two models in {opt models( )} were fit 
-on distinct (non-overlapping) samples -- for example, one model per group -- and 
-that {cmdab:mecomp:are} should compare marginal effects across the two groups. 
-Each model's estimation sample defines its group; the two samples must not 
-overlap.
+{p2col:{opt group:s}} specifies that the models in {opt models( )} were fit
+on distinct (non-overlapping) samples -- one model per group -- and that
+{cmdab:mecomp:are} should compare marginal effects across the groups. Each
+model's estimation sample defines its group; the samples must not overlap.
+With two groups the cross-group differences are reported; with three or more,
+each group's marginal effects are listed and {help metest} tests the
+differences.
 {p_end}
 
-{p2col:{opt groupn:ames(name1 name2)}} labels the two groups in the output 
-({it:name1} for the first model, {it:name2} for the second); by default the groups 
-are labeled by their model names. Requires the {opt groups} option. Each name is 
-truncated to 10 characters.
+{p2col:{opt groupn:ames(name1 name2 ...)}} labels the groups in the output,
+in the order of {opt models( )}; by default the groups are labeled by their
+model names. Requires the {opt groups} option. Each name is truncated to 10
+characters.
 {p_end}
 
-{p2col:{opt groupm:e}} reports the average conditional difference in the 
-outcome across the two groups, shown beneath the table. With a multi-category 
-outcome one difference is reported for each outcome category, labeled 
-Pr(category). Requires the {opt groups} option.
+{p2col:{opt groupm:e}} reports the average conditional difference in the
+outcome across the two groups, shown beneath the table. With a multi-category
+outcome one difference is reported for each outcome category, labeled
+Pr(category). Requires the {opt groups} option and exactly two models.
 {p_end}
 
 {p2col:{opt groupsd}} with {opt groups} and {opt amount(sd)}, each +SD change 
@@ -443,11 +480,13 @@ in the table. The default is 3. Any integer between 0 - 7 is allowed.
 {p_end}
 
 {p2colset 5 18 19 0}
-{p2col:{opt mod1:name(string)}} and {opt mod2:name(string)} name the rows in 
-the table corresponding to the marginal effects for model 1 and model 2. The 
-default is the name of the stored estimates given in {opt models( )}, or the 
-group when the {opt groups} option is used. Names over 10 characters will be 
-truncated in the output.
+{p2col:{opt mod1:name(string)}} and {opt mod2:name(string)} name the rows in
+the table corresponding to the marginal effects for the first and second
+models in {opt models( )}. The default is the name of the stored estimates
+given in {opt models( )}, or the group when the {opt groups} option is used.
+Names over 10 characters will be truncated in the output. Any further models
+are labeled by their stored names (or by {opt groupnames()} under
+{opt groups}).
 {p_end}
 
 {p2colset 5 18 19 0}
@@ -470,11 +509,13 @@ designation for each estimate in the table.
 {p2colset 5 18 19 0}
 {p2col:{opt store(stub)}} saves the calculated marginal effects as separate 
 stored estimates so they can be plotted with {help coefplot} or tabulated with 
-{help esttab}, {help estimates table}, or {help etable}. With two models, three 
-estimates are saved -- {it:stub}{cmd:_}{it:model1}, {it:stub}{cmd:_}{it:model2}, 
-and {it:stub}{cmd:_diff} (the cross-model differences) -- where {it:model1} and 
-{it:model2} are the names given in {opt models( )}. With one model, a single 
-estimate {it:stub}{cmd:_}{it:model1} is saved. Each stored estimate is keyed by 
+{help esttab}, {help estimates table}, or {help etable}. With two models, three
+estimates are saved -- {it:stub}{cmd:_}{it:model1}, {it:stub}{cmd:_}{it:model2},
+and {it:stub}{cmd:_diff} (the cross-model differences) -- where {it:model1} and
+{it:model2} are the names given in {opt models( )}. With three or more models,
+one estimate per model is saved ({it:stub}{cmd:_}{it:model1},
+{it:stub}{cmd:_}{it:model2}, ...) and no {it:stub}{cmd:_diff}. With one model,
+a single estimate {it:stub}{cmd:_}{it:model1} is saved. Each stored estimate is keyed by
 variable, so {help coefplot} and {help esttab} arrange results by variable 
 automatically. With {opt by()} or {opt over()}, each stored estimate carries 
 one coefficient per cell (e.g. {cmd:age_collgrad_0} and {cmd:age_collgrad_1}). 
@@ -483,12 +524,12 @@ See {help mecompare##plotting:Plotting and tabulating results} for examples.
 
 {p2colset 5 18 19 0}
 {p2col:{opt command:s}} displays the commands used for the {cmd:margins} 
-estimates and, if two models are used, the {cmd:suest2} command.
+estimates and, if two or more models are used, the {cmd:suest2} command.
 {p_end}
 
 {p2colset 5 18 19 0}
 {p2col:{opt detail:s}} displays the output of the {cmd:margins} estimates 
-and, if two models are used, the {cmd:suest2} output.
+and, if two or more models are used, the {cmd:suest2} output.
 {p_end}
 
 {marker predictopt}
@@ -502,7 +543,7 @@ prediction per outcome; a single outcome may be selected, as in
 {p_end}
 
 {pstd}
-With {bf:two} models, a non-default prediction can be requested if 
+With {bf:two or more} models, a non-default prediction can be requested if
 it returns a single quantity per model.
 {p_end}
 
@@ -518,9 +559,9 @@ supported.
 {marker model_combos}
 {dlgtab:Models that can be compared}
 
-{pstd}Two models are comparable when they return the 
-{bf:same number of predictions}. Same-family pairs (e.g., two logits, two glms, 
-two mestregs) always qualify. Cross-family pairs qualify on the same rule: 
+{pstd}Models are comparable when they all return the
+{bf:same number of predictions}. Same-family sets (e.g., two logits, three
+glms, two mestregs) always qualify. Cross-family sets qualify on the same rule: 
 {cmd:logit} vs {cmd:regress}, {cmd:xtlogit} vs {cmd:mixed}, or any pair of 
 binary-, count-, or continuous-outcome models; and any pair of ordinal or 
 nominal models with the same number of outcome categories ({cmd:ologit} vs 
@@ -532,14 +573,34 @@ return different numbers of predictions (e.g. a 3-category {cmd:ologit} vs
 a {cmd:logit}) cannot be compared.
 {p_end}
 
-{pstd} When both models have a multi-category outcome, the outcome categories 
-are matched {it:in order}, so the two dependent variables must have the same 
-number of categories {it:and the same values}. {cmdab:mecomp:are} errors if 
-they differ (e.g. one outcome coded 0/1/2 and the other 1/2/3). If the values 
-agree but the value labels differ, the comparison proceeds and the table is 
+{pstd} When the models have a multi-category outcome, the outcome categories
+are matched {it:in order}, so the dependent variables must have the same
+number of categories {it:and the same values}. {cmdab:mecomp:are} errors if
+they differ (e.g. one outcome coded 0/1/2 and another 1/2/3). If the values
+agree but the value labels differ, the comparison proceeds and the table is
 labeled with the first model's labels.
 {p_end}
 
+
+{marker survival}
+{dlgtab:Survival models}
+
+{pstd}
+For the parametric survival models ({cmd:streg} and {cmd:mestreg}) the
+marginal effects are changes in a predicted survival time, and the default
+prediction of {help margins} differs by command: after {cmd:streg} it is
+the predicted {it:median} survival time; after {cmd:mestreg} it is the
+predicted {it:mean} survival time (integrating over the random effects).
+{cmdab:mecomp:are} uses those defaults unless {opt predict()} asks for
+another prediction (e.g. {cmd:predict(mean time)} after {cmd:streg}), and
+prints a note under the table saying which quantity the rows are on.
+Predicted survival times are model-based extrapolations: when spells are
+censored they can run well past the observed follow-up, and the mean and
+the median differ. Jones and Metzger (2019) and Metzger and Jones (2022)
+recommend interpreting duration models through survival (or transition)
+probabilities at chosen times instead; {cmdab:mecomp:are} does not compute
+those.
+{p_end}
 
 {marker svy_mi}
 {dlgtab:svy and mi est support}
@@ -584,7 +645,7 @@ prefixes.
 
 {pstd}When possible, use {help svyset} and {cmd:svy:} to specify weights. 
 However, weights can instead be applied on the {bf:stored models} -- e.g. 
-{cmd:logit y x [pw=w]}. With two models, both must carry the same weight.
+{cmd:logit y x [pw=w]}. With two or more models, all must carry the same weight.
 {p_end}
 
 {pstd}{it:Multilevel models need a stage weight.} For the {cmd:me} families 
@@ -620,20 +681,27 @@ as in {bf:/ #2} which will divide by 2, rather than referring to the 2nd ME.
 {phang2}{cmd:metest 1 = 2 = 3}{space 12}a joint test that all three are equal{p_end}
 
 {pstd}
+With three or more models no cross-model differences are shown in the table,
+so this is where they are tested: with {cmd:models(m1 m2 m3)} the rows for a
+variable are its effect in {cmd:m1}, {cmd:m2}, and {cmd:m3} in turn, so
+{cmd:metest 1 - 2} is the {cmd:m1} vs {cmd:m2} difference and
+{cmd:metest 1 = 2 = 3} tests that all three are equal.
+{p_end}
+
+{pstd}
 The estimates are ordinary {cmd:e(b)}/{cmd:e(V)} results, so {help lincom}, 
-{help nlcom}, {help test} and {help mlincom} can also be used directly. Type 
+{help nlcom} and {help test} can also be used directly. Type 
 {cmd:mecompare, coeflegend} to list the coefficient names. 
 {p_end}
 
 {phang2}{cmd:lincom _b[college:mental] - _b[college:physical]}{p_end}
 {phang2}{cmd:test _b[college:mental] = _b[age:mental]}{p_end}
-{phang2}{cmd:mlincom 11 - 10}{p_end}
 
 
 {marker matrices}
 {dlgtab:Saved estimates and matrices}
 
-{pstd} With two models, {cmdab:mecomp:are} combines the stored estimates into a 
+{pstd} With two or more models, {cmdab:mecomp:are} combines the stored estimates into a
 single system using {help suest2}. It then uses {cmd:margins} to 
 calculate the marginal effects. These results are stored and 
 can be restored after {cmdab:mecomp:are} has been run. 
@@ -663,7 +731,7 @@ The following are stored in e():
 {p2col 5 22 26 2: Scalars}{p_end}
 {synopt:{cmd:e(N)}}number of observations in the marginal-effects sample; equal 
 to the number of observations marked by {cmd:e(sample)}{p_end}
-{synopt:{cmd:e(n_mods)}}number of models compared (1 or 2){p_end}
+{synopt:{cmd:e(n_mods)}}number of models compared{p_end}
 {synopt:{cmd:e(n_vars)}}number of focal variables (all model predictors when no 
 {it:varlist} is given){p_end}
 {synopt:{cmd:e(V_complete)}}1 if every estimate and its covariances were 
@@ -679,8 +747,8 @@ reason{p_end}
 {synopt:{cmd:e(predict_label)}}the prediction the effects were computed from, 
 as shown on the {cmd:Predicting:} line{p_end}
 {synopt:{cmd:e(predict1_label)}}{space 1}{p_end}
-{synopt:{cmd:e(predict2_label)}}posted only when the two models use different 
-predictions{p_end}
+{synopt:{cmd:e(predict2_label)}}, ..., one per model; posted only when the
+models use different predictions{p_end}
 {synopt:{cmd:e(marginsopt)}}the string given in {opt marginsopt()}, when used{p_end}
 
 {p2col 5 22 26 2: Matrices}{p_end}
@@ -791,6 +859,8 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 
 {phang} {stata mecompare age hours, models(basemod medmod) amount(rate): mecompare age hours, models(basemod medmod) amount(rate)} {p_end}
 
+{phang} {stata mecompare age hours, models(basemod medmod) amount(range): mecompare age hours, models(basemod medmod) amount(range)} {p_end}
+
 {pstd}{it:Labeling the models:}
 
 {phang} {stata mecompare age collgrad race hours, models(basemod medmod) mod1name(Base Model) mod2name(Mediation Model): mecompare age collgrad race hours, models(basemod medmod) mod1name(Base Model) mod2name(Mediation Model)} {p_end}
@@ -807,7 +877,11 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 
 {phang} {stata mecompare age race, models(basemod medmod) atmeans: mecompare age race, models(basemod medmod) atmeans} {p_end}
 
-{phang} {stata mecompare age, models(basemod) start(age=(30 40 50)): mecompare age, models(basemod) start(age=(30 40 50))} {p_end}
+{phang} {stata mecompare age, models(basemod) start(age=(35 40 45)): mecompare age, models(basemod) start(age=(35 40 45))} {p_end}
+
+{phang} {stata mecompare age, models(basemod) start(age=35) end(age=40): mecompare age, models(basemod) start(age=35) end(age=40)} {p_end}
+
+{phang} {stata mecompare age, models(basemod) start(age=(35 40)) end(age=(40 45)): mecompare age, models(basemod) start(age=(35 40)) end(age=(40 45))} {p_end}
 
 {phang} {stata mecompare age race, models(basemod medmod) covariates(hours=(20 40 60)): mecompare age race, models(basemod medmod) covariates(hours=(20 40 60))} {p_end}
 
@@ -872,7 +946,7 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 
 {phang} {stata mecompare age collgrad race, models(cntbase) predict(pr(0)): mecompare age collgrad race, models(cntbase) predict(pr(0))} {p_end}
 
-{pstd}{it:With two models, any prediction returning one quantity per model:}
+{pstd}{it:With two or more models, any prediction returning one quantity per model:}
 {p_end}
 
 {phang} {stata nbreg hours c.age i.collgrad i.race i.married, vce(robust): nbreg hours c.age i.collgrad i.race i.married, vce(robust)} {p_end}
@@ -887,6 +961,44 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 {phang} {stata mecompare age race, models(basemod) marginsopt(expression(100*predict(pr))): mecompare age race, models(basemod) marginsopt(expression(100*predict(pr)))} {p_end}
 
 	
+{pstd}{it:Four nested models and custom comparisons with metest}
+{p_end}
+
+{phang} {stata "use https://tdmize.github.io/data/data/gss_cme, clear":use https://tdmize.github.io/data/data/gss_cme, clear} {p_end}
+
+{phang} {stata "drop if year < 2000":drop if year < 2000} {p_end}
+
+{phang} {stata "drop if employed != 1":drop if employed != 1} {p_end}
+
+{phang} {stata "drop if missing(vhappy, college, wages, occprest, age, married, parent, woman, conserv, reltrad)":drop if missing(vhappy, college, wages, occprest, age, married, parent, woman, conserv, reltrad)} {p_end}
+
+{phang} {stata "logit vhappy i.college, vce(robust)":logit vhappy i.college, vce(robust)} {p_end}
+
+{phang} {stata "estimates store m1":estimates store m1} {p_end}
+
+{phang} {stata "logit vhappy i.college i.married i.parent i.woman i.conserv i.reltrad i.year c.age##c.age, vce(robust)":logit vhappy i.college i.married i.parent i.woman i.conserv i.reltrad i.year c.age##c.age, vce(robust)} {p_end}
+
+{phang} {stata "estimates store m2":estimates store m2} {p_end}
+
+{phang} {stata "logit vhappy i.college c.wages i.married i.parent i.woman i.conserv i.reltrad i.year c.age##c.age, vce(robust)":logit vhappy i.college c.wages i.married i.parent i.woman i.conserv i.reltrad i.year c.age##c.age, vce(robust)} {p_end}
+
+{phang} {stata "estimates store m3":estimates store m3} {p_end}
+
+{phang} {stata "logit vhappy i.college c.wages c.occprest i.married i.parent i.woman i.conserv i.reltrad i.year c.age##c.age, vce(robust)":logit vhappy i.college c.wages c.occprest i.married i.parent i.woman i.conserv i.reltrad i.year c.age##c.age, vce(robust)} {p_end}
+
+{phang} {stata "estimates store m4":estimates store m4} {p_end}
+
+{phang} {stata "mecompare college, models(m1 m2 m3 m4)":mecompare college, models(m1 m2 m3 m4)} {p_end}
+
+{pstd}{it:Use metest to calculate the cross-model tests. Here, whether the effect diminishes in each subsequent model.}
+{p_end}
+
+{phang} {stata "metest 1 - 2, add":metest 1 - 2, add} {p_end}
+
+{phang} {stata "metest 2 - 3, add":metest 2 - 3, add} {p_end}
+
+{phang} {stata "metest 3 - 4, add":metest 3 - 4, add} {p_end}
+
 {title:Comments}
 
 {pstd} {cmdab:mecomp:are} implements the methods described in Mize, Doan, 
@@ -900,6 +1012,12 @@ Weesie (1999) for details on the method.
 {pstd} Many of the features of {cmdab:mecomp:are} intentionally mimic and 
 borrow from Long and Freese's (2014) SPost13 command {help mchange}. 
 {p_end}
+
+{title:Stata version}
+
+{pstd}{cmd:mecompare} requires Stata 16 or later. A do-file that sets
+{help version} must set version 16 or later; under an older version the
+command stops with a message.{p_end}
 
 {title:Authorship}
 
@@ -928,6 +1046,14 @@ Third Edition. Stata Press.
 {pstd}Gelman, A. (2008). Scaling regression inputs by dividing by two standard 
 deviations. {it:Statistics in medicine}, 27(15). 2865-2873.
 {p_end}
+
+{pstd} Jones, Benjamin T., and Shawna K. Metzger. 2019. Different Words, Same
+Song: Advice for Substantively Interpreting Duration Models.
+{it:PS: Political Science & Politics}. 52(4):691-695. {p_end}
+
+{pstd} Metzger, Shawna K., and Benjamin T. Jones. 2022. Getting Time Right:
+Using Cox Models and Probabilities to Interpret Binary Panel Data.
+{it:Political Analysis}. 30:151-166. {p_end}
 
 {pstd} Weesie, Jeroen. 1999. sg121: Seemingly Unrelated Estimation and the 
 Cluster-Adjusted Sandwich Estimator. {it:Stata Technical Bulletin}. 52:34-47.

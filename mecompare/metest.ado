@@ -1,4 +1,4 @@
-*! metest v0.3.1 Trenton Mize 2026-09-01  | history: CHANGELOG-mecompare.md (repo)
+*! metest v0.3.2 Trenton Mize 2026-09-23  | history: CHANGELOG-mecompare.md (repo)
 * Tests and combines estimates by their number in the table, or by name.
 * A number is the n-th non-omitted column of e(b) -- the ME # after mecompare,
 * but well defined after any e-class command. Expressions without "=" go to
@@ -11,6 +11,13 @@ capture program drop metest
 program define metest, rclass
 
 	version 16
+	*Stata 16 or later, including the version the caller sets
+	if _caller() < 16 {
+		di as err "{cmd:metest} requires version 16 or later; this call " /*
+		*/ "runs under version `=_caller()', set by a {cmd:version} " /*
+		*/ "statement. Set version 16 or later."
+		exit 9
+	}
 	tempname newmat b rb rV
 
 *Gather the expression up to the first comma (= is kept in the expression)
