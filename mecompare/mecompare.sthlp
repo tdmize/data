@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-23 Trenton D Mize -- matches mecompare v1.6.1}{...}
+{* 2026-09-23 Trenton D Mize -- matches mecompare v1.7.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -229,7 +229,13 @@ independent variable, amounts in {it: list} are applied in the order of the
 continuous independent variables. E.g. In a {it:varlist} of 
 {it: c.age i.woman c.income i.race c.polviews} there are three continuous 
 variables, of which changes of (1) age + sd, (2) income + 5, and (3) polviews 
-+ one can be specified with {opt amount(sd 5 one)}
++ one can be specified with {opt amount(sd 5 one)}. Multiple amounts for one 
+variable can be specified in parentheses, with each effect reported in its own 
+rows. E.g., {opt amount((one sd rate))} would apply all three to every 
+continuous variable. Whereas {opt amount((one sd) 5)} gives the first 
+continuous variable in {it:varlist} two amounts (one and sd) and the second 
+continuous variable one amount (5). A list in parentheses cannot be combined 
+with a value list in {opt start()} or with {opt end()}.
 {p_end}
 
 {p2colset 10 23 22 12}{...}
@@ -247,6 +253,9 @@ variable, from its 5th to its 95th percentile. Suggested by Mize and Han (2025)
 as a more robust alternative to 2sd for comparing effects across variables. {p_end}
 {p2col :{ul:{bf:range}}}A change across the full observed range of the 
 variable, from its minimum to its maximum{p_end}
+{p2col :{bf:p}{it:#}{bf:-p}{it:#}}A change from one percentile of the variable 
+to another, e.g. {bf:p10-p90} for its 10th to its 90th percentile; 
+{bf:trimrange} is {bf:p5-p95}{p_end}
 {p2col :{ul:{bf:rate}}}An instantaneous rate of change, i.e. the 
 derivative, approximated with a small centered change; {bf:slope} and 
 {bf:dydx} are synonyms{p_end}
@@ -291,6 +300,29 @@ also be in {opt start()}, and for that variable {opt amount()}, {opt centered}
 and {opt uncentered} do not apply. With a {it:numlist} in both, e.g. 
 {opt start(age=(35 40)) end(age=(40 45))}, the values pair up: one row for 
 the change from 35 to 40 and one for the change from 40 to 45.
+{p_end}
+
+{marker cochange}{...}
+{p2col:{opt cochange(varlist)}}specifies variables that change along with 
+the focal variable instead of being held constant, e.g. mediators. The table 
+then reports two marginal effects of the focal variable: the usual one, and 
+one labeled {it:with co-change} in which the co-change variables change too. 
+{cmd:metest} can be used to test the difference between the two. Only one 
+focal variable may be given in the {it:varlist}. {opt start()} and 
+{opt end()} set the values the co-change variables change from and to; 
+without them, co-change variables change as focal variables do (see 
+{opt amount()}). E.g., 
+{cmd:mecompare i.college, cochange(income) start(income=40) end(income=60)} 
+reports the effect of college, and the effect of college when income also 
+changes from 40 to 60.
+{p_end}
+
+{pmore}A nominal focal or co-change variable with three or more categories 
+needs the two levels it changes between in {opt start()} and {opt end()}, 
+e.g. {opt start(race=1) end(race=2)}. {opt cochange()} cannot be combined 
+with a {it:numlist} of values in {opt start()} or {opt end()}, multiple 
+amounts for one variable in {opt amount()}, {opt amount(rate)}, 
+{opt groupsd}, {opt pwcompare}, or {opt mcompare()}.
 {p_end}
 
 {marker covariates}
@@ -379,6 +411,13 @@ levels instead of the default of each non-base level versus the base level.
 Continuous and binary focal variables are unaffected.
 {p_end}
 
+{p2col:{opt mcomp:are(method)}} adjusts the p-values (and confidence 
+intervals, when shown) of the contrasts of nominal focal variables for 
+multiple comparisons; {it:method} is {opt bonferroni} or {opt sidak}. A 
+variable's contrasts within one model form a set, and its Difference rows 
+form a set of their own. The estimates, e(b) and e(V) do not change.
+{p_end}
+
 {p2col:{opt meineq:uality}[{cmd:(}{it:type}{cmd:)}]} for focal variables 
 specified as nominal (i.), the {opt meineq:uality} option reports a 
 {it:marginal effect inequality} summary statistic immediately above that variable's 
@@ -429,8 +468,9 @@ on distinct (non-overlapping) samples -- one model per group -- and that
 {cmdab:mecomp:are} should compare marginal effects across the groups. Each
 model's estimation sample defines its group; the samples must not overlap.
 With two groups the cross-group differences are reported; with three or more,
-each group's marginal effects are listed and {help metest} tests the
-differences.
+each group's marginal effects are listed and {help metest} can be used to
+test the differences. {opt group(varname)}, the syntax of earlier versions, is also accepted; {it:varname} must
+take one value in each model's sample and a different value in each model.
 {p_end}
 
 {p2col:{opt groupn:ames(name1 name2 ...)}} labels the groups in the output,

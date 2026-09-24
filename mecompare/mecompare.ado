@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.6.1 Trenton Mize 2026-09-23  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.7.0 Trenton Mize 2026-09-23  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -75,6 +75,15 @@ program define mecompare, eclass
 		local 0 `"`mecvl'`mecop'"'
 		}
 
+*group(varname), the earlier syntax, means groups; the variable is checked below
+	local mecgrpv ""
+	local mecgrpon = 0
+	if ustrregexm(`"`0'"', "\bgroups?\(([^()]*)\)") {
+		local mecgrpv = trim(ustrregexs(1))
+		local mecgrpon = 1
+		local 0 = ustrregexrf(`"`0'"', "\bgroups?\([^()]*\)", "")
+		}
+
 *syntax drops a c. that stands alone (c.x -> x): remember which variables the user typed with c.
 	local mecrawc ""
 	local mecrawv `"`0'"'
@@ -95,10 +104,15 @@ program define mecompare, eclass
 		STATistics(string) amount(string) CENTERed UNCENTered COMMANDs DETAILs ///
 		GROUPs GROUPNames(string) GROUPMe GROUPSD start(string) end(string) COVariates(string) ///
 		DECimals(string) MOD1name(string) MOD2name(string) NOROWnum ///
-		STORE(name) BY(string) OVER(string) PWCompare MEINEQuality(string) ///
+		STORE(name) BY(string) OVER(string) PWCompare MCOMPare(string) MEINEQuality(string) ///
 		PREDict(string) ENGine(string) ///
-		TOTALme(string) MARGINSopt(string asis) ATMeans ///
+		TOTALme(string) MARGINSopt(string asis) ATMeans cochange(string) ///
 		LABWidth(numlist integer) STATWidth(numlist integer)]  
+	if `mecgrpon' == 1  local groups "groups"
+	if `"`cochange'"' != "" {
+		_mec_ccvars `cochange', focal(`varlist')
+		local varlist "`varlist' `ccvl'"
+		}
 
 *The varlist as typed: the c. prefixes syntax dropped are put back for the prefix check
 local mecuvl ""
@@ -182,103 +196,7 @@ local mecsupp "`mecsupp'xtpoisson (re, fe, pa), xtcloglog (re, pa), "
 local mecsupp "`mecsupp'xtnbreg (re, pa) and xtmlogit (fe and re)"
 
 *covariates(), start() and end(): varname=# or varname=(numlist); one list per option is lifted out
-local vlcovariatesvar ""
-local vlcovariatesvals ""
-local vlcovariatesn = 0
-local vlstartvar ""
-local vlstartvals ""
-local vlstartn = 0
-local vlendvar ""
-local vlendvals ""
-local vlendn = 0
-foreach optn in covariates start end {
-	local optstr "``optn''"
-	if "`optstr'" != "" {
-		local keepatm : list posof "atmeans" in optstr
-		local vchk = subinword("`optstr'", "atmeans", "", .)
-		local vchk = subinstr("`vchk'", char(9), " ", .)
-		local vchk = itrim(trim("`vchk'"))
-		local vchk = subinstr("`vchk'", " =", "=", .)
-		local vchk = subinstr("`vchk'", "= ", "=", .)
-		local vchk = subinstr("`vchk'", "( ", "(", .)
-		local vchk = subinstr("`vchk'", " )", ")", .)
-		local rebuilt ""
-		local seenv ""
-		local verr = 0
-		local vbad ""
-		while "`vchk'" != "" & `verr' == 0 {
-			gettoken tok vchk : vchk, bind
-			local vchk = trim("`vchk'")
-			if regexm("`tok'", "^([a-zA-Z_][a-zA-Z0-9_]*)=\((.*)\)$") {
-				local lvar = regexs(1)
-				local lvals = regexs(2)
-				capture numlist "`lvals'"
-				if _rc {
-					local verr = 1
-					local vbad "`lvar'"
-					}
-				else {
-					local lvals "`r(numlist)'"
-					local nlv : word count `lvals'
-					local ulv : list uniq lvals
-					local nulv : word count `ulv'
-					if `nulv' != `nlv' {
-						local verr = 2
-						local vbad "`lvar'"
-						}
-					else if `nlv' == 1  local rebuilt "`rebuilt' `lvar'=`lvals'"
-					else if "`vl`optn'var'" != "" {
-						local verr = 3
-						local vbad "`lvar'"
-						}
-					else {
-						local vl`optn'var "`lvar'"
-						local vl`optn'vals "`lvals'"
-						local vl`optn'n = `nlv'
-						}
-					}
-				}
-			else if regexm("`tok'", "^([a-zA-Z_][a-zA-Z0-9_]*)=(.+)$") {
-				local lvar = regexs(1)
-				local lval = regexs(2)
-				local rebuilt "`rebuilt' `lvar'=`lval'"
-				}
-			else {
-				local verr = 1
-				local vbad "`tok'"
-				}
-			if `verr' == 0 {
-				local dupv : list posof "`lvar'" in seenv
-				if `dupv' > 0 {
-					local verr = 4
-					local vbad "`lvar'"
-					}
-				local seenv "`seenv' `lvar'"
-				}
-			}
-		if `verr' == 1 {
-			di as err "Invalid specification in {opt `optn'( )} at {bf:`vbad'}: each " /*
-			*/ "entry must be {it:varname}=# or {it:varname}=({it:numlist}). See " /*
-			*/ "{help mecompare##`optn'}."
-			exit 198
-			}
-		if `verr' == 2 {
-			di as err "The value list for {bf:`vbad'} in {opt `optn'( )} repeats a value."
-			exit 198
-			}
-		if `verr' == 3 {
-			di as err "Only one variable in {opt `optn'( )} may carry a value list; " /*
-			*/ "both {bf:`vl`optn'var'} and {bf:`vbad'} do."
-			exit 198
-			}
-		if `verr' == 4 {
-			di as err "{bf:`vbad'} is listed twice in {opt `optn'( )}."
-			exit 198
-			}
-		local `optn' = trim("`rebuilt'")
-		if `keepatm' > 0  local `optn' = trim("``optn'' atmeans")
-		}
-	}
+_mec_vlparse, covariates(`covariates') start(`start') end(`end')
 local covlistvar  "`vlcovariatesvar'"
 local covlistvals "`vlcovariatesvals'"
 local ncovlist = `vlcovariatesn'
@@ -347,80 +265,7 @@ if "`end'`enlistvar'" != "" {
 *marginsopt(): expression() comes out whole (gettoken bind keeps parentheses together); the rest is tested at the top level
 local mecexpr ""
 local mecmorest ""
-if `"`marginsopt'"' != "" {
-	local mecmowork `"`marginsopt'"'
-	local mecmoguard = 0
-	while `"`mecmowork'"' != "" & `mecmoguard' < 200 {
-		gettoken mectok mecmowork : mecmowork, bind
-		local ++mecmoguard
-		if regexm(`"`mectok'"', "^exp[a-z]*\((.*)\)$")  local mecexpr = regexs(1)
-		else  local mecmorest `"`mecmorest' `mectok'"'
-		}
-	local mecmorest = trim(`"`mecmorest'"')
-*Parenthesised arguments are blanked innermost first, so a token inside subpop() or vce() is not read as an option
-	local mecmotest = " " + `"`mecmorest'"' + " "
-	local mecmoguard = 0
-	while regexm(`"`mecmotest'"', "\([^()]*\)") & `mecmoguard' < 50 {
-		local mecmotest = regexr(`"`mecmotest'"', "\([^()]*\)", "<>")
-		local ++mecmoguard
-		}
-	foreach mectok in at over predict dydx dyex eydx eyex mcompare within {
-		if regexm(`"`mecmotest'"', "[ ,]`mectok'<>") {
-			di _newline(1)
-			if "`mectok'" == "at" {
-				di as err "{opt marginsopt()} may not carry {opt at()}: {cmd:mecompare} " /*
-				*/ "builds every at() set from the varlist, {opt start()}, " /*
-				*/ "{opt covariates()} and {opt by()}; a further at() would shift " /*
-				*/ "the sets the table reads."
-				}
-			else if "`mectok'" == "over" {
-				di as err "{opt marginsopt()} may not carry {opt over()}: use the " /*
-				*/ "{opt over()} option of {cmd:mecompare}."
-				}
-			else if "`mectok'" == "predict" {
-				di as err "{opt marginsopt()} may not carry {opt predict()}: use the " /*
-				*/ "{opt predict()} option of {cmd:mecompare}, which builds one " /*
-				*/ "selector per model. Inside {opt expression()} predict() is allowed."
-				}
-			else if inlist("`mectok'", "dydx", "dyex", "eydx", "eyex") {
-				di as err "{opt marginsopt()} may not carry {opt `mectok'()}: " /*
-				*/ "{cmd:mecompare} computes discrete changes from at() sets, " /*
-				*/ "not derivatives."
-				}
-			else {
-				di as err "{opt marginsopt()} may not carry {opt `mectok'()}: it " /*
-				*/ "changes what margins posts and the table could not be read. " /*
-				*/ "For pairwise contrasts of a nominal focal variable use the " /*
-				*/ "{opt pwcompare} option of {cmd:mecompare}."
-				}
-			exit 198
-			}
-		}
-	foreach mectok in post contrast pwcompare nose atmeans {
-		if regexm(`"`mecmotest'"', "[ ,]`mectok'[ ,<]") {
-			di _newline(1)
-			if "`mectok'" == "post" {
-				di as err "{opt marginsopt()} may not carry {opt post}: {cmd:mecompare} " /*
-				*/ "posts the margins results itself."
-				}
-			else if "`mectok'" == "nose" {
-				di as err "{opt marginsopt()} may not carry {opt nose}: every standard " /*
-				*/ "error, p-value and {cmd:metest} needs e(V)."
-				}
-			else if "`mectok'" == "atmeans" {
-				di as err "{opt marginsopt()} may not carry {opt atmeans}: give " /*
-				*/ "{opt atmeans} or {opt covariates(atmeans)} to {cmd:mecompare}."
-				}
-			else {
-				di as err "{opt marginsopt()} may not carry {opt `mectok'}: it " /*
-				*/ "changes what margins posts and the table could not be read. " /*
-				*/ "For pairwise contrasts of a nominal focal variable use the " /*
-				*/ "{opt pwcompare} option of {cmd:mecompare}."
-				}
-			exit 198
-			}
-		}
-	}
+if `"`marginsopt'"' != ""  _mec_mocheck `marginsopt'
 
 *v0.2.0: centered changes are the default. `uncentered' an option
 if "`uncentered'" != "" {
@@ -440,6 +285,17 @@ else {
 if "`statistics'" == "all" {	// helps with labeling table at end
 	local stats = "estimate se z pvalue ll ul"
 	}	
+*mcompare(): Bonferroni or Sidak adjustment of each nominal variable's contrasts
+local mcmeth ""
+if `"`mcompare'"' != "" {
+	local mcm = lower(trim(`"`mcompare'"'))
+	if strlen("`mcm'") >= 3 & strpos("bonferroni", "`mcm'") == 1  local mcmeth "bonferroni"
+	if strlen("`mcm'") >= 3 & strpos("sidak", "`mcm'") == 1       local mcmeth "sidak"
+	if "`mcmeth'" == "" {
+		di as err "{opt mcompare()} takes {bf:bonferroni} or {bf:sidak}."
+		exit 198
+		}
+	}
 
 *Set display options for final table (# decimals, column widths, etc.)
 if "`decimals'" == "" {
@@ -1093,6 +949,29 @@ if "`groups'" != "" {
 			exit 198
 			}
 		}
+	*group(varname): one value in each model's sample, a different value in each model
+	if "`mecgrpv'" != "" {
+		unab mecgrpv : `mecgrpv', max(1) name(group())
+		forvalues j = 1/`nummods' {
+			qui levelsof `mecgrpv' if `mecgsamp' == `j', local(mecgv`j') missing
+			if r(r) != 1 {
+				di _newline(1)
+				di as err "`mecgrpv' takes `r(r)' values in the sample of `mod`j''. " /*
+				*/ "With {opt group(`mecgrpv')} each model is fit to one group, " /*
+				*/ "one value of `mecgrpv'."
+				exit 198
+				}
+			forvalues k = 1/`=`j'-1' {
+				if `"`mecgv`j''"' == `"`mecgv`k''"' {
+					di _newline(1)
+					di as err "`mecgrpv' takes the same value in the samples of " /*
+					*/ "`mod`k'' and `mod`j''. With {opt group(`mecgrpv')} each " /*
+					*/ "model is fit to a different group."
+					exit 198
+					}
+				}
+			}
+		}
 	}
 
 *Point to groups if the samples do not overlap
@@ -1731,6 +1610,16 @@ foreach var in `list_ivs' {
 			local 	contvars "`contvars' `var'"		
 			}
 		}
+*amount((a b ...)): the variable is repeated once per amount, each copy with one amount and its own rows
+local mecnvars : word count `list_ivs'
+_mec_amtlist, amount(`amount') ivs(`list_ivs') cont(`contvars') stlist(`stlistvar') end(`end')
+if `"`cochange'"' != "" {
+	local mecml ""
+	forvalues j = 1/`nummods' {
+		local mecml "`mecml'|`list_ivs`j''"
+		}
+	_mec_cocheck, ivs(`list_ivs') mods(`mecml') amount(`amount') by(`byvars') mcomp(`mcmeth') stlist(`stlistvar') enlist(`enlistvar') `groupsd' `pwcompare'
+	}
 local cnum = 1 	
 local numamounts : word count `amount'
 local numcontvars : word count `contvars'
@@ -1797,6 +1686,19 @@ if `numcats' == 1 {
 	*accept amount keywords case-insensitively (SD=sd; 2sd/2SD=twosd)
 	local amount`cnum' = lower("`amount`cnum''")
 	if "`amount`cnum''" == "2sd" local amount`cnum' = "twosd"
+	*p#-p#: from one percentile to another, on the trimrange path (trimrange is p5-p95)
+	local trimlo`i' = 5
+	local trimhi`i' = 95
+	if ustrregexm("`amount`cnum''", "^p([0-9]*[.]?[0-9]+)-p([0-9]*[.]?[0-9]+)$") {
+		local trimlo`i' = ustrregexs(1)
+		local trimhi`i' = ustrregexs(2)
+		if !(`trimlo`i'' > 0 & `trimlo`i'' < `trimhi`i'' & `trimhi`i'' < 100) {
+			di as err "{opt amount(`amount`cnum'')}: the two percentiles must lie between " /*
+			*/ "0 and 100, the first below the second, e.g. {opt amount(p10-p90)}."
+			exit 198
+			}
+		local amount`cnum' "trimrange"
+		}
 	
 	*need to remove = so that, e.g. age=50 and age = 50 are treated same
 	local start 		= subinstr("`start'", "=", " ", .) 
@@ -1864,7 +1766,7 @@ if `numcats' == 1 {
 	else if "`amount`cnum''" == "trimrange" {
 		local istrim`i' = 1
 		local preset`i' = 1
-		_mec_mipct `v' if `mec_sample' == 1, p(5 95) mi(`ismi') wspec(`sdwspec')
+		_mec_mipct `v' if `mec_sample' == 1, p(`trimlo`i'' `trimhi`i'') mi(`ismi') wspec(`sdwspec')
 		local p5 = r(r1)
 		local p95 = r(r2)
 		local startval "`v'=`p5'"
@@ -1974,7 +1876,7 @@ if `numcats' == 1 {
 		if `istrim`i'' == 1 | `isrange`i'' == 1 | `isgroupsd`i'' == 1 {
 			di _newline(1)
 			di as err "A value list in {opt start()} cannot be combined with " /*
-			*/ "{opt amount(trimrange)}, {opt amount(range)} or {opt groupsd}."
+			*/ "{opt amount(trimrange)}, {opt amount(p#-p#)}, {opt amount(range)} or {opt groupsd}."
 			exit 198
 			}
 		local stlistseen = 1
@@ -2022,7 +1924,7 @@ if `numcats' == 1 {
 		local change`vnum' "`v' (min-max)"
 		}
 	else if `istrim`i'' == 1 {
-		local change`vnum' "`v' (5-95%)"
+		local change`vnum' "`v' (`trimlo`i''-`trimhi`i''%)"
 		}
 	else if `israte`i'' == 1 {
 		local change`vnum' "`v' (rate)"
@@ -2050,6 +1952,9 @@ if `numcats' == 1 {
 				}
 			}
 		}
+	local ccS`i' "`startval_1'"
+	local ccE`i' "`endval_1'"
+	local ccL`i' "`change`vnum''"
 	local 	++cnum	
 	}	
 
@@ -2178,8 +2083,31 @@ if `numcats' >= 3 {
 		local mcncontr_`vnum' = `nc'
 		}
 	}
+if `"`cochange'"' != "" & `numcats' > 1  _mec_conom `varname' `i', levels(`levels') start(`start') end(`end')
 local mrgspec "`mrgspec' `mspec`i''" 	
 }	
+*cochange(): the focal rows, then one at() pair per cell moving it and its co-change variables, read as one continuous variable
+if `"`cochange'"' != "" {
+	forvalues q = 1/`numvars' {
+		local cca "`cca' `ccS`q''"
+		local ccb "`ccb' `ccE`q''"
+		local ccnote "`ccnote'`ccsep'`ccL`q''"
+		local ccsep "; "
+		}
+	local mrgspec " `mspec1'"
+	forvalues bc = 1/`nbocells' {
+		local mrgspec "`mrgspec' at(`covspec' `boat_`bc'' `cca') at(`covspec' `boat_`bc'' `ccb')"
+		}
+	local list_ivs : word 1 of `list_ivs'
+	local change2 = regexr("`list_ivs'", "^(c|i(b[0-9]+|bn)?)\.", "") + " with co-change"
+	local list_ivs "`list_ivs' cochange"
+	local numvars = 2
+	local mecnvars = 1
+	local nsl2 = 1
+	local israte2 = 0
+	local isgroupsd2 ""
+	local amtag2 ""
+	}
 if "`stlistvar'" != "" & `stlistseen' == 0 {
 	di _newline(1)
 	di as err "{bf:`stlistvar'} carries a value list in {opt start()} but is not " /*
@@ -2433,20 +2361,27 @@ local MEC_eqn ""
 local MEC_rol ""
 local MEC_lev ""
 local MEC_ctr ""
+local mcfams ""
 qui mec_mlincom, clear
 forvalues i = 1/`numvars' {
 	local var : word `i' of `list_ivs'
+	*the amount tag of a copy made by an amount list; . otherwise
+	local mctag "`amtag`i''"
+	if "`mctag'" == ""  local mctag "."
 *	The variable's position in its own list; keys the per-variable macros
 	local vnum = `i'
 *Exact membership test, not substring
 	forvalues j = 1/`nummods' {
 		local inm`j' = 0
 		foreach mectok of local list_ivs`j' {
-			if "`mectok'" == "`var'"  local inm`j' = 1
+			if "`mectok'" == "`var'" | ("`var'" == "cochange" & `"`cochange'"' != "")  local inm`j' = 1
 			}
 		}
-	fvexpand `var' `meclevif'
-	local numcats : word count `r(varlist)' 
+	local numcats = 1
+	if "`var'" != "cochange" | `"`cochange'"' == "" {
+		fvexpand `var' `meclevif'
+		local numcats : word count `r(varlist)'
+		}
 	
 	local rpre ""
 	local rsuf ""
@@ -2627,7 +2562,7 @@ forvalues i = 1/`numvars' {
 		local MEC_rol "`MEC_rol' `R1'"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
-		local MEC_ctr "`MEC_ctr' ."
+		local MEC_ctr "`MEC_ctr' `mctag'"
 		local ++me_num
 		}
 	else if `nummods' >= 2 {
@@ -2660,7 +2595,7 @@ forvalues i = 1/`numvars' {
 		local MEC_rol "`MEC_rol' `rkey`j''"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
-		local MEC_ctr "`MEC_ctr' ."
+		local MEC_ctr "`MEC_ctr' `mctag'"
 		local ++me_num
 		}
 	else {
@@ -2692,7 +2627,7 @@ forvalues i = 1/`numvars' {
 		local MEC_rol "`MEC_rol' `RD'"
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
-		local MEC_ctr "`MEC_ctr' ."
+		local MEC_ctr "`MEC_ctr' `mctag'"
 		local ++me_num
 		}
 	else {
@@ -3270,6 +3205,7 @@ forvalues i = 1/`numvars' {
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' `__ctr'"
+		local mcfams "`mcfams' `me_num'#`varname'|`R1'|`bo'|`o'"
 		local ++me_num
 		}
 	else if `nummods' >= 2 {
@@ -3295,6 +3231,7 @@ forvalues i = 1/`numvars' {
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' `__ctr'"
+		local mcfams "`mcfams' `me_num'#`varname'|`rkey`j''|`bo'|`o'"
 		local ++me_num
 		}
 	else {
@@ -3325,6 +3262,7 @@ forvalues i = 1/`numvars' {
 		if `nlev_me' > 1  local MEC_lev "`MEC_lev' `bocln_`bo''"
 		else              local MEC_lev "`MEC_lev' ."
 		local MEC_ctr "`MEC_ctr' `__ctr'"
+		local mcfams "`mcfams' `me_num'#`varname'|`rkeyD'|`bo'|`o'"
 		local ++me_num
 		}
 	else {
@@ -3365,6 +3303,10 @@ if `nummods' >= 3 {
 				*/	"`mecntxt'"
 	}
 	
+*mcompare(): adjust p and CI of each set (a variable's contrasts in one model, level and outcome; or its Differences)
+local mcadj = 0
+if "`mcmeth'" != ""  _mec_mcadj `mcmeth' `mcfams'
+
 *Relabel columns with nicer labels
 local estimate_col 	"Estimate"
 local est_col 		"Estimate"
@@ -3470,11 +3412,14 @@ forvalues i = 1/`numvars' {
 	forvalues j = 1/`nummods' {
 		local inm`j' = 0
 		foreach mectok of local list_ivs`j' {
-			if "`mectok'" == "`var'"  local inm`j' = 1
+			if "`mectok'" == "`var'" | ("`var'" == "cochange" & `"`cochange'"' != "")  local inm`j' = 1
 			}
 		}
-	fvexpand `var' `meclevif'
-	local numcats : word count `r(varlist)' 
+	local numcats = 1
+	if "`var'" != "cochange" | `"`cochange'"' == "" {
+		fvexpand `var' `meclevif'
+		local numcats : word count `r(varlist)'
+		}
 
 	
 	if `numcats' == 1 { 	// continuous IVs
@@ -3631,6 +3576,20 @@ if "`plab1'" != "" {
 *Display table
 matlist _mecompare, title("`N_title'") 	///
 		cspec("`colspec'") rspec("`rowspec'") nodotz underscore	
+
+if `"`cochange'"' != "" {
+	di _newline(1)
+	di as text "NOTE: `change2': `ccnote'."
+	}
+
+if "`mcmeth'" != "" {
+	di _newline(1)
+	local mcml = cond("`mcmeth'" == "bonferroni", "Bonferroni", "Sidak")
+	if `mcadj' == 1  di as text "NOTE: p-values (and CIs) of the contrasts are `mcml'-adjusted within each " /*
+		*/ "variable and model; the Difference rows are adjusted as a set of their own."
+	else  di as text "NOTE: {opt mcompare()} adjusts the contrasts of a nominal variable with " /*
+		*/ "three or more categories; there are none here, so nothing was adjusted."
+	}
 
 if "`groups'" != "" & "`amount'" == "sd" {
 	di _newline(1)
@@ -4064,6 +4023,7 @@ if `K' > 0 {
 		}
 	}
 	if `"`marginsopt'"' != ""  ereturn local marginsopt `"`marginsopt'"'
+	if "`mcmeth'" != ""  ereturn local mcompare "`mcmeth'"
 	*Stash the matlist display specs for replay (strip embedded quotes)
 	local __dt : subinstr local N_title `"""' "", all
 	local __dt = stritrim("`__dt'")
@@ -4072,7 +4032,7 @@ if `K' > 0 {
 	ereturn local drspec `"`rowspec'"'
 *Copy: ereturn matrix would move the source
 	ereturn matrix table = _mecompare, copy
-	ereturn scalar n_vars = `numvars'
+	ereturn scalar n_vars = `mecnvars'
 	ereturn scalar n_mods = `nummods'
 	*Unrecoverable quantities post as 0; counts and a completeness flag are returned
 	ereturn scalar k_failed = `__nmiss'
@@ -4176,6 +4136,422 @@ program define _mec_misum, rclass
 	return scalar min  = `smin' / `nused'
 	return scalar max  = `smax' / `nused'
 	return scalar N    = `sn' / `nused'
+end
+
+capture program drop _mec_vlparse
+program define _mec_vlparse
+*covariates(), start(), end(): rebuilds each option and lifts out its one value list
+	version 16.0
+	syntax [, covariates(string) start(string) end(string)]
+local vlcovariatesvar ""
+local vlcovariatesvals ""
+local vlcovariatesn = 0
+local vlstartvar ""
+local vlstartvals ""
+local vlstartn = 0
+local vlendvar ""
+local vlendvals ""
+local vlendn = 0
+foreach optn in covariates start end {
+	local optstr "``optn''"
+	if "`optstr'" != "" {
+		local keepatm : list posof "atmeans" in optstr
+		local vchk = subinword("`optstr'", "atmeans", "", .)
+		local vchk = subinstr("`vchk'", char(9), " ", .)
+		local vchk = itrim(trim("`vchk'"))
+		local vchk = subinstr("`vchk'", " =", "=", .)
+		local vchk = subinstr("`vchk'", "= ", "=", .)
+		local vchk = subinstr("`vchk'", "( ", "(", .)
+		local vchk = subinstr("`vchk'", " )", ")", .)
+		local rebuilt ""
+		local seenv ""
+		local verr = 0
+		local vbad ""
+		while "`vchk'" != "" & `verr' == 0 {
+			gettoken tok vchk : vchk, bind
+			local vchk = trim("`vchk'")
+			if regexm("`tok'", "^([a-zA-Z_][a-zA-Z0-9_]*)=\((.*)\)$") {
+				local lvar = regexs(1)
+				local lvals = regexs(2)
+				capture numlist "`lvals'"
+				if _rc {
+					local verr = 1
+					local vbad "`lvar'"
+					}
+				else {
+					local lvals "`r(numlist)'"
+					local nlv : word count `lvals'
+					local ulv : list uniq lvals
+					local nulv : word count `ulv'
+					if `nulv' != `nlv' {
+						local verr = 2
+						local vbad "`lvar'"
+						}
+					else if `nlv' == 1  local rebuilt "`rebuilt' `lvar'=`lvals'"
+					else if "`vl`optn'var'" != "" {
+						local verr = 3
+						local vbad "`lvar'"
+						}
+					else {
+						local vl`optn'var "`lvar'"
+						local vl`optn'vals "`lvals'"
+						local vl`optn'n = `nlv'
+						}
+					}
+				}
+			else if regexm("`tok'", "^([a-zA-Z_][a-zA-Z0-9_]*)=(.+)$") {
+				local lvar = regexs(1)
+				local lval = regexs(2)
+				local rebuilt "`rebuilt' `lvar'=`lval'"
+				}
+			else {
+				local verr = 1
+				local vbad "`tok'"
+				}
+			if `verr' == 0 {
+				local dupv : list posof "`lvar'" in seenv
+				if `dupv' > 0 {
+					local verr = 4
+					local vbad "`lvar'"
+					}
+				local seenv "`seenv' `lvar'"
+				}
+			}
+		if `verr' == 1 {
+			di as err "Invalid specification in {opt `optn'( )} at {bf:`vbad'}: each " /*
+			*/ "entry must be {it:varname}=# or {it:varname}=({it:numlist}). See " /*
+			*/ "{help mecompare##`optn'}."
+			exit 198
+			}
+		if `verr' == 2 {
+			di as err "The value list for {bf:`vbad'} in {opt `optn'( )} repeats a value."
+			exit 198
+			}
+		if `verr' == 3 {
+			di as err "Only one variable in {opt `optn'( )} may carry a value list; " /*
+			*/ "both {bf:`vl`optn'var'} and {bf:`vbad'} do."
+			exit 198
+			}
+		if `verr' == 4 {
+			di as err "{bf:`vbad'} is listed twice in {opt `optn'( )}."
+			exit 198
+			}
+		local `optn' = trim("`rebuilt'")
+		if `keepatm' > 0  local `optn' = trim("``optn'' atmeans")
+		}
+	}
+	foreach optn in covariates start end {
+		c_local `optn' "``optn''"
+		c_local vl`optn'var "`vl`optn'var'"
+		c_local vl`optn'vals "`vl`optn'vals'"
+		c_local vl`optn'n `vl`optn'n'
+		}
+end
+
+capture program drop _mec_mocheck
+program define _mec_mocheck
+*marginsopt(): lifts out expression(); refuses the options mecompare sets itself
+	version 16.0
+	local marginsopt `"`0'"'
+local mecexpr ""
+local mecmorest ""
+if `"`marginsopt'"' != "" {
+	local mecmowork `"`marginsopt'"'
+	local mecmoguard = 0
+	while `"`mecmowork'"' != "" & `mecmoguard' < 200 {
+		gettoken mectok mecmowork : mecmowork, bind
+		local ++mecmoguard
+		if regexm(`"`mectok'"', "^exp[a-z]*\((.*)\)$")  local mecexpr = regexs(1)
+		else  local mecmorest `"`mecmorest' `mectok'"'
+		}
+	local mecmorest = trim(`"`mecmorest'"')
+*Parenthesised arguments are blanked innermost first, so a token inside subpop() or vce() is not read as an option
+	local mecmotest = " " + `"`mecmorest'"' + " "
+	local mecmoguard = 0
+	while regexm(`"`mecmotest'"', "\([^()]*\)") & `mecmoguard' < 50 {
+		local mecmotest = regexr(`"`mecmotest'"', "\([^()]*\)", "<>")
+		local ++mecmoguard
+		}
+	foreach mectok in at over predict dydx dyex eydx eyex mcompare within {
+		if regexm(`"`mecmotest'"', "[ ,]`mectok'<>") {
+			di _newline(1)
+			if "`mectok'" == "at" {
+				di as err "{opt marginsopt()} may not carry {opt at()}: {cmd:mecompare} " /*
+				*/ "builds every at() set from the varlist, {opt start()}, " /*
+				*/ "{opt covariates()} and {opt by()}; a further at() would shift " /*
+				*/ "the sets the table reads."
+				}
+			else if "`mectok'" == "over" {
+				di as err "{opt marginsopt()} may not carry {opt over()}: use the " /*
+				*/ "{opt over()} option of {cmd:mecompare}."
+				}
+			else if "`mectok'" == "predict" {
+				di as err "{opt marginsopt()} may not carry {opt predict()}: use the " /*
+				*/ "{opt predict()} option of {cmd:mecompare}, which builds one " /*
+				*/ "selector per model. Inside {opt expression()} predict() is allowed."
+				}
+			else if "`mectok'" == "mcompare" {
+				di as err "{opt marginsopt()} may not carry {opt mcompare()}: use the " /*
+				*/ "{opt mcompare()} option of {cmd:mecompare}."
+				}
+			else if inlist("`mectok'", "dydx", "dyex", "eydx", "eyex") {
+				di as err "{opt marginsopt()} may not carry {opt `mectok'()}: " /*
+				*/ "{cmd:mecompare} computes discrete changes from at() sets, " /*
+				*/ "not derivatives."
+				}
+			else {
+				di as err "{opt marginsopt()} may not carry {opt `mectok'()}: it " /*
+				*/ "changes what margins posts and the table could not be read. " /*
+				*/ "For pairwise contrasts of a nominal focal variable use the " /*
+				*/ "{opt pwcompare} option of {cmd:mecompare}."
+				}
+			exit 198
+			}
+		}
+	foreach mectok in post contrast pwcompare nose atmeans {
+		if regexm(`"`mecmotest'"', "[ ,]`mectok'[ ,<]") {
+			di _newline(1)
+			if "`mectok'" == "post" {
+				di as err "{opt marginsopt()} may not carry {opt post}: {cmd:mecompare} " /*
+				*/ "posts the margins results itself."
+				}
+			else if "`mectok'" == "nose" {
+				di as err "{opt marginsopt()} may not carry {opt nose}: every standard " /*
+				*/ "error, p-value and {cmd:metest} needs e(V)."
+				}
+			else if "`mectok'" == "atmeans" {
+				di as err "{opt marginsopt()} may not carry {opt atmeans}: give " /*
+				*/ "{opt atmeans} or {opt covariates(atmeans)} to {cmd:mecompare}."
+				}
+			else {
+				di as err "{opt marginsopt()} may not carry {opt `mectok'}: it " /*
+				*/ "changes what margins posts and the table could not be read. " /*
+				*/ "For pairwise contrasts of a nominal focal variable use the " /*
+				*/ "{opt pwcompare} option of {cmd:mecompare}."
+				}
+			exit 198
+			}
+		}
+	}
+	c_local mecexpr `"`mecexpr'"'
+	c_local mecmorest `"`mecmorest'"'
+end
+
+capture program drop _mec_amtlist
+program define _mec_amtlist
+*amount((a b ...)): repeats a variable once per amount; returns the lists and each copy's tag
+	version 16.0
+	syntax [, amount(string) ivs(string) cont(string) stlist(string) end(string)]
+	local list_ivs "`ivs'"
+	local contvars "`cont'"
+local mecamt `"`amount'"'
+local mecslots = 0
+local mecalist = 0
+while `"`mecamt'"' != "" {
+	gettoken mectk mecamt : mecamt, match(mecpar)
+	local ++mecslots
+	local mecslot`mecslots' `"`mectk'"'
+	local mecnin : word count `mectk'
+	if "`mecpar'" != "" & `mecnin' == 0 {
+		di as err "{opt amount()}: a list in parentheses needs at least one amount."
+		exit 198
+		}
+	if "`mecpar'" != "" & `mecnin' > 1  local mecalist = 1
+	}
+if `mecalist' == 0 & `mecslots' > 0 {
+	local amount ""
+	forvalues k = 1/`mecslots' {
+		local amount "`amount' `mecslot`k''"
+		}
+	local amount = trim("`amount'")
+	}
+if `mecalist' == 1 {
+	if "`stlist'" != "" | `"`end'"' != "" {
+		di as err "A list of amounts in {opt amount()} cannot be combined with a " /*
+		*/ "value list in {opt start()} or with {opt end()}; use one or the other."
+		exit 198
+		}
+	local mecnc0 : word count `contvars'
+	if `mecslots' != 1 & `mecslots' != `mecnc0' {
+		di as err "Incorrect specification in {opt amount( )} option: `mecslots' " /*
+		*/ "entries for `mecnc0' continuous variables ({it:`contvars'}). Give one " /*
+		*/ "entry for all of them or one per variable; a list in parentheses is one entry."
+		exit 198
+		}
+	local mecivs ""
+	local mecamts ""
+	local mecc = 0
+	local mecvi = 0
+	foreach var of local list_ivs {
+		local mecisc : list posof "`var'" in contvars
+		if `mecisc' == 0 {
+			local mecivs "`mecivs' `var'"
+			local ++mecvi
+			continue
+			}
+		local ++mecc
+		local mecs = cond(`mecslots' == 1, 1, `mecc')
+		local mecn : word count `mecslot`mecs''
+		foreach mecam of local mecslot`mecs' {
+			local mecivs "`mecivs' `var'"
+			local mecamts "`mecamts' `mecam'"
+			local ++mecvi
+			if `mecn' > 1  local amtag`mecvi' = strtoname(lower("`mecam'"))
+			}
+		}
+	local list_ivs = trim("`mecivs'")
+	local amount = trim("`mecamts'")
+	local contvars ""
+	foreach var of local list_ivs {
+		fvexpand `var'
+		if `: word count `r(varlist)'' == 1  local contvars "`contvars' `var'"
+		}
+	}
+	c_local amount "`amount'"
+	if `mecalist' == 1 {
+		c_local list_ivs "`list_ivs'"
+		c_local contvars "`contvars'"
+		forvalues q = 1/`mecvi' {
+			c_local amtag`q' "`amtag`q''"
+			}
+		}
+end
+
+capture program drop _mec_mcadj
+program define _mec_mcadj
+*mcompare(): adjusts p and CI of the table rows in each set; sets arrive as ME#<hash>key
+	version 16.0
+	gettoken mcmeth 0 : 0
+	local mcks ""
+	foreach tk of local 0 {
+		local q = substr("`tk'", 1, strpos("`tk'", "#") - 1)
+		local mcfam`q' = substr("`tk'", strpos("`tk'", "#") + 1, .)
+		local mcks "`mcks' `q'"
+		}
+	qui est restore mec_margins
+	local mcdf = e(df_r)
+	local mca = 1 - c(level)/100
+	local mccols : colnames _mlincom
+	local mcpc : list posof "pvalue" in mccols
+	local mclc : list posof "ll" in mccols
+	local mcuc : list posof "ul" in mccols
+	local mcr0 = 0
+	forvalues rr = 1/`=rowsof(_mlincom)' {
+		if _mlincom[`rr',1] == .z  continue
+		local ++mcr0
+		if "`mcfam`mcr0''" == ""  continue
+		local mcm = 0
+		foreach q of local mcks {
+			if "`mcfam`q''" == "`mcfam`mcr0''"  local ++mcm
+			}
+		if `mcm' < 2  continue
+		c_local mcadj 1
+		if `mcpc' > 0 {
+			if !missing(_mlincom[`rr',`mcpc']) {
+				if "`mcmeth'" == "bonferroni"  matrix _mlincom[`rr',`mcpc'] = min(1, `mcm'*_mlincom[`rr',`mcpc'])
+				else  matrix _mlincom[`rr',`mcpc'] = 1 - (1 - _mlincom[`rr',`mcpc'])^`mcm'
+				}
+			}
+		if `mclc' > 0 & `mcuc' > 0 {
+			if "`mcmeth'" == "bonferroni"  local mcaa = `mca'/`mcm'
+			else  local mcaa = 1 - (1 - `mca')^(1/`mcm')
+			*the half-width grows by the ratio of critical values (t with the df lincom used, else normal)
+			if missing(`mcdf')  local mcf = invnormal(1 - `mcaa'/2) / invnormal(1 - `mca'/2)
+			else  local mcf = invttail(`mcdf', `mcaa'/2) / invttail(`mcdf', `mca'/2)
+			local mcmid = (_mlincom[`rr',`mclc'] + _mlincom[`rr',`mcuc']) / 2
+			local mchw = (_mlincom[`rr',`mcuc'] - _mlincom[`rr',`mclc']) / 2
+			matrix _mlincom[`rr',`mclc'] = `mcmid' - `mcf'*`mchw'
+			matrix _mlincom[`rr',`mcuc'] = `mcmid' + `mcf'*`mchw'
+			}
+		}
+
+end
+
+capture program drop _mec_ccvars
+program define _mec_ccvars
+*cochange(): the variables that change with the one focal variable
+	version 16.0
+	syntax varlist(fv) [, focal(string)]
+	if `: word count `focal'' != 1 {
+		di as err "With {opt cochange()}, give one focal variable in the {it:varlist}; {opt cochange()} names the variables that change along with it."
+		exit 198
+		}
+	local b ""
+	foreach v in `focal' `varlist' {
+		local vb = regexr("`v'", "^(c|i(b[0-9]+|bn)?)\.", "")
+		local b "`b' `vb'"
+		}
+	if "`: list dups b'" != "" {
+		di as err "{opt cochange()} repeats a variable or names the focal variable; list each variable once."
+		exit 198
+		}
+	c_local ccvl "`varlist'"
+end
+
+capture program drop _mec_cocheck
+program define _mec_cocheck
+*cochange(): refuses what the co-change rows cannot carry
+	version 16.0
+	syntax , ivs(string) mods(string) [amount(string) by(string) mcomp(string) stlist(string) enlist(string) groupsd pwcompare]
+	local ms ""
+	if "`: list dups ivs'" != ""  local ms "A list of amounts in {opt amount()} cannot be combined with {opt cochange()}."
+	else if "`stlist'`enlist'" != ""  local ms "A value list in {opt start()} or {opt end()} cannot be combined with {opt cochange()}."
+	else if "`groupsd'`pwcompare'`mcomp'" != ""  local ms "{opt groupsd}, {opt pwcompare} and {opt mcompare()} cannot be combined with {opt cochange()}."
+	foreach a of local amount {
+		if inlist(lower("`a'"), "rate", "slope", "dydx") & "`ms'" == ""  local ms "{opt amount(rate)} cannot be combined with {opt cochange()}: a rate is the slope of one variable."
+		}
+	local nmod = length("`mods'") - length(subinstr("`mods'", "|", "", .))
+	local mods : subinstr local mods "|" " | ", all
+	foreach v of local ivs {
+		local vb = regexr("`v'", "^(c|i(b[0-9]+|bn)?)\.", "")
+		if `: list posof "`vb'" in by' > 0 & "`ms'" == ""  local ms "With {opt cochange()}, {bf:`vb'} cannot also be in {opt by()} or {opt over()}."
+		local inall = 1
+		local seen = 0
+		local inj = 0
+		foreach t of local mods {
+			if "`t'" == "|" {
+				if `seen'  local inall = `inall' * `inj'
+				local seen = 1
+				local inj = 0
+				}
+			else if "`t'" == "`v'"  local inj = 1
+			}
+		local inall = `inall' * `inj'
+		if `inall' == 0 & `nmod' > 1 & "`ms'" == ""  local ms "{bf:`vb'} is not a predictor in every model; with {opt cochange()}, the focal and every co-change variable must be."
+		}
+	if "`ms'" != "" {
+		di as err "`ms'"
+		exit 198
+		}
+end
+
+capture program drop _mec_conom
+program define _mec_conom
+*cochange(): a factor variable moves from its start() level to its end() level; a binary one from its first level to its second by default
+	version 16.0
+	gettoken v 0 : 0
+	gettoken i 0 : 0, parse(" ,")
+	syntax , levels(numlist) [start(string) end(string)]
+	local start : subinstr local start "=" " ", all
+	local end : subinstr local end "=" " ", all
+	local ps : list posof "`v'" in start
+	local pe : list posof "`v'" in end
+	local lo : word 1 of `levels'
+	local hi : word 2 of `levels'
+	if `ps' > 0 & `pe' > 0 {
+		local lo : word `=`ps' + 1' of `start'
+		local hi : word `=`pe' + 1' of `end'
+		}
+	local bad = (`ps' + `pe' > 0 & `ps' * `pe' == 0) | (`ps' * `pe' == 0 & `: word count `levels'' > 2)
+	if !`: list lo in levels' | !`: list hi in levels'  local bad = 1
+	if `bad' {
+		di as err "With {opt cochange()}, {bf:`v'} needs the two levels it changes between, " /*
+		*/ "as in {opt start(`v'=`: word 1 of `levels'') end(`v'=`: word 2 of `levels'')}; its levels are `levels'."
+		exit 198
+		}
+	c_local ccS`i' "`v'=`lo'"
+	c_local ccE`i' "`v'=`hi'"
+	c_local ccL`i' "`v' `lo' to `hi'"
 end
 
 capture program drop _mec_mipct

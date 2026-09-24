@@ -5,6 +5,91 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.7.0 -- 23sep2026, group(varname); amount(p#-p#); mcompare(); amount((list)); cochange()
+
+**Generalized marginal effects: `cochange(varlist)`.** The varlist holds one
+focal variable; cochange() names the variables that change along with it
+(co-change variables, often mediators). The table shows the focal
+variable's usual rows (co-change variables held: the direct effect) and a
+row set labelled "<focal> with co-change" in which all of them change
+together (the total effect), from one margins call, so metest gives the
+difference (the indirect effect) with its SE. A note under the table lists
+each variable's change. A continuous variable changes as its own rows would
+(amount(), or start() to end()); a binary one from its first level to its
+second unless start() and end() give its two levels; a nominal one with
+three or more categories needs them. The co-change variables join the
+varlist after syntax, so they are read and checked like focal variables;
+the margins list is the focal variable's own at() specs and then one pair
+per cell with every variable's change, read as one continuous variable
+named `cochange`, so several models, groups, by()/over(), covariates(),
+totalme() and the metest numbering run on the existing paths. e(n_vars) is
+1. Refused (rc 198): not exactly one focal variable, a variable listed
+twice, a list of amounts, value lists in start()/end(), amount(rate),
+groupsd, pwcompare, mcompare(), a focal or co-change variable in
+by()/over() or missing from a model, a factor variable without its two
+levels. Code in `_mec_ccvars`, `_mec_cocheck` and `_mec_conom`. Help: the
+cochange() entry after end() (gate 66, `test_cochange_gate66_v1_2`).
+
+**The main program within Stata's limits.** Stata allows 135,600 bytes and
+3,500 lines in one program ([R] limits, every flavor); with the amount
+lists the main program passed both and mecompare.ado stopped loading,
+r(1000) (gate 65 v1.0). Four self-contained blocks now run as
+subprograms of mecompare.ado -- the covariates()/start()/end() value-list
+reader (`_mec_vlparse`), the marginsopt() checks (`_mec_mocheck`), the
+amount-list expansion (`_mec_amtlist`) and the mcompare() adjustment
+(`_mec_mcadj`) -- verbatim apart from their inputs and outputs. No result
+changes.
+
+**Several amounts for one variable: `amount((one sd rate))`.** A list in
+parentheses is one entry of amount(): alone it applies to every continuous
+focal variable, and in a list of entries it applies to its own variable
+(`amount((one sd) 5)`). Each amount gets its own rows, as if the variable
+were listed once per amount -- which is how it is done: the variable is
+repeated in the internal list, one copy per amount, so at() sets, rows,
+by()/over(), several models, the totalme and meinequality options and the
+metest numbering run unchanged. The copies' e(b) names carry the amount
+(`age_one`, `age_sd`, `age_rate`; with several models the equation is
+`age_sd` and the coefficient the model). e(n_vars) counts the variables as
+typed. Refused: a list with a value list in start() or with end() (rc 198),
+an empty list, and a number of entries that is neither one nor the number of
+continuous variables. Help: four sentences in amount(), the owner's
+wording (gate 65, `test_amtlist_gate65_v1_0`, 44 / 0).
+
+**`mcompare(bonferroni|sidak)`.** Adjusts the p-values, and the confidence
+intervals when statistics() shows them, of the contrasts of nominal focal
+variables (against the base, or all pairs with `pwcompare`) for multiple
+comparisons, as `mchange ..., mcompare()` and margins do. A set is one
+variable's contrasts within one model (and one by()/over() level and one
+outcome); its Difference rows are a set of their own. Bonferroni: p times
+the set size (at most 1), intervals at level 1 - alpha/m; Sidak: 1 - (1 -
+p)^m, intervals at (1 - alpha)^(1/m); t with the df lincom used, else
+normal. A variable with one contrast is not adjusted. e(b), e(V) and the
+estimates do not change; e(table) carries the adjusted columns and
+e(mcompare) the method; a note under the table says what was adjusted.
+`marginsopt(mcompare())` stays refused, now pointing to the option. Help:
+one entry after pwcompare (gate 64, `test_mcompare_gate64_v1_0`).
+
+**`amount(p#-p#)`.** The change from one percentile of the variable to
+another in the estimation sample, e.g. `amount(p10-p90)` for the 10th to
+the 90th; one word, so it mixes with the other amounts in the list
+(`amount(sd p10-p90)`). It rides the trimrange path -- the same weighted
+percentiles, a scalar start() does not apply, a start() value list is
+refused -- and `trimrange` is `p5-p95` with its label and values
+unchanged; a pair is labelled `age (10-90%)`. Both percentiles must lie
+between 0 and 100, the first below the second, else rc 198. Help: one row
+in the amount() table (gate 63, `test_pctpair_gate63_v1_0`).
+
+`group(varname)`, the spelling of the groups option in earlier versions
+(the 2019 article, the Handbook chapter), is accepted again. It runs as
+`groups` after checking that the named variable takes one value in each
+model's sample and a different value in each model; otherwise it stops,
+rc 198, naming the model. `groups(varname)` is read the same way, and
+`groups` typed as well is fine. Before, `group(varname)` stopped with
+r(198). The help's groups entry has one sentence. Nothing else moves
+(gate 62, `test_group_var_gate62_v1_1`). In the same entry the help now
+says metest "can be used to test" the differences among three or more
+groups (owner's wording).
+
 ## v1.6.1 -- 23sep2026, version 16 or later (mecomp 1.0.1, metest 0.3.2)
 
 A caller running under version 15 or older -- a `version 15` line at the
