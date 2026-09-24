@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-23 Trenton D Mize}{...}
+{* 2026-09-24 Trenton D Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -211,6 +211,18 @@ multiplication, division, nonlinear functions, and equality tests:{p_end}
 {phang2}{stata metest abs(1) - abs(2): metest abs(1) - abs(2)}{space 2}which effect is larger in magnitude{p_end}
 {phang2}{stata metest min(1,2): metest min(1,2)}{space 8}the smaller of the two{p_end}
 {phang2}{stata metest _b[age] * #10: metest _b[age] * #10}{space 1}by name, scaled by ten{p_end}
+
+{pstd}
+After {help margins:margins, post}, a number refers to a row of the
+{cmd:margins} table. E.g., a risk ratio -- the ratio of two predicted
+probabilities, averaging over observed values -- in the Health and
+Retirement Study 2020:{p_end}
+
+{phang2}{stata "use https://tdmize.github.io/data/data/cda_hrs, clear":use https://tdmize.github.io/data/data/cda_hrs, clear}{p_end}
+{phang2}{stata "drop if missing(cogB, marstatB, college, woman, age)":drop if missing(cogB, marstatB, college, woman, age)}{p_end}
+{phang2}{stata "logit cogB i.college i.marstatB i.woman c.age, or":logit cogB i.college i.marstatB i.woman c.age, or}{p_end}
+{phang2}{stata "margins college, post":margins college, post}{p_end}
+{phang2}{stata "metest 1 / 2":metest 1 / 2}{p_end}
 
 {pstd}
 Two things to keep in mind away from {cmd:mecompare}. Omitted ({cmd:o.})

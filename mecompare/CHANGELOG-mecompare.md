@@ -5,6 +5,14 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## metest.sthlp -- 24sep2026, help only
+
+A risk-ratio example in "Use after other commands": after `margins
+college, post` on the HRS 2020 data (`cda_hrs`), `metest 1 / 2` is the
+ratio of the two predicted probabilities (the owner's code). Five new
+`{stata}` lines, so the help-examples gate is regenerated as
+`test_help_examples_v1_14`. metest.ado is unchanged (0.3.2).
+
 ## v1.7.0 -- 23sep2026, group(varname); amount(p#-p#); mcompare(); amount((list)); cochange()
 
 **Generalized marginal effects: `cochange(varlist)`.** The varlist holds one
