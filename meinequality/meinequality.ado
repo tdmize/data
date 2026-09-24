@@ -1,6 +1,6 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.9.3 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-meinequality.md (repo)
+*! meinequality v1.9.4 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-meinequality.md (repo)
 
 program define meinequality, rclass
 	
@@ -11,6 +11,15 @@ if _caller() < 16 {
 	*/ "runs under version `=_caller()', set by a {cmd:version} " /*
 	*/ "statement. Set version 16 or later."
 	exit 9
+}
+
+*group(varname), the earlier syntax, means groups; the variable is checked below
+local mecgrpv ""
+local mecgrpon = 0
+if ustrregexm(`"`0'"', "\bgroups?\(([^()]*)\)") {
+	local mecgrpv = trim(ustrregexs(1))
+	local mecgrpon = 1
+	local 0 = ustrregexrf(`"`0'"', "\bgroups?\([^()]*\)", "")
 }
 
 syntax 	varlist(fv) [if] [in] [fweight pweight iweight] , ///
@@ -32,6 +41,8 @@ syntax 	varlist(fv) [if] [in] [fweight pweight iweight] , ///
 		over(string) ///
 		ENGine(string) ///
 		] 	
+
+if `mecgrpon' == 1  local groups "groups"
 
 marksample touse
 
@@ -410,6 +421,27 @@ else                             qui gen `mod2samp' = e(sample)
 		*/ "samples. With the {opt groups} option, samples must be entirely " /*
 		*/ "distinct across models. See {help meinequality##groups} for details."
 		exit 198		
+	}
+	*group(varname): one value in each model's sample, a different value in each model
+	if "`mecgrpv'" != "" {
+		unab mecgrpv : `mecgrpv', max(1) name(group())
+		forvalues j = 1/2 {
+			qui levelsof `mecgrpv' if `meisamp' == `j', local(mecgv`j') missing
+			if r(r) != 1 {
+				di _newline(1)
+				di as err "`mecgrpv' takes `r(r)' values in the sample of `mod`j''. " /*
+				*/ "With {opt group(`mecgrpv')} each model is fit to one group, " /*
+				*/ "one value of `mecgrpv'."
+				exit 198
+			}
+		}
+		if `"`mecgv1'"' == `"`mecgv2'"' {
+			di _newline(1)
+			di as err "`mecgrpv' takes the same value in the samples of " /*
+			*/ "`mod1' and `mod2'. With {opt group(`mecgrpv')} each " /*
+			*/ "model is fit to a different group."
+			exit 198
+		}
 	}
 		
 	*Error out if command1 != command2

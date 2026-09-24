@@ -1,5 +1,16 @@
 # CHANGELOG -- meinequality
 
+## v1.9.4 -- 23sep2026, group(varname)
+
+`group(varname)`, the spelling of the groups option in earlier versions
+(the 2019 article, the Handbook chapter), is accepted again. It runs as
+`groups` after checking that the named variable takes one value in each
+model's sample and a different value in each model; otherwise it stops,
+rc 198, naming the model. `groups(varname)` is read the same way, and
+`groups` typed as well is fine. Before, `group(varname)` stopped with
+r(198). The help's groups entry has one sentence. Nothing else moves
+(gate 62, `test_group_var_gate62_v1_1`).
+
 ## v1.9.3 -- 23sep2026, version 16 or later; plain-mi pairs; binary with all (meineq 1.7.1)
 
 A caller running under version 15 or older -- a `version 15` line at the

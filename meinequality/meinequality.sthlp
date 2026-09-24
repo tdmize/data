@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-23 Bing Han, Trenton D. Mize -- matches meinequality v1.9.3}{...}
+{* 2026-09-23 Bing Han, Trenton D. Mize -- matches meinequality v1.9.4}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -235,6 +235,8 @@ estimation.
 are fit on distinct samples. When the {opt groups} option is specified, 
 the models listed in the {opt models(list)} option must have been fit 
 separately across distinct samples (e.g., distinct groups in data).
+{opt group(varname)}, the syntax of earlier versions, is also accepted; {it:varname} must
+take one value in each model's sample and a different value in each model.
 {p_end}
 
 {pmore}With {opt groups}, a weighted ME inequality weights each model by the 
