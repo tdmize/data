@@ -1,5 +1,25 @@
 # CHANGELOG -- totalme
 
+## v1.7.7 -- 23sep2026, group(varname); amount(p#-p#)
+
+**`amount(p#-p#)`.** The change from one percentile of the variable to
+another in the estimation sample, e.g. `amount(p10-p90)` for the 10th to
+the 90th; one word, so it mixes with the other amounts in the list
+(`amount(sd p10-p90)`). It rides the trimrange path -- the same percentiles,
+start() and centering do not apply -- and `trimrange` is `p5-p95` with its label and values
+unchanged; a pair is labelled `p10 to p90`. Both percentiles must lie
+between 0 and 100, the first below the second, else rc 198. Help: one row
+in the amount() table (gate 63, `test_pctpair_gate63_v1_0`).
+
+`group(varname)`, the spelling of the groups option in earlier versions
+(the 2019 article, the Handbook chapter), is accepted again. It runs as
+`groups` after checking that the named variable takes one value in each
+model's sample and a different value in each model; otherwise it stops,
+rc 198, naming the model. `groups(varname)` is read the same way, and
+`groups` typed as well is fine. Before, `group(varname)` stopped with
+r(198). The help's groups entry has one sentence. Nothing else moves
+(gate 62, `test_group_var_gate62_v1_1`).
+
 ## v1.7.6 -- 23sep2026, start() matches the variable's own name
 
 `start()` found a focal variable by searching the start() text for its

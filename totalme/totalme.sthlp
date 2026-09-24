@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-23 Bing Han, Trenton D. Mize -- matches totalme v1.7.6}{...}
+{* 2026-09-23 Bing Han, Trenton D. Mize -- matches totalme v1.7.7}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -148,6 +148,8 @@ are fit on distinct samples. Under {opt groups} each model's marginal effects ar
 averaged over its own sample. When the {opt groups} option is specified, 
 the models listed in the {opt models(list)} option must have been fit 
 separately across distinct samples (e.g., distinct groups in the data). 
+{opt group(varname)}, the syntax of earlier versions, is also accepted; {it:varname} must
+take one value in each model's sample and a different value in each model.
 {p_end}
 
 {marker amount}
@@ -180,6 +182,10 @@ variable, from its 5th to its 95th percentile in the estimation sample
 {p2col :{ul:{bf:range}}}A change across the full observed range of the
 variable, from its minimum to its maximum in the estimation sample;
 {opt start()} and centering do not apply{p_end}
+{p2col :{bf:p}{it:#}{bf:-p}{it:#}}A change from one percentile of the variable
+to another in the estimation sample, e.g. {bf:p10-p90} for its 10th to its
+90th percentile; {bf:trimrange} is {bf:p5-p95}. {opt start()} and centering
+do not apply{p_end}
 {p2col :{ul:{bf:rate}}}An instantaneous rate of change, i.e. the derivative,
 approximated with a small centered change; {bf:slope} and {bf:dydx} are
 synonyms. Centering does not apply{p_end}

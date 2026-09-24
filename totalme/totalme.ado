@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.7.6 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-totalme.md (repo)
+*! totalme v1.7.7 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-totalme.md (repo)
 
 program define totalme, rclass
 	
@@ -11,6 +11,15 @@ if _caller() < 16 {
 	*/ "runs under version `=_caller()', set by a {cmd:version} " /*
 	*/ "statement. Set version 16 or later."
 	exit 9
+}
+
+*group(varname), the earlier syntax, means groups; the variable is checked below
+local mecgrpv ""
+local mecgrpon = 0
+if ustrregexm(`"`0'"', "\bgroups?\(([^()]*)\)") {
+	local mecgrpv = trim(ustrregexs(1))
+	local mecgrpon = 1
+	local 0 = ustrregexrf(`"`0'"', "\bgroups?\([^()]*\)", "")
 }
 
 syntax 	varlist(fv) [if] [in] [fweight pweight iweight] , ///
@@ -36,6 +45,8 @@ syntax 	varlist(fv) [if] [in] [fweight pweight iweight] , ///
 		over(string) ///
 		ENGine(string) ///
 		] 
+
+if `mecgrpon' == 1  local groups "groups"
 
 marksample touse
 
@@ -399,6 +410,27 @@ else                qui gen `mod2samp' = e(sample)
 		di as err "{opt groups} option does not support overlapped samples across groups. " /*
 		*/ "See {help totalme##groups} for details."
 		exit 198		
+	}
+	*group(varname): one value in each model's sample, a different value in each model
+	if "`mecgrpv'" != "" {
+		unab mecgrpv : `mecgrpv', max(1) name(group())
+		forvalues j = 1/2 {
+			qui levelsof `mecgrpv' if `tmsamp' == `j', local(mecgv`j') missing
+			if r(r) != 1 {
+				di _newline(1)
+				di as err "`mecgrpv' takes `r(r)' values in the sample of `mod`j''. " /*
+				*/ "With {opt group(`mecgrpv')} each model is fit to one group, " /*
+				*/ "one value of `mecgrpv'."
+				exit 198
+			}
+		}
+		if `"`mecgv1'"' == `"`mecgv2'"' {
+			di _newline(1)
+			di as err "`mecgrpv' takes the same value in the samples of " /*
+			*/ "`mod1' and `mod2'. With {opt group(`mecgrpv')} each " /*
+			*/ "model is fit to a different group."
+			exit 198
+		}
 	}
 	
 	*A gologit2 pair is allowed on the default engine; refused under engine(gsem) only
@@ -1053,6 +1085,19 @@ if `numcontvars' != 0 {
 			if "`amount`cnum''" == "twosd"  local amount`cnum' "2sd"
 			if inlist("`amount`cnum''", "slope", "dydx")  local amount`cnum' "rate"
 			local amtkey "`amount`cnum''"
+			*p#-p#: from one percentile to another, on the trimrange path (trimrange is p5-p95)
+			local plo = 5
+			local phi = 95
+			if ustrregexm("`amtkey'", "^p([0-9]*[.]?[0-9]+)-p([0-9]*[.]?[0-9]+)$") {
+				local plo = ustrregexs(1)
+				local phi = ustrregexs(2)
+				if !(`plo' > 0 & `plo' < `phi' & `phi' < 100) {
+					di as err "{opt amount(`amount`cnum'')}: the two percentiles must lie between " /*
+					*/ "0 and 100, the first below the second, e.g. {opt amount(p10-p90)}."
+					exit 198
+				}
+				local amtkey "pctpair"
+			}
 			local vcent "`centered'"
 			*2sd is a 2*SD change on the numeric path
 			if "`amtkey'" == "2sd" {
@@ -1075,9 +1120,9 @@ if `numcontvars' != 0 {
 			local hasiv 		: list posof "`v'" in start
 				
 			*trimrange is the 5th to the 95th percentile as fixed values; start() does not apply
-			if "`amtkey'" == "trimrange" {
+			if inlist("`amtkey'", "trimrange", "pctpair") {
 				local hasiv = -1
-				qui _pctile `v' if `totalme_sample' == 1, p(5 95)
+				qui _pctile `v' if `totalme_sample' == 1, p(`plo' `phi')
 				local p5 = r(r1)
 				local p95 = r(r2)
 				local startval 	"`v'=`p5'"
@@ -1205,6 +1250,9 @@ if `numcontvars' != 0 {
 				}
 			else if "`amtkey'" == "trimrange" {
 				local change`vnum' "p5 to p95"
+				}
+			else if "`amtkey'" == "pctpair" {
+				local change`vnum' "p`plo' to p`phi'"
 				}
 			else if "`amtkey'" == "range" {
 				local change`vnum' "min to max"
