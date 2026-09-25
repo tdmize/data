@@ -543,3 +543,73 @@ section. Nothing else moves; results at version 16 or later are unchanged.
 The banner and `e(suest2_version)` move to 1.0.1; the 36-suite regression
 is re-run because an executable line moved, and the battery runner's EXACT
 pin moves to 1.0.1.
+
+## suest2.sthlp -- 24sep2026, help only
+
+Corrected wording in the CRE section: with `x` entered as is (`xtreg y
+x mean_x i.d, re`), the `mean_x` coefficient is the difference between
+the between-person and within-person estimates; the help had called it
+the between-person estimate, and wrote `x_mean` for `mean_x`. No `.ado`
+moved; suest2 stays 1.0.1 (1.1.0 below).
+
+## suest2.ado 1.1.0 -- 24sep2026
+
+An ordinary single-level model -- `regress`, `logit`/`logistic`, `probit`,
+`cloglog`, `poisson`, `nbreg` -- can be combined with a multilevel or panel
+model (`melogit`, `xtlogit, re`, `mixed`, and the rest of the heterogeneous
+route), as `ologit` and `oprobit` could since 0.1.90 (owner, 24sep2026: "This
+is an oversight."). Until now logit + melogit stopped with "the first melogit
+increment requires every constituent model to be melogit" and logit + xtlogit
+fell through to official suest, which does not support xtlogit. The ordinary
+model is admitted unweighted, unprefixed and with conventional standard
+errors; its scores are its equation scores times the design columns (as for
+the ordinal models), summed within the system's highest-level group, with its
+e(V) as the bread -- so its block reproduces the model fit with
+vce(cluster group). The ordinary model may come first: the highest-level group
+is now read off the first multilevel or panel model before any model is scored
+(0.1.90's ordinal models worked only after their multilevel partner, because
+the group was read as the loop reached that partner). `regress`: the residual
+score is divided by e(rmse)^2 (the
+scale in e(V)) and multiplied by sqrt((N-1)/(N-k)), regress's own cluster
+adjustment, and it gets no lnvar column on this route (official suest's lnvar
+stays on its own route). A system of only ordinary models still takes official
+suest's route. Five suites encoded the old refusal and move to suite-version
+v1.6 (melogit, meprobit_candidate1, mixed_candidate1_rev5, mecloglog_release,
+mehetero_release); the full-regression runner moves to v2.6. The banner and
+`e(suest2_version)` move to 1.1.0; the 36-suite regression is required.
+
+### Build v02 -- 25sep2026 (still 1.1.0, unreleased)
+
+The accuracy check of the Gaussian random-effects bridge (`xtlogit`,
+`xtprobit`, `xtcloglog`, `xtpoisson, normal` re; `xtologit`, `xtoprobit`) is
+judged in standard errors: suest2 refits the model as a mixed model for its
+scores and now requires the refit to match within 1% of a standard error on
+every estimate (the model's own e(V); the variance on its natural scale).
+Before, it required the coefficients within 1e-5 x (1 + the largest estimate)
+and the log likelihoods within 1e-8 -- numerical tolerances, not statistical
+ones. Measured on the HRS panel of the new site pages
+(`probe_xtbridge_hrs_v1_0`, owner's run 24sep2026, 104,078 interviews,
+random-intercept variance 5.9): at 30 points the refit was within 0.0004 SE
+on the fixed part and 0.003 SE on the variance and was refused; at 60 points
+the coefficients agreed to 1e-6 SE and it was still refused, on a
+log-likelihood gap of 1.1e-8, while the message named the coefficient gap as
+the reason. At the default 12 points the gap is 0.8 SE and the model's own
+estimates move 0.35 SE between 12 and 60 points -- a real quadrature problem,
+and still refused. The message reports the gap in standard errors and
+suggests doubling the points; suest2 leaves scalar `__s2het_bridge_gse` (it
+replaces `__s2het_bridge_bdiff` and `__s2het_bridge_bscale`). The 12-point
+floor (24 for xtcloglog) and the score-centering check are unchanged.
+`test_suest2_xtgre_bare` moves to v1_4: its bare `xtlogit re` row at
+nlsw88's default 12 points (a gap of 8.3e-5, refused by the old rule) now
+combines. Gate 67 v1_2 PART F.
+
+## suest2_margins.ado 0.1.76 -- 24sep2026
+
+The branch that removes model() from a user's predict() before the native
+margins call now also covers `probit`, `cloglog`, `poisson`, `nbreg` and
+`regress`, the ordinary models the heterogeneous route admits in 1.1.0.
+
+## suest2.sthlp -- 24sep2026 (1.1.0)
+
+The multilevel section lists the ordinary models that can be combined with
+multilevel and panel models.

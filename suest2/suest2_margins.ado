@@ -1,4 +1,4 @@
-*! version 0.1.75  03aug2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.76  24sep2026  | history: CHANGELOG-suest2.md (repo)
 * Candidate 21. LIVE METADATA ON LINE 2, NOT HISTORY -- do not move it to
 * the changelog. run_suest2_v0175_full_regression.do:123,
 * test_suest2_v0175_marginsdefault_pa.do:191 and
@@ -719,7 +719,8 @@ program define suest2_margins_me_dydx, rclass
             local predinner=itrim(trim(`"`predinner'"'))
             if trim(`"`predinner'"')!="" local nativepred `"predict(`predinner')"'
         }
-        else if inlist(`"`syscmd'"',"logit","logistic","ologit","oprobit","mlogit") {
+        else if inlist(`"`syscmd'"',"logit","logistic","ologit","oprobit","mlogit") | ///
+            inlist(`"`syscmd'"',"probit","cloglog","poisson","nbreg","regress") {
             local predinner `"`predict'"'
             while 1 {
                 local predlower=lower(`"`predinner'"')

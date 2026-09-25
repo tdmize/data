@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  23sep2026}{...}
+{* *! version 1.1.0  24sep2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -150,12 +150,13 @@ Bernoulli-logit, Bernoulli-probit, Bernoulli-cloglog, Poisson-log,
 negative-binomial-log, Gamma-log, ordinal-logit, and ordinal-probit.
 
 {p 8 12 2}
-Mixed heterogeneous systems may also include ordinary {cmd:ologit} or
-{cmd:oprobit} constituents beside {cmd:xtologit}, {cmd:xtoprobit},
-{cmd:meologit}, or {cmd:meoprobit} ones. An ordinary constituent must be
-stored unprefixed, unweighted, and with conventional (non-robust)
-standard errors; it inherits the system's cluster variable from its
-mixed partner.
+Multilevel and panel models may also be combined with ordinary
+single-level models: {cmd:regress}, {cmd:logit}, {cmd:probit},
+{cmd:cloglog}, {cmd:poisson}, {cmd:nbreg}, {cmd:ologit}, and
+{cmd:oprobit}, e.g., a {cmd:logit} with a {cmd:melogit} or {cmd:xtlogit}.
+Fit the ordinary model unweighted, without a prefix, and with
+conventional standard errors; its standard errors are clustered on the
+highest-level group of the multilevel or panel model.
 
 {pstd}
 Supported {cmd:mestreg} distributions are exponential, Weibull, lognormal,
@@ -339,8 +340,9 @@ when fit with the {cmd:re} estimator.{p_end}
 
 {pstd}
 Where the {it:x} coefficient represents the within-person ("fixed effect") 
-estimate and the {it:x_mean} coefficient represents the between-person 
-estimate. The same recipe extends to any supported panel or multilevel family, e.g. 
+estimate and the {it:mean_x} coefficient represents the difference 
+between the between-person and within-person estimates. The same 
+recipe extends to any supported panel or multilevel family, e.g. 
 {cmd:xtlogit} or {cmd:xtpoisson}, etc.
 {p_end}
 

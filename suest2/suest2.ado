@@ -1,4 +1,4 @@
-*! version 1.0.1  23sep2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.1.0  25sep2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -577,7 +577,7 @@ program define suest2, sortpreserve eclass
         if !`systempred`i'' local allsystem 0
 
         // Official suest appends one lnvar parameter to non-svy regress/anova.
-        if inlist("`e(cmd)'", "regress", "anova") & "`e(prefix)'" != "svy" {
+        if inlist("`e(cmd)'", "regress", "anova") & "`e(prefix)'" != "svy" & !`mehetero_path' {
             local kblock`i' = `kblock`i'' + 1
         }
 
@@ -767,7 +767,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.0.1"
+    ereturn local suest2_version "1.1.0"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'
@@ -5035,6 +5035,19 @@ program define suest2_mehetero_identify, rclass
         local class ordinal_logit
         if "`cmd'"=="oprobit" local class ordinal_probit
     }
+    else if inlist("`cmd'","logit","logistic","probit","cloglog","poisson","nbreg","regress") & ///
+        trim(`"`e(prefix)'"')=="" & trim(`"`e(wtype)'"')=="" {
+        // 1.1.0: ordinary single-level constituent beside a multilevel or panel model
+        local supported 1
+        local plain 1
+        local activecmd `cmd'
+        local class bernoulli_logit
+        if "`cmd'"=="probit" local class bernoulli_probit
+        if "`cmd'"=="cloglog" local class bernoulli_cloglog
+        if "`cmd'"=="poisson" local class poisson_log
+        if "`cmd'"=="nbreg" local class nbinomial_log
+        if "`cmd'"=="regress" local class gaussian_identity
+    }
     else if "`cmd'"=="mixed" {
         local supported 1
         local activecmd mixed
@@ -5332,7 +5345,7 @@ program define suest2_meheteroestimate, sortpreserve eclass
         local dglayout_`i' `"`r(scorelayout)'"'
         local wshape`i' "none"
         if trim(`"`e(wtype)'"')=="" & trim(`"`e(prefix)'"')=="" & ///
-            inlist(`"`e(vce)'"',"","oim","conventional") {
+            inlist(`"`e(vce)'"',"","oim","conventional","ols") {
             local wshape`i' "plain"
         }
         else if trim(`"`e(prefix)'"')=="svy" & ///
@@ -5470,6 +5483,17 @@ program define suest2_meheteroestimate, sortpreserve eclass
     }
 
     local highvar
+    forvalues i=1/`nmodels' {
+        // 1.1.0: the highest-level group of the first multilevel or panel model, wherever it is
+        local name : word `i' of `names'
+        capture quietly estimates restore `name'
+        if _rc continue
+        capture quietly suest2_mehetero_identify
+        if _rc | r(plain) | !r(supported) continue
+        if r(xtgre) local highvar : word 1 of `e(ivar)'
+        else local highvar : word 1 of `e(ivars)'
+        continue, break
+    }
     local rc 0
     local errtext
     local jointscores
@@ -5520,7 +5544,7 @@ program define suest2_meheteroestimate, sortpreserve eclass
             // 0.1.90: ordinary constituent -- no integration settings to
             // validate; require a conventional store like every other
             // constituent on this route.
-            if !inlist(`"`e(vce)'"',"","oim") {
+            if !inlist(`"`e(vce)'"',"","oim","ols") {
                 local rc 322
                 local errtext "store conventional (non-robust) estimates for ordinary constituent `name'; suest2 supplies the robust or clustered VCE"
                 continue, break
@@ -5609,7 +5633,9 @@ program define suest2_meheteroestimate, sortpreserve eclass
             }
         }
 
-        foreach scalar in N k rank {
+        local needsc "N k rank"
+        if "`plain`i''"=="1" local needsc "N rank"
+        foreach scalar of local needsc {
             capture confirm scalar e(`scalar')
             if _rc {
                 local rc 498
@@ -6047,18 +6073,19 @@ program define suest2_meheteroestimate, sortpreserve eclass
                 local variance_transform=`naturalvar'
             }
             matrix `bmap'[1,`bridge_varpos']=`naturalvar'
-            mata: st_numscalar("__s2het_bridge_bdiff",max(abs(st_matrix("`bmap'"):-st_matrix("`bbridge'"))))
-            mata: st_numscalar("__s2het_bridge_bscale",1+max(abs(st_matrix("`bbridge'"))))
-            if abs(e(ll)-`llsrc`i'')>1e-8 | ///
-                scalar(__s2het_bridge_bdiff)>1e-5*scalar(__s2het_bridge_bscale) {
+            // 1.1.0: the refit must match the model within 1% of a standard error on every estimate
+            tempname sebr
+            matrix `sebr'=J(1,`Kbridge',0)
+            forvalues j=1/`=`K`i''-1' {
+                matrix `sebr'[1,`bridgepos`j'']=sqrt(`Vsrc'[`j',`j'])
+            }
+            matrix `sebr'[1,`bridge_varpos']=sqrt(`Vsrc'[`K`i'',`K`i''])*`variance_transform'
+            mata: st_numscalar("__s2het_bridge_gse",max(select(abs(st_matrix("`bmap'"):-st_matrix("`bbridge'")):/st_matrix("`sebr'"),st_matrix("`sebr'"):>0)))
+            if scalar(__s2het_bridge_gse)>.01 {
                 local rc 322
-                * Report the MEASURED margin, not the floor. The two
-                * scalars are set immediately above, so they are
-                * always present on this path.
-                local __s2bdstr = string(scalar(__s2het_bridge_bdiff), "%9.3e")
-                local __s2btstr = string(1e-5*scalar(__s2het_bridge_bscale), "%9.3e")
+                local __s2gstr = strtrim(string(scalar(__s2het_bridge_gse), "%9.3f"))
                 local __s2trynq = 2*`nquad`i''
-                local errtext "model `name' was fit with `nquad`i'' quadrature points and does not match its Gaussian mixed-model bridge closely enough: the largest coefficient difference is `__s2bdstr', above the `__s2btstr' tolerance. It needs MORE points than it has -- `minquad`i'' is the bridge floor, not a value that will clear this. Refit with more, for example: `activecmd`i'' ..., intpoints(`__s2trynq') -- then store it again"
+                local errtext "model `name' was fit with `nquad`i'' quadrature points, too few for these data: suest2 refits it as a mixed model, and the two differ by up to `__s2gstr' standard errors (suest2 needs them within 0.01). Refit with more points, for example: `activecmd`i'' ..., intpoints(`__s2trynq') -- then store it again"
                 continue, break
             }
             capture quietly suest2_mehetero_repost `bmap'
@@ -6115,7 +6142,7 @@ program define suest2_meheteroestimate, sortpreserve eclass
             local bridgecall`i' `"`bridgecall'"'
             local bridgevar`i'=`naturalvar'
         }
-        else if "`plain`i''"=="1" {
+        else if "`plain`i''"=="1" & `ordered`i'' {
             // 0.1.90: ordinary ordinal constituent. Native scores come
             // one per EQUATION (measured: asking for column counts is
             // refused r(103)); expand them to one per COLUMN so the
@@ -6173,6 +6200,66 @@ program define suest2_meheteroestimate, sortpreserve eclass
                 }
             }
             capture drop __s2hpsc*
+            if `plrc' {
+                local rc=`plrc'
+                local errtext "unable to evaluate the design column for a score of ordinary model `name'"
+                continue, break
+            }
+        }
+        else if "`plain`i''"=="1" {
+            // 1.1.0: one score per equation, expanded to columns; ancillary columns map one to one
+            capture quietly estimates restore `name'
+            if _rc {
+                local rc=_rc
+                local errtext "unable to restore model `name' after reproduction checks"
+                continue, break
+            }
+            local firsteq : word 1 of `nativeeq`i''
+            local nanc 0
+            foreach eq of local nativeeq`i' {
+                if `"`eq'"'!=`"`firsteq'"' local ++nanc
+            }
+            local pleqsc
+            forvalues q=0/`nanc' {
+                tempvar esc
+                local pleqsc `pleqsc' `esc'
+            }
+            capture quietly predict double `pleqsc' if `sample', scores
+            if _rc capture quietly predict double `pleqsc' if `sample', score
+            if _rc {
+                local rc=_rc
+                local errtext "unable to generate native equation scores for ordinary model `name'"
+                continue, break
+            }
+            local esc1 : word 1 of `pleqsc'
+            if "`activecmd`i''"=="regress" quietly replace `esc1'=`esc1'*sqrt((e(N)-1)/(e(N)-e(rank)))/e(rmse)^2 if `sample'
+            tempname plomit
+            quietly _ms_omit_info `bsrc'
+            matrix `plomit'=r(omit)
+            local plrc 0
+            local anc 1
+            forvalues j=1/`K`i'' {
+                local scj : word `j' of `scorelist'
+                local eqj : word `j' of `nativeeq`i''
+                local cnj : word `j' of `nativecn`i''
+                if `"`eqj'"'!=`"`firsteq'"' {
+                    local ++anc
+                    local esc : word `anc' of `pleqsc'
+                    quietly generate double `scj'=`esc' if `sample'
+                }
+                else if `plomit'[1,`j'] {
+                    quietly generate double `scj'=0 if `sample'
+                }
+                else if "`cnj'"=="_cons" quietly generate double `scj'=`esc1' if `sample'
+                else {
+                    capture fvrevar `cnj' if `sample'
+                    if _rc {
+                        local plrc=_rc
+                        continue, break
+                    }
+                    quietly generate double `scj'=`esc1'*`r(varlist)' if `sample'
+                }
+            }
             if `plrc' {
                 local rc=`plrc'
                 local errtext "unable to evaluate the design column for a score of ordinary model `name'"
