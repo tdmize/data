@@ -5,13 +5,54 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.7.1 -- 24sep2026, ordinary models beside multilevel and panel models
+
+With suest2 1.1.0, an ordinary model (`regress`, `logit`, `probit`,
+`cloglog`, `poisson`, `nbreg`) can be compared with a multilevel or panel
+model, e.g. `mecompare i.x, models(m_logit m_melogit)`. Two changes here.
+(1) suest2 labels the margins of every model in such a system by equation
+(the specialized stripe), and so does any system it builds on its
+heterogeneous multilevel route (e.g. mixed then melogit). mecompare read the
+labelling off model 1's family alone (r(spec) of `_mec_canonical`), so a
+system whose first model was an ordinary model or `mixed` addressed columns
+that do not exist. It now also reads `e(suest2_mehetero)` off the system.
+(2) With a multilevel or panel model the stored models must be conventional:
+suest2 refuses robust stores there and clusters on the highest-level group
+itself. The note that recommended refitting with vce(robust) now says to fit
+every model without it. Help: the comparable-models list adds logit vs
+melogit. Gate 67 (`test_ordinary_mixed_gate67_v1_0`).
+
+### Build v02 -- 25sep2026 (still v1.7.1, unreleased)
+
+With one model, the SE column is labelled by the model's own VCE (its
+e(vcetype)): "Robust SE" when the model was fit with robust or clustered
+standard errors, "SE" when conventional, otherwise its type ("Linearized
+SE" after svy, "Bootstrap SE", ...). It always said "Robust SE", so a
+multilevel model fit without vce(robust) showed model-based standard errors
+under that label (owner, 25sep2026: "fix the 'Robust SE' label so it
+accurately reflects if robust SEs were used or not"). With several models
+the column stays "Robust SE": suest2 always supplies a robust or clustered
+VCE. `marginsopt(vce(unconditional))` still gives "Uncond SE". The
+column-name substitution now matches whole words, so a label cannot absorb
+a later statistic's name (e.g. the "p" in "Bootstrap"). Gate 67 v1_2 PART G.
+
+## mecompare.sthlp -- 24sep2026, help only
+
+Corrected wording in the CRE section: with `x` entered as is (`xtreg y
+x mean_x i.d, re`), the `mean_x` coefficient is the difference between
+the between-person and within-person estimates; the help had called it
+the between-person estimate. No `.ado` moved.
+
 ## metest.sthlp -- 24sep2026, help only
 
 A risk-ratio example in "Use after other commands": after `margins
-college, post` on the HRS 2020 data (`cda_hrs`), `metest 1 / 2` is the
+collegeB, post` on the HRS 2020 data (`cda_hrs`), `metest 1 / 2` is the
 ratio of the two predicted probabilities (the owner's code). Five new
 `{stata}` lines, so the help-examples gate is regenerated as
 `test_help_examples_v1_14`. metest.ado is unchanged (0.3.2).
+Later the same day: the variable is spelled out as `collegeB` (it was
+`college`, which ran through Stata's variable abbreviation); gate
+`test_help_examples_v1_15`.
 
 ## v1.7.0 -- 23sep2026, group(varname); amount(p#-p#); mcompare(); amount((list)); cochange()
 

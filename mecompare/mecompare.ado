@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.7.0 Trenton Mize 2026-09-23  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.7.1 Trenton Mize 2026-09-25  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -535,6 +535,7 @@ if `nummods' == 1 {
 	local mwtype1 = "`e(wtype)'"
 	local mwexp1  = "`e(wexp)'"
 	local mprefix1 = "`e(prefix)'"
+	local mecvct "`e(vcetype)'"
 
 *The weight belongs on the STORED model
 	if "`weight'" != ""  mec_wcheck, gweight(`weight') gexp(`exp') /*
@@ -722,6 +723,12 @@ local meccoln`i' : colnames e(b)
 mec_share ebvars
 local fvivs`i' `"`s(fvvars)'"'
 local vcetype`i'	= "`e(vce)'" // Will produce warning below if not robust
+*Multilevel and panel models are stored without vce(robust); suest2 clusters them
+local mecml`i' = 0
+foreach mecc in mixed melogit meprobit mecloglog mepoisson menbreg meologit meoprobit mestreg meglm xtologit xtoprobit {
+	if "`e(cmd)'" == "`mecc'" | "`e(cmd2)'" == "`mecc'"  local mecml`i' = 1
+	}
+if inlist("`e(cmd)'", "xtlogit", "xtprobit", "xtcloglog", "xtpoisson") & "`e(model)'" == "re"  local mecml`i' = 1
 *mi checks / info
 local ismi`i' = 0
 local s2mimark = 0
@@ -1058,13 +1065,21 @@ di in red "NOTE: a model given in {opt models( )} was fit with an " /*
 *Warn if vce(robust) not used on stored models
 local vcerobustall = 1
 local mecvcelist ""
+local mecmlany = 0
 forvalues j = 1/`nummods' {
 	if "`vcetype`j''" != "robust"  local vcerobustall = 0
+	if `mecml`j'' == 1  local mecmlany = 1
 	local mecvcelist "`mecvcelist' `mod`j'' ({cmd:`cmd`j''}),"
 	}
 local mecvcelist = substr(trim("`mecvcelist'"), 1, length(trim("`mecvcelist'")) - 1)
 if `vcerobustall' == 0 & `issvy' != 1 & `ismi' != 1 {
-	if `nummods' == 2 {
+	if `mecmlany' == 1 {
+	di in red "NOTE: {cmd:mecompare} clusters the standard errors on the " /*
+	*/ "highest-level group of the multilevel or panel model(s), so they " /*
+	*/ "will differ from the models' own. Fit every model without " /*
+	*/ "vce(robust); {cmd:mecompare} supplies the clustering."
+	}
+	else if `nummods' == 2 {
 	di in red "{cmd:mecompare} uses vce(robust) for all models. " /*
 	*/ "Standard errors from {cmd:mecompare} will differ from the " /*
 	*/ "specified model(s) because vce(robust) was not used on at " /*
@@ -1166,6 +1181,8 @@ else {
 
 capture estimates drop `mecalt'
 est 	store `mecsys'
+*A heterogeneous suest2 system labels every model by equation (the specialized stripe)
+if "`engine'" != "gsem" & "`e(suest2_mehetero)'" == "1"  local s2spec1 = 1
 
 *Capture suest2's private-copy names now; labelled at end of program
 local mecholdn ""
@@ -3311,6 +3328,8 @@ if "`mcmeth'" != ""  _mec_mcadj `mcmeth' `mcfams'
 local estimate_col 	"Estimate"
 local est_col 		"Estimate"
 local se_col 		"Robust_SE"
+*One model keeps its own VCE: label the column by it
+if `nummods' == 1 & "`mecvct'" != "Robust"  local se_col = cond("`mecvct'" == "", "SE", ustrregexra("`mecvct'", "[^A-Za-z]", "") + "_SE")
 if regexm(`"`mecmorest'"', "vce\( *unconditional *\)")  local se_col "Uncond_SE"
 local pvalue_col 	"P>|z|"
 local pval_col 		"P>|z|"
@@ -3321,7 +3340,7 @@ local z_col 		"z"
 
 local statcols `stats'
 foreach s in `stats' {
-	local statcols : subinstr local statcols "`s'" "``s'_col'"
+	local statcols : subinstr local statcols "`s'" "``s'_col'", word
 	}
 matrix 	colnames _mlincom = `statcols'
 local 	numcols : word count `statcols'	// for formatting table

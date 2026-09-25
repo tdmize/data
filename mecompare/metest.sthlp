@@ -219,9 +219,9 @@ probabilities, averaging over observed values -- in the Health and
 Retirement Study 2020:{p_end}
 
 {phang2}{stata "use https://tdmize.github.io/data/data/cda_hrs, clear":use https://tdmize.github.io/data/data/cda_hrs, clear}{p_end}
-{phang2}{stata "drop if missing(cogB, marstatB, college, woman, age)":drop if missing(cogB, marstatB, college, woman, age)}{p_end}
-{phang2}{stata "logit cogB i.college i.marstatB i.woman c.age, or":logit cogB i.college i.marstatB i.woman c.age, or}{p_end}
-{phang2}{stata "margins college, post":margins college, post}{p_end}
+{phang2}{stata "drop if missing(cogB, marstatB, collegeB, woman, age)":drop if missing(cogB, marstatB, collegeB, woman, age)}{p_end}
+{phang2}{stata "logit cogB i.collegeB i.marstatB i.woman c.age, or":logit cogB i.collegeB i.marstatB i.woman c.age, or}{p_end}
+{phang2}{stata "margins collegeB, post":margins collegeB, post}{p_end}
 {phang2}{stata "metest 1 / 2":metest 1 / 2}{p_end}
 
 {pstd}

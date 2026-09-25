@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-23 Trenton D Mize -- matches mecompare v1.7.0}{...}
+{* 2026-09-24 Trenton D Mize -- matches mecompare v1.7.1}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -602,7 +602,8 @@ supported.
 {pstd}Models are comparable when they all return the
 {bf:same number of predictions}. Same-family sets (e.g., two logits, three
 glms, two mestregs) always qualify. Cross-family sets qualify on the same rule: 
-{cmd:logit} vs {cmd:regress}, {cmd:xtlogit} vs {cmd:mixed}, or any pair of 
+{cmd:logit} vs {cmd:regress}, {cmd:logit} vs {cmd:melogit}, {cmd:xtlogit} vs 
+{cmd:mixed}, or any pair of 
 binary-, count-, or continuous-outcome models; and any pair of ordinal or 
 nominal models with the same number of outcome categories ({cmd:ologit} vs 
 {cmd:oprobit}, {cmd:mlogit} vs {cmd:ologit}, and so on). Each model 
@@ -863,8 +864,9 @@ when fit with the {cmd:re} estimator.{p_end}
 
 {pstd}
 Where the {it:x} coefficient represents the within-person ("fixed effect") 
-estimate and the {it:mean_x} coefficient represents the between-person 
-estimate. The same recipe extends to any supported panel or multilevel family, e.g. 
+estimate and the {it:mean_x} coefficient represents the difference 
+between the between-person and within-person estimates. The same 
+recipe extends to any supported panel or multilevel family, e.g. 
 {cmd:xtlogit} or {cmd:xtpoisson}, etc.
 {p_end}
 
