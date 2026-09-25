@@ -2,7 +2,7 @@ v 3
 d mecompare - Cross-model comparisons of marginal effects
 d Trenton D. Mize, Purdue University
 d Requires: suest2
-d Distribution-Date: 20260923
+d Distribution-Date: 20260925
 f mecompare/mecompare.ado
 f mecompare/mecompare.sthlp
 f mecompare/mecomp.ado
