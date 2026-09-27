@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.7.1 Trenton Mize 2026-09-25  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.7.2 Trenton Mize 2026-09-25  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -1063,41 +1063,11 @@ di in red "NOTE: a model given in {opt models( )} was fit with an " /*
 	}	
 
 *Warn if vce(robust) not used on stored models
-local vcerobustall = 1
-local mecvcelist ""
-local mecmlany = 0
+local mecvl ""
 forvalues j = 1/`nummods' {
-	if "`vcetype`j''" != "robust"  local vcerobustall = 0
-	if `mecml`j'' == 1  local mecmlany = 1
-	local mecvcelist "`mecvcelist' `mod`j'' ({cmd:`cmd`j''}),"
+	local mecvl `"`mecvl' "`mod`j''" "`cmd`j''" "`vcetype`j''" `mecml`j''"'
 	}
-local mecvcelist = substr(trim("`mecvcelist'"), 1, length(trim("`mecvcelist'")) - 1)
-if `vcerobustall' == 0 & `issvy' != 1 & `ismi' != 1 {
-	if `mecmlany' == 1 {
-	di in red "NOTE: {cmd:mecompare} clusters the standard errors on the " /*
-	*/ "highest-level group of the multilevel or panel model(s), so they " /*
-	*/ "will differ from the models' own. Fit every model without " /*
-	*/ "vce(robust); {cmd:mecompare} supplies the clustering."
-	}
-	else if `nummods' == 2 {
-	di in red "{cmd:mecompare} uses vce(robust) for all models. " /*
-	*/ "Standard errors from {cmd:mecompare} will differ from the " /*
-	*/ "specified model(s) because vce(robust) was not used on at " /*
-	*/ "least one of the models specified in the {it:models( )} " /*
-	*/ "option. We strongly recommend refitting the first " /*
-	*/ "({cmd:`cmd1'}) and second ({cmd:`cmd2'}) models with " /*
-	*/ "vce(robust). See {help vce_option} for details on vce(robust)."
-	}
-	else {
-	di in red "{cmd:mecompare} uses vce(robust) for all models. " /*
-	*/ "Standard errors from {cmd:mecompare} will differ from the " /*
-	*/ "specified model(s) because vce(robust) was not used on at " /*
-	*/ "least one of the models specified in the {it:models( )} " /*
-	*/ "option. We strongly recommend refitting the models " /*
-	*/ "(`mecvcelist') with " /*
-	*/ "vce(robust). See {help vce_option} for details on vce(robust)."
-	}
-	}	
+_mec_vcenote `issvy' `ismi' `nummods' `mecvl'
 	
 *ME lists come from the e(b)-sourced fvivs locals
 local mecinmods ""
@@ -3637,34 +3607,11 @@ if "`warn_twosd'" != "" {
 	}
 
 *Survival routes: say which survival-time quantity the rows are on (margins' default differs by command)
-local mecsstreg ""
-local mecsmest ""
+local mecsl ""
 forvalues j = 1/`nummods' {
-	if "`cmd`j''" == "streg"    local mecsstreg "`mecsstreg' `mod`j''"
-	if "`cmd`j''" == "mestreg"  local mecsmest "`mecsmest' `mod`j''"
+	local mecsl `"`mecsl' "`mod`j''" "`cmd`j''""'
 	}
-if "`mecsstreg'`mecsmest'" != "" {
-	local mecsext " Predicted survival times extrapolate beyond the observed follow-up when spells are censored."
-	if `"`predict'`mecexpr'"' != "" {
-		local mecsurv "the survival-model rows are changes in the prediction you requested"
-		local mecsext ""
-		}
-	else if `nummods' == 1 {
-		if "`mecsstreg'" != ""  local mecsurv "after {cmd:streg} the marginal effects are changes in the predicted median survival time (margins' default; after {cmd:mestreg} it is the predicted mean)"
-		else                    local mecsurv "after {cmd:mestreg} the marginal effects are changes in the predicted mean survival time (margins' default; after {cmd:streg} it is the predicted median)"
-		}
-	else {
-		if "`mecsstreg'" != ""  local mecsurv "the rows for`mecsstreg' ({cmd:streg}) are changes in the predicted median survival time"
-		if "`mecsmest'" != "" & "`mecsurv'" != ""  local mecsurv "`mecsurv' and the rows for`mecsmest' ({cmd:mestreg}) in the predicted mean survival time"
-		if "`mecsmest'" != "" & "`mecsurv'" == ""  local mecsurv "the rows for`mecsmest' ({cmd:mestreg}) are changes in the predicted mean survival time"
-		local mecsurv "`mecsurv' (margins' defaults)"
-		}
-	di _newline(1)
-	di as text "NOTE: `mecsurv'.`mecsext' Jones and Metzger (2019) and " /*
-	*/ "Metzger and Jones (2022) recommend interpreting duration models through " /*
-	*/ "survival probabilities at chosen times, which {cmd:mecompare} does not " /*
-	*/ "compute. See {help mecompare##survival}."
-	}
+_mec_survnote `"`predict'"' `"`mecexpr'"' `nummods' `mecsl'
 
 *One difference per outcome; under groupme each model averages over its own group
 if "`groupme'" != "" {
@@ -3702,6 +3649,173 @@ local K = `me_num' - 1
 
 if `K' > 0 {
 
+	local mecmx ""
+	forvalues j = 1/`K' {
+		local mecmx `"`mecmx' "`mexp`j''""'
+		}
+	local meckeys ""
+	local mecns ""
+	forvalues j = 1/`nummods' {
+		local meckeys "`meckeys' `rkey`j''"
+		local mecns "`mecns' `N`j''"
+		}
+	_mec_post `K' `nummods' `ismi' `mec_sample' "`groups'" "`store'" "`dv1name'" "`rkeyD'" "`meckeys'" "`mecns'" "`MEC_eqn'" "`MEC_rol'" `"`MEC_ctr'"' "`MEC_lev'" `mecmx'
+*Post the prediction label(s); per-model macros only when the models disagree
+	if `"`plab1'"' != "" {
+		ereturn local predict_label `"`plab1'"'
+		local mecplabdiff = 0
+		forvalues j = 2/`nummods' {
+			if `"`plab`j''"' != "" & `"`plab`j''"' != `"`plab1'"'  local mecplabdiff = 1
+			}
+		if `mecplabdiff' == 1 {
+			forvalues j = 1/`nummods' {
+				ereturn local predict`j'_label `"`plab`j''"'
+				}
+		}
+	}
+	if `"`marginsopt'"' != ""  ereturn local marginsopt `"`marginsopt'"'
+	if "`mcmeth'" != ""  ereturn local mcompare "`mcmeth'"
+	*Stash the matlist display specs for replay (strip embedded quotes)
+	local __dt : subinstr local N_title `"""' "", all
+	local __dt = stritrim("`__dt'")
+	ereturn local dtitle `"`__dt'"'
+	ereturn local dcspec `"`colspec'"'
+	ereturn local drspec `"`rowspec'"'
+*Copy: ereturn matrix would move the source
+	ereturn matrix table = _mecompare, copy
+	ereturn scalar n_vars = `mecnvars'
+	ereturn scalar n_mods = `nummods'
+	*Unrecoverable quantities post as 0; counts and a completeness flag are returned
+	ereturn scalar k_failed = `__nmiss'
+	ereturn scalar V_zeroed = `__vmiss'
+	if `__nmiss' == 0 & `__vmiss' == 0  ereturn scalar V_complete = 1
+	else                                ereturn scalar V_complete = 0
+	*names of the persistent variables mecompare created, if any
+	if "`mecdv1'" != ""  ereturn local mec_dv1 "`mecdv1'"
+	if "`mecdv2'" != ""  ereturn local mec_dv2 "`mecdv2'"
+	}
+
+*Label the _est_ markers at return; any estimates housekeeping can reset them, and _rc is saved/restored so the block is invisible to the caller
+local __rcsave = _rc
+capture label variable _est_`mecsys' "mecompare: est. sample for stored system `mecsys'"
+capture label variable _est_mec_margins "mecompare: est. sample for stored margins mec_margins"
+capture label variable _est__mec_src "mecompare: est. sample for source-model stash _mec_src"
+local __nh : word count `mecholdn'
+forvalues __h = 1/`__nh' {
+	local __hv : word `__h' of `mecholdn'
+	local __hw : word `__h' of `mecholdw'
+	capture label variable _est_`__hv' "suest2: est. sample for private copy of `__hw'"
+	}
+capture error `__rcsave'
+
+end		
+	
+	
+capture program drop _mec_vcenote
+program define _mec_vcenote
+*The note on standard errors when a stored model was not fit with vce(robust)
+	version 16.0
+	gettoken issvy 0 : 0
+	gettoken ismi 0 : 0
+	gettoken nummods 0 : 0
+	forvalues j = 1/`nummods' {
+		gettoken mod`j' 0 : 0
+		gettoken cmd`j' 0 : 0
+		gettoken vcetype`j' 0 : 0
+		gettoken mecml`j' 0 : 0
+		}
+local vcerobustall = 1
+local mecvcelist ""
+local mecmlany = 0
+forvalues j = 1/`nummods' {
+	if "`vcetype`j''" != "robust"  local vcerobustall = 0
+	if `mecml`j'' == 1  local mecmlany = 1
+	local mecvcelist "`mecvcelist' `mod`j'' ({cmd:`cmd`j''}),"
+	}
+local mecvcelist = substr(trim("`mecvcelist'"), 1, length(trim("`mecvcelist'")) - 1)
+if `vcerobustall' == 0 & `issvy' != 1 & `ismi' != 1 {
+	if `mecmlany' == 1 {
+	di in red "NOTE: {cmd:mecompare} clusters the standard errors on the " /*
+	*/ "highest-level group of the multilevel or panel model(s), so they " /*
+	*/ "will differ from the models' own. Fit every model without " /*
+	*/ "vce(robust); {cmd:mecompare} supplies the clustering."
+	}
+	else if `nummods' == 2 {
+	di in red "{cmd:mecompare} uses vce(robust) for all models. " /*
+	*/ "Standard errors from {cmd:mecompare} will differ from the " /*
+	*/ "specified model(s) because vce(robust) was not used on at " /*
+	*/ "least one of the models specified in the {it:models( )} " /*
+	*/ "option. We strongly recommend refitting the first " /*
+	*/ "({cmd:`cmd1'}) and second ({cmd:`cmd2'}) models with " /*
+	*/ "vce(robust). See {help vce_option} for details on vce(robust)."
+	}
+	else {
+	di in red "{cmd:mecompare} uses vce(robust) for all models. " /*
+	*/ "Standard errors from {cmd:mecompare} will differ from the " /*
+	*/ "specified model(s) because vce(robust) was not used on at " /*
+	*/ "least one of the models specified in the {it:models( )} " /*
+	*/ "option. We strongly recommend refitting the models " /*
+	*/ "(`mecvcelist') with " /*
+	*/ "vce(robust). See {help vce_option} for details on vce(robust)."
+	}
+	}	
+end
+
+capture program drop _mec_survnote
+program define _mec_survnote
+*The note saying which survival-time quantity the streg and mestreg rows are on
+	version 16.0
+	gettoken predict 0 : 0
+	gettoken mecexpr 0 : 0
+	gettoken nummods 0 : 0
+	forvalues j = 1/`nummods' {
+		gettoken mod`j' 0 : 0
+		gettoken cmd`j' 0 : 0
+		}
+local mecsstreg ""
+local mecsmest ""
+forvalues j = 1/`nummods' {
+	if "`cmd`j''" == "streg"    local mecsstreg "`mecsstreg' `mod`j''"
+	if "`cmd`j''" == "mestreg"  local mecsmest "`mecsmest' `mod`j''"
+	}
+if "`mecsstreg'`mecsmest'" != "" {
+	local mecsext " Predicted survival times extrapolate beyond the observed follow-up when spells are censored."
+	if `"`predict'`mecexpr'"' != "" {
+		local mecsurv "the survival-model rows are changes in the prediction you requested"
+		local mecsext ""
+		}
+	else if `nummods' == 1 {
+		if "`mecsstreg'" != ""  local mecsurv "after {cmd:streg} the marginal effects are changes in the predicted median survival time (margins' default; after {cmd:mestreg} it is the predicted mean)"
+		else                    local mecsurv "after {cmd:mestreg} the marginal effects are changes in the predicted mean survival time (margins' default; after {cmd:streg} it is the predicted median)"
+		}
+	else {
+		if "`mecsstreg'" != ""  local mecsurv "the rows for`mecsstreg' ({cmd:streg}) are changes in the predicted median survival time"
+		if "`mecsmest'" != "" & "`mecsurv'" != ""  local mecsurv "`mecsurv' and the rows for`mecsmest' ({cmd:mestreg}) in the predicted mean survival time"
+		if "`mecsmest'" != "" & "`mecsurv'" == ""  local mecsurv "the rows for`mecsmest' ({cmd:mestreg}) are changes in the predicted mean survival time"
+		local mecsurv "`mecsurv' (margins' defaults)"
+		}
+	di _newline(1)
+	di as text "NOTE: `mecsurv'.`mecsext' Jones and Metzger (2019) and " /*
+	*/ "Metzger and Jones (2022) recommend interpreting duration models through " /*
+	*/ "survival probabilities at chosen times, which {cmd:mecompare} does not " /*
+	*/ "compute. See {help mecompare##survival}."
+	}
+end
+
+capture program drop _mec_post
+program define _mec_post, eclass
+*Posts the MEs as e(b) and e(V), named by variable, model, contrast and level; store() keeps each role
+	version 16.0
+	foreach mecin in K nummods ismi mec_sample groups store dv1name rkeyD meckeys mecns MEC_eqn MEC_rol MEC_ctr MEC_lev {
+		gettoken `mecin' 0 : 0
+		}
+	forvalues j = 1/`K' {
+		gettoken mexp`j' 0 : 0
+		}
+	forvalues j = 1/`nummods' {
+		local rkey`j' : word `j' of `meckeys'
+		local N`j' : word `j' of `mecns'
+		}
 	*Coefficient names: several models -> eq=variable, coef=model; one model -> variable only
 	local eqnames ""
 	local conames ""
@@ -4028,57 +4142,10 @@ if `K' > 0 {
 	ereturn local cmd        "mecompare"
 	ereturn local title      "Marginal-effect comparison"
 	ereturn local properties "b V"
-*Post the prediction label(s); per-model macros only when the models disagree
-	if `"`plab1'"' != "" {
-		ereturn local predict_label `"`plab1'"'
-		local mecplabdiff = 0
-		forvalues j = 2/`nummods' {
-			if `"`plab`j''"' != "" & `"`plab`j''"' != `"`plab1'"'  local mecplabdiff = 1
-			}
-		if `mecplabdiff' == 1 {
-			forvalues j = 1/`nummods' {
-				ereturn local predict`j'_label `"`plab`j''"'
-				}
-		}
-	}
-	if `"`marginsopt'"' != ""  ereturn local marginsopt `"`marginsopt'"'
-	if "`mcmeth'" != ""  ereturn local mcompare "`mcmeth'"
-	*Stash the matlist display specs for replay (strip embedded quotes)
-	local __dt : subinstr local N_title `"""' "", all
-	local __dt = stritrim("`__dt'")
-	ereturn local dtitle `"`__dt'"'
-	ereturn local dcspec `"`colspec'"'
-	ereturn local drspec `"`rowspec'"'
-*Copy: ereturn matrix would move the source
-	ereturn matrix table = _mecompare, copy
-	ereturn scalar n_vars = `mecnvars'
-	ereturn scalar n_mods = `nummods'
-	*Unrecoverable quantities post as 0; counts and a completeness flag are returned
-	ereturn scalar k_failed = `__nmiss'
-	ereturn scalar V_zeroed = `__vmiss'
-	if `__nmiss' == 0 & `__vmiss' == 0  ereturn scalar V_complete = 1
-	else                                ereturn scalar V_complete = 0
-	*names of the persistent variables mecompare created, if any
-	if "`mecdv1'" != ""  ereturn local mec_dv1 "`mecdv1'"
-	if "`mecdv2'" != ""  ereturn local mec_dv2 "`mecdv2'"
-	}
+	c_local __nmiss `__nmiss'
+	c_local __vmiss `__vmiss'
+end
 
-*Label the _est_ markers at return; any estimates housekeeping can reset them, and _rc is saved/restored so the block is invisible to the caller
-local __rcsave = _rc
-capture label variable _est_`mecsys' "mecompare: est. sample for stored system `mecsys'"
-capture label variable _est_mec_margins "mecompare: est. sample for stored margins mec_margins"
-capture label variable _est__mec_src "mecompare: est. sample for source-model stash _mec_src"
-local __nh : word count `mecholdn'
-forvalues __h = 1/`__nh' {
-	local __hv : word `__h' of `mecholdn'
-	local __hw : word `__h' of `mecholdw'
-	capture label variable _est_`__hv' "suest2: est. sample for private copy of `__hw'"
-	}
-capture error `__rcsave'
-
-end		
-	
-	
 * version 0.1.1 2018-11-02 | mize - long
 /*
 Adds blank rows (via .z) to table for clearer formatting of the table 

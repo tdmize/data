@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-24 Trenton D Mize -- matches mecompare v1.7.1}{...}
+{* 2026-09-27 Trenton D Mize -- matches mecompare v1.7.2}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -730,6 +730,14 @@ variable are its effect in {cmd:m1}, {cmd:m2}, and {cmd:m3} in turn, so
 {p_end}
 
 {pstd}
+With {opt by()} or {opt over()} the rows for a variable are its effect at each
+level in turn: with {cmd:by(race)}, {cmd:metest 1 = 2 = 3} tests that the
+effect is the same for all three categories of nominal variable {it:race}, a
+joint test of the interaction, and {cmd:metest 1 - 2} is the difference
+between the first two.
+{p_end}
+
+{pstd}
 The estimates are ordinary {cmd:e(b)}/{cmd:e(V)} results, so {help lincom}, 
 {help nlcom} and {help test} can also be used directly. Type 
 {cmd:mecompare, coeflegend} to list the coefficient names. 
@@ -915,6 +923,20 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 
 {phang} {stata mecompare age race, models(basemod medmod) by(collgrad married): mecompare age race, models(basemod medmod) by(collgrad married)} {p_end}
 
+{pstd}{it:Whether an effect differs across the levels (a test of interaction), jointly and for one pair:}
+
+{phang} {stata mecompare age, models(basemod) by(race): mecompare age, models(basemod) by(race)} {p_end}
+
+{phang} {stata metest 1 = 2 = 3: metest 1 = 2 = 3} {p_end}
+
+{phang} {stata metest 1 - 2: metest 1 - 2} {p_end}
+
+{pstd}{it:For a nominal variable, one equality per contrast:}
+
+{phang} {stata mecompare race, models(basemod) by(collgrad): mecompare race, models(basemod) by(collgrad)} {p_end}
+
+{phang} {stata metest (1 = 2) (3 = 4): metest (1 = 2) (3 = 4)} {p_end}
+
 {pstd}{it:Values of the focal variables and covariates, including lists of values:}
 
 {phang} {stata mecompare age race, models(basemod medmod) atmeans: mecompare age race, models(basemod medmod) atmeans} {p_end}
@@ -1035,7 +1057,7 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 {pstd}{it:Use metest to calculate the cross-model tests. Here, whether the effect diminishes in each subsequent model.}
 {p_end}
 
-{phang} {stata "metest 1 - 2, add":metest 1 - 2, add} {p_end}
+{phang} {stata "metest 1 - 2":metest 1 - 2} {p_end}
 
 {phang} {stata "metest 2 - 3, add":metest 2 - 3, add} {p_end}
 

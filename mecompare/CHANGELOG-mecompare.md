@@ -5,6 +5,41 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## mecompare.sthlp -- 27sep2026, testing an effect across by() and over() levels
+
+Help only; no .ado moved. One paragraph under "Testing and combining the
+marginal effects": with `by()` or `over()` a variable's rows are its effect at
+each level in turn, so with `by(race)` `metest 1 = 2 = 3` is the joint test of
+the interaction and `metest 1 - 2` one pair. Two example groups under
+"Effects within levels of a variable (by, over)": `mecompare age,
+models(basemod) by(race)` with `metest 1 = 2 = 3` and `metest 1 - 2`, and
+`mecompare race, models(basemod) by(collgrad)` with `metest (1 = 2) (3 = 4)`,
+one equality per contrast. The four-model block's first `metest` line no
+longer has `add`, so its table starts fresh after the new examples. Owner's
+decision (27sep2026): no automatic Diff. rows across by()/over() levels in
+mecompare; metest does the tests. Pinned by gate 70
+(`test_bytest_help_gate70_v1_1`, 41 / 0) and the help-examples gate
+(`test_help_examples_v1_18`, 185 / 0), 27sep2026.
+
+## v1.7.2 -- 25sep2026, three blocks of the main program in subprograms
+
+A refactor; no result, message, stored result or return code changes.
+Stata allows 135,600 bytes and 3,500 lines in one program ([R] limits). After
+1.7.1 the main program stood at 131,679 bytes (97.1%) and 3,373 lines
+(96.4%), 3,921 bytes (roughly 100 lines) short of the limit that
+stopped mecompare.ado loading in rev69. Three self-contained blocks now run
+as subprograms of
+mecompare.ado, verbatim apart from their inputs and outputs: the vce(robust)
+note (`_mec_vcenote`), the survival-time note (`_mec_survnote`), and the
+recovery of e(b)/e(V), the coefficient names, store() and `ereturn post`
+(`_mec_post`, eclass). The main program then adds the other e() results in
+the same order as before. Per-model values (mod#, cmd#, vcetype#, mecml#) and
+the ME expressions are passed as quoted words, so an empty value or a value
+label with parentheses or commas keeps its place. The main program is now
+120,424 bytes (88.8%) and 3,046 lines (87.0%). Gate 68
+(`test_helpers_ab_gate68_v1_0`) runs the same calls on 1.7.1 and 1.7.2 and
+compares return codes, printed output, e(), r() and _rc.
+
 ## v1.7.1 -- 24sep2026, ordinary models beside multilevel and panel models
 
 With suest2 1.1.0, an ordinary model (`regress`, `logit`, `probit`,
