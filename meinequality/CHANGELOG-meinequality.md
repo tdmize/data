@@ -1,5 +1,18 @@
 # CHANGELOG -- meinequality
 
+## v1.9.5 -- 26sep2026, the standard-error note for multilevel and panel models
+
+When one of the two models is a multilevel or panel model (mixed, the me
+commands, xtologit, xtoprobit, or xtlogit, xtprobit, xtcloglog or xtpoisson
+with re) and a model was not fit with vce(robust), the note now says what
+suest2 does: "NOTE: meinequality clusters the standard errors on the highest-level
+group of the multilevel or panel model(s), so they will differ from the
+models' own. Fit every model without vce(robust); meinequality supplies the
+clustering." Before, it recommended refitting with vce(robust), which suest2
+refuses for these models. mecompare changed the same note in 1.7.1; this is
+its wording. As in mecompare, no note prints for svy or mi models. Nothing
+else moves (gate 69, `test_sibling_vcenote_gate69_v1_0`).
+
 ## v1.9.4 -- 23sep2026, group(varname)
 
 `group(varname)`, the spelling of the groups option in earlier versions

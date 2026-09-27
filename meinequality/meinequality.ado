@@ -1,6 +1,6 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.9.4 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-meinequality.md (repo)
+*! meinequality v1.9.5 Bing Han & Trenton Mize 2026-09-26  | history: CHANGELOG-meinequality.md (repo)
 
 program define meinequality, rclass
 	
@@ -245,6 +245,7 @@ qui tempvar mod1samp
 _mei_ismi
 local mei_ismi1 = r(ismi)
 local mei_under1 "`r(under)'"
+local mei_ml1 = r(ml)
 if `mei_ismi1' == 1  qui gen `mod1samp' = 1
 else                             qui gen `mod1samp' = e(sample)
 
@@ -388,6 +389,7 @@ if `nummods' == 2 {
 _mei_ismi
 local mei_ismi2 = r(ismi)
 local mei_under2 "`r(under)'"
+local mei_ml2 = r(ml)
 if `mei_ismi2' == 1  qui gen `mod2samp' = 1
 else                             qui gen `mod2samp' = e(sample)
 	local Nsav2 = e(N)	
@@ -704,8 +706,15 @@ else                             qui gen `mod2samp' = e(sample)
 	}		
 	}
 	
-	*Warn if vce(robust) was not used on the stored models
-	if "`vcetype1'" != "robust" | "`vcetype2'" != "robust" {
+	*Warn if vce(robust) was not used on the stored models (no note under svy or mi, as in mecompare)
+	if ("`vcetype1'" != "robust" | "`vcetype2'" != "robust") & "`prefix1'" != "svy" & `mei_ismi1' == 0 & `mei_ismi2' == 0 {
+		if `mei_ml1' | `mei_ml2' {
+		di in red "NOTE: {cmd:meinequality} clusters the standard errors on the " /*
+		*/ "highest-level group of the multilevel or panel model(s), so they " /*
+		*/ "will differ from the models' own. Fit every model without " /*
+		*/ "vce(robust); {cmd:meinequality} supplies the clustering."
+		}
+		else {
 		di in red "{cmd:meinequality} uses vce(robust) for both models. " /*
 		*/ "Standard errors from {cmd:meinequality} will differ from the " /*
 		*/ "specified models because vce(robust) was not used on at " /*
@@ -714,6 +723,7 @@ else                             qui gen `mod2samp' = e(sample)
 		*/ "vce(robust) to ensure the {cmd:meinequality} results match " /*
 		*/ "those from the first ({cmd:`cmd_m1'}) and second ({cmd:`cmd_m2'}) " /*
 		*/ "models exactly. See {help vce_option} for details on vce(robust)."
+		}
 		}	
 	
 } // end: check for two-model situation
@@ -1904,6 +1914,12 @@ program define _mei_ismi, rclass
 	local under "`e(cmd_mi)'"
 	if trim("`under'") == "" | "`under'" == "mi estimate"  local under "`e(cmd)'"
 	if "`under'" == "mi estimate"  local under ""
+	local ml = 0
+	foreach c in mixed melogit meprobit mecloglog mepoisson menbreg meologit meoprobit mestreg meglm xtologit xtoprobit {
+		if "`e(cmd)'" == "`c'" | "`e(cmd2)'" == "`c'"  local ml = 1
+		}
+	if inlist("`e(cmd)'", "xtlogit", "xtprobit", "xtcloglog", "xtpoisson") & "`e(model)'" == "re"  local ml = 1
+	return scalar ml = `ml'
 	return scalar ismi = `ismi'
 	return local under "`under'"
 end
