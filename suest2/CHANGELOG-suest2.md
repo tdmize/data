@@ -613,3 +613,13 @@ margins call now also covers `probit`, `cloglog`, `poisson`, `nbreg` and
 
 The multilevel section lists the ordinary models that can be combined with
 multilevel and panel models.
+
+## suest2.sthlp -- 26sep2026, help only
+
+One sentence in the panel-models paragraph: for `xtpoisson, re`, the robust
+and clustered standard errors suest2 reports match those `xtpoisson, re`
+itself reports (measured to 2e-8 for the default gamma random effects,
+`probe_xpgr_native_v1_0`, 10sep2026). The route keeps that parity on
+purpose (owner, 10sep2026); the question to StataCorp about native's robust
+variance for this model is still open. No `.ado` moved; no `{stata}` line
+was added.

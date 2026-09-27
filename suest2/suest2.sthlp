@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  24sep2026}{...}
+{* *! version 1.1.0  26sep2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -130,7 +130,9 @@ either unweighted conventional estimates, or linearized
 {pstd}
 Panel systems are unweighted and ordinarily require a common panel identifier.
 Store conventional constituent results; request robust or higher-level
-clustered covariance with {cmd:suest2}. 
+clustered covariance with {cmd:suest2}. For {cmd:xtpoisson, re}, these
+standard errors match the robust and clustered standard errors that
+{cmd:xtpoisson, re} itself reports.
 
 {pstd}
 Correlated random effects models should be specified as detailed 
