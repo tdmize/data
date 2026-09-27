@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.7.7 Bing Han & Trenton Mize 2026-09-23  | history: CHANGELOG-totalme.md (repo)
+*! totalme v1.7.8 Bing Han & Trenton Mize 2026-09-26  | history: CHANGELOG-totalme.md (repo)
 
 program define totalme, rclass
 	
@@ -254,6 +254,7 @@ tempvar mod1samp
 _tm_ismi
 local tm_ismi1 = r(ismi)
 local tm_under1 "`r(under)'"
+local tm_ml1 = r(ml)
 if `tm_ismi1' == 1  qui gen `mod1samp' = 1
 else                qui gen `mod1samp' = e(sample)
 
@@ -378,6 +379,7 @@ if `nummods' == 2 {
 _tm_ismi
 local tm_ismi2 = r(ismi)
 local tm_under2 "`r(under)'"
+local tm_ml2 = r(ml)
 if `tm_ismi2' == 1  qui gen `mod2samp' = 1
 else                qui gen `mod2samp' = e(sample)
 	local Nsav2 = e(N)	
@@ -649,8 +651,15 @@ else                qui gen `mod2samp' = e(sample)
 	}		
 	}
 	
-	*Warn if vce(robust) was not used on the stored models
-	if "`vcetype1'" != "robust" | "`vcetype2'" != "robust" {
+	*Warn if vce(robust) was not used on the stored models (no note under svy or mi, as in mecompare)
+	if ("`vcetype1'" != "robust" | "`vcetype2'" != "robust") & "`prefix1'" != "svy" & `tm_ismi1' == 0 & `tm_ismi2' == 0 {
+		if `tm_ml1' | `tm_ml2' {
+		di in red "NOTE: {cmd:totalme} clusters the standard errors on the " /*
+		*/ "highest-level group of the multilevel or panel model(s), so they " /*
+		*/ "will differ from the models' own. Fit every model without " /*
+		*/ "vce(robust); {cmd:totalme} supplies the clustering."
+		}
+		else {
 		di in red "{cmd:totalme} uses vce(robust) for both models. " /*
 		*/ "Standard errors from {cmd:totalme} will differ from the " /*
 		*/ "specified model(s) because vce(robust) was not used on at " /*
@@ -659,6 +668,7 @@ else                qui gen `mod2samp' = e(sample)
 		*/ "vce(robust) to ensure the {cmd:totalme} results match " /*
 		*/ "those from the first ({cmd:`cmd_m1'}) and second ({cmd:`cmd_m2'}) " /*
 		*/ "models exactly. See {help vce_option} for details on vce(robust)."
+		}
 		}	
 	
 } // end: check for two-model situation
@@ -2212,7 +2222,7 @@ program define _tm_bases, rclass
 	return local bases `out'
 end
 
-*Is the restored model an mi-pooled fit, and what command underlies it?
+*Is the restored model an mi-pooled fit, what command underlies it, and is it multilevel or panel?
 capture program drop _tm_ismi
 program define _tm_ismi, rclass
 	local ismi = 0
@@ -2224,6 +2234,12 @@ program define _tm_ismi, rclass
 	local under "`e(cmd_mi)'"
 	if trim("`under'") == "" | "`under'" == "mi estimate"  local under "`e(cmd)'"
 	if "`under'" == "mi estimate"  local under ""
+	local ml = 0
+	foreach c in mixed melogit meprobit mecloglog mepoisson menbreg meologit meoprobit mestreg meglm xtologit xtoprobit {
+		if "`e(cmd)'" == "`c'" | "`e(cmd2)'" == "`c'"  local ml = 1
+		}
+	if inlist("`e(cmd)'", "xtlogit", "xtprobit", "xtcloglog", "xtpoisson") & "`e(model)'" == "re"  local ml = 1
+	return scalar ml = `ml'
 	return scalar ismi = `ismi'
 	return local under "`under'"
 end
