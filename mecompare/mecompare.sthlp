@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-27 Trenton D Mize -- matches mecompare v1.7.2}{...}
+{* 2026-09-28 Trenton D Mize -- matches mecompare v1.8.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -194,7 +194,8 @@ the results are identical to naming them in {opt mod:els( )}.
 
 {phang2}
 o Otherwise the single model in {help ereturn:e()} is used, and it is 
-labelled {cmd:m1} in the table. It does not need to have been stored. 
+labelled {cmd:m1} in the table and in {opt store()} names. It does not 
+need to have been stored. 
 {p_end}
 
 {marker stats}
@@ -475,8 +476,8 @@ take one value in each model's sample and a different value in each model.
 
 {p2col:{opt groupn:ames(name1 name2 ...)}} labels the groups in the output,
 in the order of {opt models( )}; by default the groups are labeled by their
-model names. Requires the {opt groups} option. Each name is truncated to 10
-characters.
+model names. Requires the {opt groups} option. Long names are shortened only as needed to
+fit the table.
 {p_end}
 
 {p2col:{opt groupm:e}} reports the average conditional difference in the
@@ -524,7 +525,7 @@ in the table. The default is 3. Any integer between 0 - 7 is allowed.
 the table corresponding to the marginal effects for the first and second
 models in {opt models( )}. The default is the name of the stored estimates
 given in {opt models( )}, or the group when the {opt groups} option is used.
-Names over 10 characters will be truncated in the output. Any further models
+Long names are shortened only as needed to fit the table. Any further models
 are labeled by their stored names (or by {opt groupnames()} under
 {opt groups}).
 {p_end}
@@ -555,10 +556,11 @@ and {it:stub}{cmd:_diff} (the cross-model differences) -- where {it:model1} and
 {it:model2} are the names given in {opt models( )}. With three or more models,
 one estimate per model is saved ({it:stub}{cmd:_}{it:model1},
 {it:stub}{cmd:_}{it:model2}, ...) and no {it:stub}{cmd:_diff}. With one model,
-a single estimate {it:stub}{cmd:_}{it:model1} is saved. Each stored estimate is keyed by
-variable, so {help coefplot} and {help esttab} arrange results by variable 
-automatically. With {opt by()} or {opt over()}, each stored estimate carries 
-one coefficient per cell (e.g. {cmd:age_collgrad_0} and {cmd:age_collgrad_1}). 
+a single estimate {it:stub}{cmd:_}{it:model1} is saved. The coefficients are named
+with the table's labels, e.g. {it:age + SD (centered)} or {it:Black - White}, so
+{help coefplot} and {help esttab} show them as rows; with {opt by()} or {opt over()}
+the level is added, e.g. {it:Black - White, Women}. Names are limited to 32
+characters, so long labels are shortened, each part by an equal share.
 See {help mecompare##plotting:Plotting and tabulating results} for examples.
 {p_end}
 
@@ -818,7 +820,8 @@ whether this happened{p_end}
 
 {pstd}
 The {opt store(stub)} option saves the marginal effects as separate stored 
-estimates keyed by variable, which makes plotting with {help coefplot} and 
+estimates, one per model, each coefficient named by its row label in the table,
+which makes plotting with {help coefplot} and 
 tabulating with {help esttab} straightforward. If needed, install these 
 user-written packages first: {stata ssc install coefplot} and 
 {stata ssc install estout}.

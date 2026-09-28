@@ -5,6 +5,48 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.8.0 -- 28sep2026, readable labels in the table and in store() names
+
+`store()` names its coefficients with the table's labels, so esttab and coefplot
+show readable rows: `age + SD (centered)`, `Women - Men`, `Black - White`, and
+with `by()`/`over()`, a `covariates()` or `start()` list, or a multi-category
+outcome the level or outcome after a comma (`Black - White, Women`); total-ME and
+ME-inequality rows read `race, ME Inequality`. Names were `race_BlackvWhite`,
+`woman` (esttab's `label` then showed the variable label, not the contrast),
+`age_collgrad_0`. When two variables would get the same name in one stored
+estimate, the variable is added in parentheses; a name Stata will not hold as
+written is stored in its valid-name form (`strtoname()`). A dot is stored as a
+centered dot (`hours=40·5`): esttab, combining stored estimates, reads a dot as
+factor-variable syntax. Names hold 32 characters
+(measured: 33 refused); a longer label is cut with every part -- each side of
+the contrast, the level, the outcome -- given an equal share and a short part
+keeping its full text (`_mec_fit`); a cut that leaves a parenthesis open ends
+with `)` (`age + 1 (center)`), since coefplot cannot read an open one. The table
+uses all the room it has the same
+way: contrast labels (were cut to 10 characters a side, 8 for binary
+variables), `mod1name()`/`mod2name()`/`groupnames()` (10), and level and outcome
+labels (13) are no longer cut to fixed lengths; row labels share the width
+between outcome, model and level (`_mec_rowlab`) -- the label column less the 4
+characters matlist indents a row, 8 for a contrast heading. The main table's coefficient
+names (metest, lincom, coeflegend) do not change. Scripts that name stored
+coefficients (e.g. coefplot `keep()` or `coeflabels()`) need the new names.
+The "Predicting:" line (and `e(predict_label)`) of a multi-outcome model reads
+`Pr(y)`, not `Pr(y==<first outcome>)` (owner's report, mlogit).
+Owner's design (28sep2026; probes `probe_storenames_v1_0`, `v1_1`).
+
+## v1.7.3 -- 28sep2026, the model in e() is m1 in store() names
+
+With `models()` omitted, mecompare stores the model in e() under a temporary
+name, and `store()` named its estimates after it: `mecompare, store(emod)`
+saved `emod___000003`, titled "ME (__000003)". It now saves `emod_m1`, titled
+"ME (m1)", matching the table's `m1` rows; `mod1name()` changes the table
+label only, as it does with `models()`. The temporary name also reached two
+one-model messages (a command mecompare does not support; a multilevel model
+weighted without a stage weight); without `models()` they now say "the model
+in memory", and with `models(mymod)` the first reads "model mymod is a ...".
+Help: the `models()`-omitted bullet says `m1` is also the name in `store()`.
+Reported by the owner (28sep2026). Gate 71 (`test_solo_store_gate71_v1_0`).
+
 ## mecompare.sthlp -- 27sep2026, testing an effect across by() and over() levels
 
 Help only; no .ado moved. One paragraph under "Testing and combining the
