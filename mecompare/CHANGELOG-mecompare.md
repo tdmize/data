@@ -5,6 +5,15 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.8.1 -- 28sep2026, the models' command lines only with commands
+
+The command line of each model ("Model 1 (m1) is:" and the model) no longer
+prints by default; the `commands` option prints it, before the margins and
+suest2 commands it already printed -- as totalme 1.8.0 and meinequality 1.10.0
+do. With one model, `commands` now prints its command line too (before, only
+two or more models printed theirs). Help: `commands` names the models' commands. Owner's request (28sep2026).
+Nothing else moves (gate 73, `test_siblings_gate73_v1_1`).
+
 ## v1.8.0 -- 28sep2026, readable labels in the table and in store() names
 
 `store()` names its coefficients with the table's labels, so esttab and coefplot

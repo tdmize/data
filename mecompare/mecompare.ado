@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.8.0 Trenton Mize 2026-09-28  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.8.1 Trenton Mize 2026-09-28  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -598,6 +598,13 @@ local issvy = 0
 ****************************************************************************
 if `nummods' == 1 {
 	qui est restore `mod1'
+	*commands prints the model's stored command line
+	if "`commands'" != "" {
+		local mecm1 = cond("`mecsolo'" != "", "m1", "`mod1'")
+		di _newline(1)
+		di 		as text "Model 1 (`mecm1') is:"
+		di 		as result `"     `e(cmdline)'"'
+		}
 	
 	local 	N1 = e(N)
 	local 	dv1name 	= "`e(depvar)'"
@@ -1113,16 +1120,17 @@ else {
 local mecdv1 ""
 local mecdv2 ""
 	
-di
-*Include model specs. in output
-di 		_newline(1)
-*Echo each model's own stored command line (display only)
-forvalues j = 1/`nummods' {
-	local 	mec_cl`j' = itrim(trim("`cmdline`j''"))
-	local 	mod`j'specs "`mec_cl`j''"
-	local 	mod`j'clean = itrim("`mod`j'specs'")
-	di 		as text "Model `j' (`mod`j'') is:"
-	di 		as result "     `mod`j'clean'"
+*Each model's own stored command line, with commands
+if "`commands'" != "" {
+	di
+	di 		_newline(1)
+	forvalues j = 1/`nummods' {
+		local 	mec_cl`j' = itrim(trim("`cmdline`j''"))
+		local 	mod`j'specs "`mec_cl`j''"
+		local 	mod`j'clean = itrim("`mod`j'specs'")
+		di 		as text "Model `j' (`mod`j'') is:"
+		di 		as result "     `mod`j'clean'"
+		}
 	}
 	
 *listwise moved to mec_gsem with the rest of the gsem call.

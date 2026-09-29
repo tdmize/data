@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-28 Trenton D Mize -- matches mecompare v1.8.0}{...}
+{* 2026-09-28 Trenton D Mize -- matches mecompare v1.8.1}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -565,8 +565,8 @@ See {help mecompare##plotting:Plotting and tabulating results} for examples.
 {p_end}
 
 {p2colset 5 18 19 0}
-{p2col:{opt command:s}} displays the commands used for the {cmd:margins} 
-estimates and, if two or more models are used, the {cmd:suest2} command.
+{p2col:{opt command:s}} displays the command of each model, the commands used 
+for the {cmd:margins} estimates and, if two or more models are used, the {cmd:suest2} command.
 {p_end}
 
 {p2colset 5 18 19 0}
