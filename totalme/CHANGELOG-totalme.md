@@ -1,5 +1,28 @@
 # CHANGELOG -- totalme
 
+## v1.8.0 -- 28sep2026, full labels; the model's command line only with commands
+
+**Labels, as in mecompare 1.8.0.** The table's labels use the whole label
+column: model and group names (were cut to 10 characters), by()/over() level
+labels and a binary variable's value labels (13, abbreviated with `~`) are no
+longer cut to fixed lengths. A label longer than the column is cut with every
+part given an equal share and a part needing less keeping its text
+(`_tm_fit`, a copy of mecompare's `_mec_fit`): the variable, the level and the
+row type in a `rc3(Women) total ME Ineq.` header (`_tm_veq`), each side of a
+binary `College Degree vs No College Degree` row, the name in a `Model 1
+(name)` row; a cut that leaves a parenthesis open ends with `)`. With two
+models the change label rides on the variable's header only when it fits
+whole, as since 1.7.0.
+
+**Output.** The model's command line ("Model (m1) is:" and the model) prints
+only with `commands`, before the margins and suest2 commands, and so does the
+note that the command lines are shown without their options; the
+"Continuous/Binary IV(s):" and "Nominal IV(s):" lines are gone -- each row's
+label shows the kind of effect. Help: `commands` names the models' commands;
+`groupnames()`: "Long names are shortened only as needed to fit the table."
+Owner's decisions (28sep2026). The numbers do not move (gate 73,
+`test_siblings_gate73_v1_1`).
+
 ## v1.7.8 -- 26sep2026, the standard-error note for multilevel and panel models
 
 When one of the two models is a multilevel or panel model (mixed, the me

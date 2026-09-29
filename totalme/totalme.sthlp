@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-23 Bing Han, Trenton D. Mize -- matches totalme v1.7.7}{...}
+{* 2026-09-28 Bing Han, Trenton D. Mize -- matches totalme v1.8.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -364,11 +364,12 @@ corresponding to the total ME for Model 1 and Model 2. Two group names must
 be provided. The {opt groups} option is required when using 
 {opt groupn:ames(string)}. By default, the rows are named based on the 
 stored estimate names specified in the {opt models(list)} option. 
-Note that names longer than 10 characters will be truncated in the output.
+Long names are shortened only as needed to fit the table.
 {p_end}
 
 {p2colset 5 18 19 0}
-{p2col:{opt command:s}} displays the {cmd:margins} command used to estimate 
+{p2col:{opt command:s}} displays the command of each model, the {cmd:margins} 
+command used to estimate 
 the marginal effects, and when two models are specified, the {cmd:suest2} 
 command used to combine the model estimates.
 {p_end}
