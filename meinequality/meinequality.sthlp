@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-23 Bing Han, Trenton D. Mize -- matches meinequality v1.9.4}{...}
+{* 2026-09-28 Bing Han, Trenton D. Mize -- matches meinequality v1.10.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -357,11 +357,12 @@ must be provided; there can be no spaces in each group name.
 The {opt groups} option is required when using 
 {opt groupn:ames(string)}. By default, the rows are named based on the 
 stored estimate names specified in the {opt models(list)} option. 
-Note that names longer than 10 characters will be truncated in the output.
+Long names are shortened only as needed to fit the table.
 {p_end}
 
 {p2colset 5 18 19 0}
-{p2col:{opt command:s}} displays the {cmd:margins} command used to calculate 
+{p2col:{opt command:s}} displays the command of each model, the {cmd:margins} 
+command used to calculate 
 the predictions that make up the ME inequality estimate, and when two models 
 are used, the {cmd:suest2} command used to combine the two models. 
 {p_end}

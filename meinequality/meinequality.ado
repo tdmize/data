@@ -1,6 +1,6 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.9.5 Bing Han & Trenton Mize 2026-09-26  | history: CHANGELOG-meinequality.md (repo)
+*! meinequality v1.10.0 Bing Han & Trenton Mize 2026-09-28  | history: CHANGELOG-meinequality.md (repo)
 
 program define meinequality, rclass
 	
@@ -195,8 +195,11 @@ else {
 	local mod2name : word 2 of `groupnames'
 }
 
-local mod1lab = substr("`mod1name'",1,10)
-local mod2lab = substr("`mod2name'",1,10)
+*Model names are cut only as needed to fit "Model 1 (name)" in the label column
+_mei_fit `=`twidth' - 10' "" `"`mod1name'"'
+local mod1lab `"`r(lab)'"'
+_mei_fit `=`twidth' - 10' "" `"`mod2name'"'
+local mod2lab `"`r(lab)'"'
 
 *Set weight specification 
 if "`weight'" != "" {
@@ -563,7 +566,7 @@ else                             qui gen `mod2samp' = e(sample)
 		local cmdline_m1 = substr("`cmdline_m1'", 1, `ifcomma' - 1) 
 		local cmdline_m1_vce = substr("`cmdline_m1_vce'", `ifcomma' + 1, `ifcomma' + 7)		
 		local cmdline_m1_vce = strtrim("`cmdline_m1_vce'")
-		if "`cmdline_m1_vce'" != "vce(robust)" {
+		if "`cmdline_m1_vce'" != "vce(robust)" & "`commands'" != "" {
 			di in red "{cmd:meinequality} shows each model's command line without " /*
 			*/ "its options. Estimation uses `mod1' exactly as it was stored; " /*
 			*/ "nothing is refitted and no option is discarded."			
@@ -579,7 +582,7 @@ else                             qui gen `mod2samp' = e(sample)
 		local cmdline_m2 = substr("`cmdline_m2'", 1, `ifcomma' - 1) 
 		local cmdline_m2_vce = substr("`cmdline_m2_vce'", `ifcomma' + 1, .)
 		local cmdline_m2_vce = strtrim("`cmdline_m2_vce'")
-		if "`cmdline_m2_vce'" != "vce(robust)" {
+		if "`cmdline_m2_vce'" != "vce(robust)" & "`commands'" != "" {
 			di in red "{cmd:meinequality} shows each model's command line without " /*
 			*/ "its options. Estimation uses `mod2' exactly as it was stored; " /*
 			*/ "nothing is refitted and no option is discarded."			
@@ -878,14 +881,16 @@ return scalar n_vars = `numvars'
 if `nummods' == 1 {
 	local samp1_size = e(N)
 
-	di 		as text "Model (`mod1') is:"
-	di 		as result "     `cmdline_m1'"
+	if "`commands'" != "" {
+		di 		as text "Model (`mod1') is:"
+		di 		as result "     `cmdline_m1'"
+		}
 }
 
 else if `nummods' == 2 {
 	
-	*Include model specs. in output
-	di 		_newline(1)
+	*The models' command lines print with commands
+	if "`commands'" != ""  di _newline(1)
 
 	local 	mod1specs "`cmdline_m1_show'"
 	local 	mod2specs "`cmdline_m2_show'"
@@ -896,10 +901,12 @@ else if `nummods' == 2 {
 		*/ "weight from the stored models ([`ifwtype1' `ifweight1']) is " /*
 		*/ "applied to the combined fit."
 		}
-	di 		as text "Model 1 (`mod1') is:"
-	di 		as result "     `mod1specs'"
-	di 		as text "Model 2 (`mod2') is:"
-	di 		as result "     `mod2specs'"
+	if "`commands'" != "" {
+		di 		as text "Model 1 (`mod1') is:"
+		di 		as result "     `mod1specs'"
+		di 		as text "Model 2 (`mod2') is:"
+		di 		as result "     `mod2specs'"
+		}
 
 	*Combine the stored estimates; nothing is refitted
 	if "`groups'" == "" & `Nsav1' != `Nsav2' {
@@ -1027,8 +1034,7 @@ forvalues ithvar=1/`numvars' {
 		local bolvl: word `m' of `byoverlvl'
 		local bolvlspec "_`bolvl'"
 		local temp_bolvlname: label `labname' `bolvl'
-		local bolvlname = abbrev("`temp_bolvlname'",13) 
-		local bolvlnamespec "(`bolvlname')"
+		local bolvlname "`temp_bolvlname'"
 		local bospec "`bolvl'.`byovervar'#"
 	}
 	
@@ -1069,7 +1075,8 @@ forvalues ithvar=1/`numvars' {
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			
 			matrix `newmatwgt' = nullmat(`newmatwgt') \ `rt'
-			matrix rownames `newmatwgt' = "ME Inequality:`nomvar'`bolvlnamespec'" 
+			_mei_veq `twidth' `"`nomvar'"' `"`bolvlname'"'
+			matrix rownames `newmatwgt' = `"ME Inequality:`r(eq)'"'
 			if "`all'"=="" {
 				matrix `newmatall' = `newmatall' \ `newmatwgt'
 			}
@@ -1093,7 +1100,8 @@ forvalues ithvar=1/`numvars' {
 			matrix `rt' = r(table)[1,1], r(table)[2,1], r(table)[3,1], ///
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatmean' = nullmat(`newmatmean') \ `rt'
-			matrix rownames `newmatmean' = "Unwgt. ME Inequality:`nomvar'`bolvlnamespec'" 
+			_mei_veq `twidth' `"`nomvar'"' `"`bolvlname'"'
+			matrix rownames `newmatmean' = `"Unwgt. ME Inequality:`r(eq)'"'
 			if "`all'"=="" {
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 			}
@@ -1213,10 +1221,12 @@ forvalues ithvar=1/`numvars' {
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatwgt' = `newmatwgt' \ `rt'	
 		
+			_mei_veq `twidth' `"`nomvar'"' `"`bolvlname'"' "ME Ineq."
+			local meieq `"`r(eq)'"'
 			matrix rownames `newmatwgt' = ///
-				"`nomvar'`bolvlnamespec' ME Ineq.:Model 1 (`mod1lab')" ///
-				"`nomvar'`bolvlnamespec' ME Ineq.:Model 2 (`mod2lab')" ///
-				"`nomvar'`bolvlnamespec' ME Ineq.:Cross-Model Diff."
+				"`meieq':Model 1 (`mod1lab')" ///
+				"`meieq':Model 2 (`mod2lab')" ///
+				"`meieq':Cross-Model Diff."
 			matrix `newmatall' = `newmatall' \ `newmatwgt'
 			matrix drop `newmatwgt'
 
@@ -1266,10 +1276,12 @@ forvalues ithvar=1/`numvars' {
 			r(table)[4,1], r(table)[5,1], r(table)[6,1]
 			matrix `newmatmean' = `newmatmean' \ `rt'
 
+			_mei_veq `twidth' `"`nomvar'"' `"`bolvlname'"' "Unwgt ME Ineq."
+			local meieq `"`r(eq)'"'
 			matrix rownames `newmatmean' = ///
-				"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Model 1 (`mod1lab')" ///
-				"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Model 2 (`mod2lab')" ///
-				"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Cross-Model Diff."
+				"`meieq':Model 1 (`mod1lab')" ///
+				"`meieq':Model 2 (`mod2lab')" ///
+				"`meieq':Cross-Model Diff."
 			
 			matrix `newmatall' = `newmatall' \ `newmatmean'
 			matrix drop `newmatmean'	
@@ -1327,7 +1339,10 @@ forvalues ithvar=1/`numvars' {
 			matrix `newmatwgt' = nullmat(`newmatwgt') \ `rt'
 			
 			**set the row names 
-			matrix rownames `newmatwgt' = "`nomvar'`bolvlnamespec' ME Ineq.:Pr(`out_`dvlevel'')" 
+			_mei_veq `twidth' `"`nomvar'"' `"`bolvlname'"' "ME Ineq."
+			local meieq `"`r(eq)'"'
+			_mei_prow `twidth' "" `"`out_`dvlevel''"'
+			matrix rownames `newmatwgt' = `"`meieq':`r(lab)'"'
 			matrix `newmatall' = `newmatall' \ `newmatwgt'
 			matrix drop `newmatwgt'
 
@@ -1356,7 +1371,10 @@ forvalues ithvar=1/`numvars' {
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = nullmat(`newmatmean') \ `rt'
 				**set the row names	
-				matrix rownames `newmatmean' = "`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Pr(`out_`dvlevel'')" 		
+				_mei_veq `twidth' `"`nomvar'"' `"`bolvlname'"' "Unwgt ME Ineq."
+				local meieq `"`r(eq)'"'
+				_mei_prow `twidth' "" `"`out_`dvlevel''"'
+				matrix rownames `newmatmean' = `"`meieq':`r(lab)'"'
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'
 			}
@@ -1482,10 +1500,14 @@ forvalues ithvar=1/`numvars' {
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatwgt' = `newmatwgt' \ `rt'	
 			
-				matrix rownames `newmatwgt' = ///
-					"`nomvar'`bolvlnamespec' ME Ineq.:`mod1lab' Pr(`out_`dvlevel'')" ///
-					"`nomvar'`bolvlnamespec' ME Ineq.:`mod2lab' Pr(`out_`dvlevel'')" ///
-					"`nomvar'`bolvlnamespec' ME Ineq.:Diff. Pr(`out_`dvlevel'')"
+				_mei_veq `twidth' `"`nomvar'"' `"`bolvlname'"' "ME Ineq."
+				local meieq `"`r(eq)'"'
+				_mei_prow `twidth' `"`mod1name'"' `"`out_`dvlevel''"'
+				local meir1 `"`r(lab)'"'
+				_mei_prow `twidth' `"`mod2name'"' `"`out_`dvlevel''"'
+				local meir2 `"`r(lab)'"'
+				_mei_prow `twidth' "Diff." `"`out_`dvlevel''"'
+				matrix rownames `newmatwgt' = `"`meieq':`meir1'"' `"`meieq':`meir2'"' `"`meieq':`r(lab)'"'
 				matrix `newmatall' = `newmatall' \ `newmatwgt'
 				matrix drop `newmatwgt'
 				
@@ -1543,10 +1565,14 @@ forvalues ithvar=1/`numvars' {
 				r(table)[4,1], r(table)[5,1], r(table)[6,1]
 				matrix `newmatmean' = `newmatmean' \ `rt'
 
-				matrix rownames `newmatmean' = ///
-					"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:`mod1lab' Pr(`out_`dvlevel'')" ///
-					"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:`mod2lab' Pr(`out_`dvlevel'')" ///
-					"`nomvar'`bolvlnamespec' Unwgt ME Ineq.:Diff. Pr(`out_`dvlevel'')"
+				_mei_veq `twidth' `"`nomvar'"' `"`bolvlname'"' "Unwgt ME Ineq."
+				local meieq `"`r(eq)'"'
+				_mei_prow `twidth' `"`mod1name'"' `"`out_`dvlevel''"'
+				local meir1 `"`r(lab)'"'
+				_mei_prow `twidth' `"`mod2name'"' `"`out_`dvlevel''"'
+				local meir2 `"`r(lab)'"'
+				_mei_prow `twidth' "Diff." `"`out_`dvlevel''"'
+				matrix rownames `newmatmean' = `"`meieq':`meir1'"' `"`meieq':`meir2'"' `"`meieq':`r(lab)'"'
 				matrix `newmatall' = `newmatall' \ `newmatmean'
 				matrix drop `newmatmean'	
 			}
@@ -1571,17 +1597,21 @@ forvalues ithvar=1/`numvars' {
 				local unames_`dvnum' `""Unwgt. ME Inequality:`nomvar' `bodlab_`p''""'
 				}
 			else if `nummods' == 1 {
-				local wnames_`dvnum' `""`nomvar' `bodlab_`p'' ME Ineq.:Pr(`out_`dvlevel'')""'
-				local unames_`dvnum' `""`nomvar' `bodlab_`p'' Unwgt ME Ineq.:Pr(`out_`dvlevel'')""'
+				_mei_prow `twidth' "" `"`out_`dvlevel''"'
+				local wnames_`dvnum' `""`nomvar' `bodlab_`p'' ME Ineq.:`r(lab)'""'
+				local unames_`dvnum' `""`nomvar' `bodlab_`p'' Unwgt ME Ineq.:`r(lab)'""'
 				}
 			else {
 				local n1 "Model 1 (`mod1lab')"
 				local n2 "Model 2 (`mod2lab')"
 				local n3 "Cross-Model Diff."
 				if `mod1cats' >= 3 {
-					local n1 "`mod1lab' Pr(`out_`dvlevel'')"
-					local n2 "`mod2lab' Pr(`out_`dvlevel'')"
-					local n3 "Diff. Pr(`out_`dvlevel'')"
+					_mei_prow `twidth' `"`mod1name'"' `"`out_`dvlevel''"'
+					local n1 `"`r(lab)'"'
+					_mei_prow `twidth' `"`mod2name'"' `"`out_`dvlevel''"'
+					local n2 `"`r(lab)'"'
+					_mei_prow `twidth' "Diff." `"`out_`dvlevel''"'
+					local n3 `"`r(lab)'"'
 					}
 				local wnames_`dvnum' `""`nomvar' `bodlab_`p'' ME Ineq.:`n1'" "`nomvar' `bodlab_`p'' ME Ineq.:`n2'" "`nomvar' `bodlab_`p'' ME Ineq.:`n3'""'
 				local unames_`dvnum' `""`nomvar' `bodlab_`p'' Unwgt ME Ineq.:`n1'" "`nomvar' `bodlab_`p'' Unwgt ME Ineq.:`n2'" "`nomvar' `bodlab_`p'' Unwgt ME Ineq.:`n3'""'
@@ -1856,14 +1886,14 @@ end
 
 capture program drop _mei_dvlab
 program define _mei_dvlab, rclass
-*	The display label for one outcome level, abbreviated to fit
+*	The display label for one outcome level
 	version 16
 	syntax, dv(string) dvlevel(string)
 	qui ds `dv', has(vallabel)
 	if "`r(varlist)'" != "" {
 		local lbe : value label `dv'
 		local lab : label `lbe' `dvlevel'
-		return local lab = abbrev(`"`lab'"', 13)
+		return local lab `"`lab'"'
 	}
 	else return local lab "Outcome `dvlevel'"
 end
@@ -1922,4 +1952,100 @@ program define _mei_ismi, rclass
 	return scalar ml = `ml'
 	return scalar ismi = `ismi'
 	return local under "`under'"
+end
+
+capture program drop _mei_fit
+program define _mei_fit, rclass
+*_mei_fit room tail part1 [sep part]...: each part gets an equal share of room, a part needing less keeps its text
+	version 16.0
+	gettoken room 0 : 0
+	gettoken tail 0 : 0
+	local r = `room' - ustrlen(`"`tail'"')
+	local n = 0
+	local tot = 0
+	local sep ""
+	gettoken p 0 : 0
+	local more = 1
+	while `more' {
+		if `"`p'"' != "" {
+			local ++n
+			local t`n' `"`p'"'
+			local g`n' ""
+			if `n' > 1  local g`n' `"`sep'"'
+			local r = `r' - ustrlen(`"`g`n''"')
+			local L`n' = ustrlen(`"`t`n''"')
+			local tot = `tot' + `L`n''
+			local a`n' = .
+			}
+		local more = (`"`0'"' != "")
+		if `more' {
+			gettoken sep 0 : 0
+			gettoken p 0 : 0
+			}
+		}
+	if `tot' > `r' & `n' > 0 {
+		local m = `n'
+		local more = 1
+		while `more' & `m' > 0 {
+			local more = 0
+			local sh = floor(`r' / `m')
+			forvalues k = 1/`n' {
+				if `a`k'' == . & `L`k'' <= `sh' {
+					local a`k' = `L`k''
+					local r = `r' - `L`k''
+					local --m
+					local more = 1
+					}
+				}
+			}
+		if `m' > 0 {
+			local sh = floor(max(`r', 0) / `m')
+			local ex = max(`r', 0) - `m' * `sh'
+			forvalues k = 1/`n' {
+				if `a`k'' == . {
+					local a`k' = `sh' + (`ex' > 0)
+					local --ex
+					local t`k' = ustrrtrim(usubstr(`"`t`k''"', 1, `a`k''))
+					*A cut that leaves "(" open ends with ")" instead
+					local L = ustrlen(`"`t`k''"')
+					if `L' - ustrlen(subinstr(`"`t`k''"', "(", "", .)) > `L' - ustrlen(subinstr(`"`t`k''"', ")", "", .)) {
+						if usubstr(`"`t`k''"', `L', 1) == "("  local t`k' = ustrrtrim(usubstr(`"`t`k''"', 1, `L' - 1))
+						else  local t`k' = usubstr(`"`t`k''"', 1, `L' - 1) + ")"
+						}
+					}
+				}
+			}
+		}
+	local lab ""
+	forvalues k = 1/`n' {
+		local lab `"`lab'`g`k''`t`k''"'
+		}
+	return local lab `"`lab'`tail'"'
+end
+
+capture program drop _mei_veq
+program define _mei_veq, rclass
+*_mei_veq width var level suffix: "var(level) suffix" in width, each part an equal share
+	version 16
+	args w v lev suf
+	if `"`lev'"' == "" & `"`suf'"' == ""  _mei_fit `w' "" `"`v'"'
+	else if `"`lev'"' == ""  _mei_fit `w' "" `"`v'"' " " `"`suf'"'
+	else if `"`suf'"' == ""  _mei_fit `w' ")" `"`v'"' "(" `"`lev'"'
+	else  _mei_fit `w' "" `"`v'"' "(" `"`lev'"' ") " `"`suf'"'
+	return local eq `"`r(lab)'"'
+end
+
+capture program drop _mei_prow
+program define _mei_prow, rclass
+*_mei_prow width name outcome: "name Pr(outcome)" in width, name and outcome an equal share
+	version 16
+	args w nm out
+	if `"`nm'"' == "" {
+		_mei_fit `=`w' - 3' ")" `"`out'"'
+		return local lab `"Pr(`r(lab)'"'
+		}
+	else {
+		_mei_fit `w' ")" `"`nm'"' " Pr(" `"`out'"'
+		return local lab `"`r(lab)'"'
+		}
 end
