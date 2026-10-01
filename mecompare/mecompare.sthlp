@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-28 Trenton D Mize -- matches mecompare v1.8.1}{...}
+{* 2026-09-30 Trenton D Mize -- matches mecompare v1.8.2}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -12,11 +12,62 @@ models it also provides tests of the equality of marginal effects across
 the models.{p_end}
 {p2colreset}{...}
 
-{title:General syntax}
+{marker syntax}{...}
+{title:Syntax}
 
-{p 4 18 2}
-{cmdab:mecomp:are} {varlist} {ifin} {weight} [{cmd:,} {opt mod:els( )} options]
+{p 8 18 2}
+{cmdab:mecomp:are} {varlist} {ifin} {weight} [{cmd:,} {opt mod:els( )} {it:options}]
 {p_end}
+
+{synoptset 28 tabbed}{...}
+{synopthdr}
+{synoptline}
+{syntab:Models}
+{synopt:{opt mod:els(list)}}stored models to use; default is the model in {cmd:e()}{p_end}
+{synopt:{opt group:s}}the models were fit on distinct groups{p_end}
+{synopt:{opt groupn:ames(name1 name2 ...)}}labels for the groups{p_end}
+{synopt:{opt groupm:e}}outcome difference between the two groups{p_end}
+{synopt:{opt groupsd}}each group's own SD for {opt amount(sd)}{p_end}
+
+{syntab:Amount of change}
+{synopt:{opt amount(list)}}change for continuous variables; default is {bf:one}{p_end}
+{synopt:{opt center:ed}}centered change; the default{p_end}
+{synopt:{opt uncent:ered}}change from the value up by the amount{p_end}
+
+{syntab:Values of the variables}
+{synopt:{opt start(list)}}starting values of the focal variables{p_end}
+{synopt:{opt end(list)}}ending values of the focal variables{p_end}
+{synopt:{opt cochange(varlist)}}variables that change along with the focal variable{p_end}
+{synopt:{opt cov:ariates(list)}}values of the covariates{p_end}
+{synopt:{opt atm:eans}}hold the covariates at their means{p_end}
+
+{syntab:Within levels of a variable}
+{synopt:{opt by(varlist)}}effects at each level, as a counterfactual{p_end}
+{synopt:{opt over(varlist)}}effects within each subpopulation{p_end}
+
+{syntab:Nominal and ordinal variables}
+{synopt:{opt pwc:ompare}}all pairwise contrasts{p_end}
+{synopt:{opt mcomp:are(method)}}adjust p-values for multiple comparisons{p_end}
+{synopt:{opt meineq:uality}[{cmd:(}{it:type}{cmd:)}]}ME inequality summary{p_end}
+{synopt:{opt total:me}[{cmd:(}{it:type}{cmd:)}]}Total ME summary{p_end}
+
+{syntab:Prediction}
+{synopt:{opt pred:ict(pred)}}the prediction {cmd:margins} should compute{p_end}
+{synopt:{opt marginsopt(string)}}options passed to {cmd:margins} as typed{p_end}
+
+{syntab:Reporting}
+{synopt:{opt stat:istics(list)}}statistics to display; default is estimate, se, pvalue{p_end}
+{synopt:{opt dec:imals(#)}}decimal places; default is 3{p_end}
+{synopt:{opt mod1:name(string)}}label for the first model{p_end}
+{synopt:{opt mod2:name(string)}}label for the second model{p_end}
+{synopt:{opt labw:idth(#)}}width of the label column; default is 32{p_end}
+{synopt:{opt statw:idth(#)}}width of the statistics columns; default is 9{p_end}
+{synopt:{opt norow:num}}remove the ME # column{p_end}
+{synopt:{opt command:s}}display the commands used{p_end}
+{synopt:{opt detail:s}}display the {cmd:margins} and {cmd:suest2} output{p_end}
+{synopt:{opt store(stub)}}save the estimates for {cmd:coefplot} and {cmd:esttab}{p_end}
+{synoptline}
+{p2colreset}{...}
 
 {marker overview}
 {title:Overview}
@@ -60,18 +111,16 @@ shown in the {cmdab:mecomp:are} table. See
 
 {title:Table of contents}
 
+	{help mecompare##syntax:Syntax and list of options}
 	{help mecompare##overview:Overview}
 	{help mecompare##estimators:Which models and estimators are supported}
-	{help mecompare##required:Specifying the models}
-	{help mecompare##stats:Which statistics to include in table}
+	{help mecompare##required:Specifying the models, including models fit over distinct groups}
 	{help mecompare##amount:Amount of change to compute for continuous variables}
-	{help mecompare##start:Setting starting and ending values of variables in varlist}
-	{help mecompare##covariates:Setting values of covariates}	
+	{help mecompare##start:Setting values of the variables in varlist and of covariates}
 	{help mecompare##byover:Marginal effects within levels of a variable (by, over)}
 	{help mecompare##nominal:Summary measures for nominal and ordinal variables}
-	{help mecompare##groups:Options for comparing models fit over distinct groups}
-	{help mecompare##options:Optional options for formatting, reporting, missing data, etc.}
 	{help mecompare##predictopt:Specifying the prediction}
+	{help mecompare##options:Reporting: statistics, formatting, and saving results}
 	{help mecompare##model_combos:Model combinations that can be compared}
 	{help mecompare##survival:Survival models}
 	{help mecompare##svy_mi:svy and mi est support}
@@ -81,8 +130,8 @@ shown in the {cmdab:mecomp:are} table. See
 	{help mecompare##plotting:Plotting and tabulating results (coefplot, esttab)}
 	{help mecompare##cre:Fixed effects via hybrid specifications}
 	{help mecompare##examples:Examples}
-	
-	
+
+
 {marker estimators}{...}
 {title:Supported estimators}
 
@@ -168,7 +217,7 @@ cross-family combinations that are supported.
 {title:Options}
 
 {marker required}
-{dlgtab:Specifying the models}
+{dlgtab:Models}
 
 {p2colset 5 18 19 0}
 {p2col:{opt mod:els(list)}} names the stored model estimates to use: one
@@ -198,29 +247,40 @@ labelled {cmd:m1} in the table and in {opt store()} names. It does not
 need to have been stored. 
 {p_end}
 
-{marker stats}
-{dlgtab:Statistics to include in the table}
-{p2colset 8 25 25 0}
-{p2col:{opt stat:istics(list)}}selects statistics to display. The default 
-is to include the estimate, se, and pvalue. The following statistics can be 
-included in {it:list}.
+{marker groups}
+
+{p2colset 5 18 19 0}
+{p2col:{opt group:s}} specifies that the models in {opt models( )} were fit
+on distinct (non-overlapping) samples -- one model per group -- and that
+{cmdab:mecomp:are} should compare marginal effects across the groups. Each
+model's estimation sample defines its group; the samples must not overlap.
+With two groups the cross-group differences are reported; with three or more,
+each group's marginal effects are listed and {help metest} can be used to
+test the differences. {opt group(varname)}, the syntax of earlier versions, is also accepted; {it:varname} must
+take one value in each model's sample and a different value in each model.
 {p_end}
 
-{p2colset 10 23 22 12}{...}
-{p2col :Name}Description{p_end}
-{p2line}
-{p2col :{ul:{bf:est}}{bf:imate}}Estimate of the marginal effect{p_end}
-{p2col :{ul:{bf:se}}}Standard error of estimate{p_end}
-{p2col :{ul:{bf:p}}{bf:value}}p-value for test that estimate = 0{p_end}
-{p2col :{ul:{bf:ll}}}Lower level bound of confidence interval{p_end}
-{p2col :{ul:{bf:ul}}}Upper level bound of confidence interval{p_end}
-{p2col :{bf:z}}Value of z-statistic{p_end}
-{p2col :{bf:all}}Display all statistics{p_end}
+{p2col:{opt groupn:ames(name1 name2 ...)}} labels the groups in the output,
+in the order of {opt models( )}; by default the groups are labeled by their
+model names. Requires the {opt groups} option. Long names are shortened only as needed to
+fit the table.
+{p_end}
 
-{p2line}
+{p2col:{opt groupm:e}} reports the average conditional difference in the
+outcome across the two groups, shown beneath the table. With a multi-category
+outcome one difference is reported for each outcome category, labeled
+Pr(category). Requires the {opt groups} option and exactly two models.
+{p_end}
+
+{p2col:{opt groupsd}} with {opt groups} and {opt amount(sd)}, each +SD change 
+is calculated using that group's own standard deviation rather than the 
+pooled SD used by default. Not recommended for most applications: effects 
+can differ only because the groups' SDs differ.
+{p_end}
+
 
 {marker amount}
-{dlgtab:Amount of change and related options for continuous independent variables}
+{dlgtab:Amount of change}
 {p2colset 8 25 25 0}
 {p2col:{opt amount(list)}}specifies the amount of change to be computed for 
 the continuous independent variables. If only one value is specified in 
@@ -274,7 +334,7 @@ rather than the default centered change.
 {p_end}
 
 {marker start}
-{dlgtab:Setting starting and ending values of variables in varlist}
+{dlgtab:Values of the variables}
 {p2colset 8 25 25 0}
 {p2col:{opt start(list)}}By default, the observed values of the focal independent 
 variables specified in the {it:varlist} are used as the starting points for 
@@ -327,7 +387,6 @@ amounts for one variable in {opt amount()}, {opt amount(rate)},
 {p_end}
 
 {marker covariates}
-{dlgtab:Setting values of covariates}
 {p2colset 8 25 25 0}
 {p2col:{opt cov:ariates(list)}}Covariates are other independent variables in 
 the model other than the focal independent variables the marginal effects are 
@@ -352,7 +411,7 @@ and the effect is averaged over the sample.
 {p_end}
 
 {marker byover}
-{dlgtab:Marginal effects within levels of a variable (by, over)}
+{dlgtab:Within levels of a variable (by, over)}
 {p2colset 5 18 19 0}
 {p2col:{opt by(varlist)}} reports the marginal effect of each focal variable 
 {it:as a counterfactual} at each level of {it:varname} -- the effect computed 
@@ -403,7 +462,7 @@ and over those with {it:x} = 1 (the {it:x} = 1 rows).
 {p_end}
 
 {marker nominal}
-{title:Summary measures for nominal and ordinal variables}
+{dlgtab:Nominal and ordinal variables}
 
 {p2colset 5 18 19 0}
 {p2col:{opt pwc:ompare}} for focal variables specified as nominal (i.), 
@@ -460,41 +519,7 @@ weights; labeled {res}Unwgt Total ME Ineq.{txt}.{p_end}
 
 {phang2}{opt all} shows both, weighted first then unweighted.{p_end}
 
-{marker groups}
-{dlgtab:Group options}
-
-{p2colset 5 18 19 0}
-{p2col:{opt group:s}} specifies that the models in {opt models( )} were fit
-on distinct (non-overlapping) samples -- one model per group -- and that
-{cmdab:mecomp:are} should compare marginal effects across the groups. Each
-model's estimation sample defines its group; the samples must not overlap.
-With two groups the cross-group differences are reported; with three or more,
-each group's marginal effects are listed and {help metest} can be used to
-test the differences. {opt group(varname)}, the syntax of earlier versions, is also accepted; {it:varname} must
-take one value in each model's sample and a different value in each model.
-{p_end}
-
-{p2col:{opt groupn:ames(name1 name2 ...)}} labels the groups in the output,
-in the order of {opt models( )}; by default the groups are labeled by their
-model names. Requires the {opt groups} option. Long names are shortened only as needed to
-fit the table.
-{p_end}
-
-{p2col:{opt groupm:e}} reports the average conditional difference in the
-outcome across the two groups, shown beneath the table. With a multi-category
-outcome one difference is reported for each outcome category, labeled
-Pr(category). Requires the {opt groups} option and exactly two models.
-{p_end}
-
-{p2col:{opt groupsd}} with {opt groups} and {opt amount(sd)}, each +SD change 
-is calculated using that group's own standard deviation rather than the 
-pooled SD used by default. Not recommended for most applications: effects 
-can differ only because the groups' SDs differ.
-{p_end}
-
-
-{marker options}
-{dlgtab:Additional Optional Options}
+{dlgtab:Prediction}
 
 {p2colset 5 18 19 0}
 {p2col:{opt pred:ict(pred)}}the prediction {cmd:margins} should compute if 
@@ -514,6 +539,51 @@ treat the covariates as sampled. Use with caution; the result is not checked
 so the user should verify results; use {opt commands} to see the {cmd:margins} 
 line and {opt details} to see the {cmd:margins} output.
 {p_end}
+
+{marker predictopt}
+
+{pstd}
+With a {bf:single} model any prediction {help margins} accepts after that 
+command may be given. For multi-category models, the default reports a 
+prediction per outcome; a single outcome may be selected, as in 
+{cmd:predict(pr outcome(2))}.
+{p_end}
+
+{pstd}
+With {bf:two or more} models, a non-default prediction can be requested if
+it returns a single quantity per model.
+{p_end}
+
+{pstd}
+{bf:Mixed-effects and panel models.} When no {opt predict()} is given each 
+model contributes its own {cmd:margins} default. For the {cmd:me} family and 
+for {cmd:mixed}, that default {bf:averages over the random effects} rather 
+than holding them at zero, and that is the recommended quantity. Random 
+intercepts, random slopes, unstructured covariance and multi-level fits are 
+supported.
+{p_end}
+
+{marker options}
+{dlgtab:Reporting}
+{marker stats}
+{p2colset 8 25 25 0}
+{p2col:{opt stat:istics(list)}}selects statistics to display. The default 
+is to include the estimate, se, and pvalue. The following statistics can be 
+included in {it:list}.
+{p_end}
+
+{p2colset 10 23 22 12}{...}
+{p2col :Name}Description{p_end}
+{p2line}
+{p2col :{ul:{bf:est}}{bf:imate}}Estimate of the marginal effect{p_end}
+{p2col :{ul:{bf:se}}}Standard error of estimate{p_end}
+{p2col :{ul:{bf:p}}{bf:value}}p-value for test that estimate = 0{p_end}
+{p2col :{ul:{bf:ll}}}Lower level bound of confidence interval{p_end}
+{p2col :{ul:{bf:ul}}}Upper level bound of confidence interval{p_end}
+{p2col :{bf:z}}Value of z-statistic{p_end}
+{p2col :{bf:all}}Display all statistics{p_end}
+
+{p2line}
 
 {p2colset 5 18 19 0}
 {p2col:{opt dec:imals(#)}} changes the number of decimal places reported 
@@ -548,6 +618,17 @@ designation for each estimate in the table.
 {p_end}
 
 {p2colset 5 18 19 0}
+{p2col:{opt command:s}} displays the command of each model, the commands used 
+for the {cmd:margins} estimates and, if two or more models are used, the {cmd:suest2} command.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt detail:s}} displays the output of the {cmd:margins} estimates 
+and, if two or more models are used, the {cmd:suest2} output.
+{p_end}
+
+
+{p2colset 5 18 19 0}
 {p2col:{opt store(stub)}} saves the calculated marginal effects as separate 
 stored estimates so they can be plotted with {help coefplot} or tabulated with 
 {help esttab}, {help estimates table}, or {help etable}. With two models, three
@@ -562,40 +643,6 @@ with the table's labels, e.g. {it:age + SD (centered)} or {it:Black - White}, so
 the level is added, e.g. {it:Black - White, Women}. Names are limited to 32
 characters, so long labels are shortened, each part by an equal share.
 See {help mecompare##plotting:Plotting and tabulating results} for examples.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt command:s}} displays the command of each model, the commands used 
-for the {cmd:margins} estimates and, if two or more models are used, the {cmd:suest2} command.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt detail:s}} displays the output of the {cmd:margins} estimates 
-and, if two or more models are used, the {cmd:suest2} output.
-{p_end}
-
-{marker predictopt}
-{dlgtab:Specifying the prediction}
-
-{pstd}
-With a {bf:single} model any prediction {help margins} accepts after that 
-command may be given. For multi-category models, the default reports a 
-prediction per outcome; a single outcome may be selected, as in 
-{cmd:predict(pr outcome(2))}.
-{p_end}
-
-{pstd}
-With {bf:two or more} models, a non-default prediction can be requested if
-it returns a single quantity per model.
-{p_end}
-
-{pstd}
-{bf:Mixed-effects and panel models.} When no {opt predict()} is given each 
-model contributes its own {cmd:margins} default. For the {cmd:me} family and 
-for {cmd:mixed}, that default {bf:averages over the random effects} rather 
-than holding them at zero, and that is the recommended quantity. Random 
-intercepts, random slopes, unstructured covariance and multi-level fits are 
-supported.
 {p_end}
 
 {marker model_combos}

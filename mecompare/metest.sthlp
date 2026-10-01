@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-24 Trenton D Mize}{...}
+{* 2026-09-30 Trenton D Mize -- matches metest v0.3.2}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -7,10 +7,34 @@
 calculated by {help mecompare}{p_end}
 {p2colreset}{...}
 
+{marker syntax}{...}
 {title:Syntax}
 
 {p 4 12 2}
 {cmd:metest} [{it:exp}] [{cmd:,} {it:options}]
+
+{synoptset 20 tabbed}{...}
+{synopthdr}
+{synoptline}
+{syntab:Statistics}
+{synopt:{opt stat:istics(list)}}statistics to display; default is estimate, se, pvalue{p_end}
+{synopt:{opt all:stats}}all six statistics{p_end}
+{synopt:{opt l:evel(#)}}confidence level for {opt ll} and {opt ul}{p_end}
+
+{syntab:Accumulating results}
+{synopt:{opt add}}add the result to the saved table{p_end}
+{synopt:{opt clear}}clear the saved table first{p_end}
+
+{syntab:Display}
+{synopt:{opt rown:ame(string)}}label for the row{p_end}
+{synopt:{opt dec:imals(#)}}decimal places; default is 3{p_end}
+{synopt:{opt wid:th(#)}}width of the statistics columns; default is 9{p_end}
+{synopt:{opt labw:idth(#)}}width of the label column; at most 32{p_end}
+{synopt:{opt title(string)}}title above the table{p_end}
+{synopt:{opt notab:le}}suppress the table{p_end}
+{synopt:{opt d:etails}}show the {cmd:nlcom} or {cmd:test} output{p_end}
+{synoptline}
+{p2colreset}{...}
 
 {pstd}
 where {it:exp} refers to the marginal effects either by the {it:ME #} shown in
@@ -63,6 +87,8 @@ after any e-class command, so {cmd:metest} can also be used after
 
 {title:Options}
 
+{dlgtab:Statistics}
+
 {p2colset 5 22 24 2}
 {p2col:{opt stat:istics(list)}}statistics to display: {opt estimate},
 {opt se}, {opt zvalue}, {opt pvalue}, {opt ll}, {opt ul}, or {opt all}. The
@@ -75,12 +101,18 @@ synonym for the option itself.{p_end}
 
 {p2col:{opt all:stats}}equivalent to {cmd:statistics(all)}.{p_end}
 
+{p2col:{opt l:evel(#)}}confidence level for {opt ll} and {opt ul}.{p_end}
+
+{dlgtab:Accumulating results}
+
 {p2col:{opt add}}adds the result as another row of the saved table rather
 than starting a new one. {cmd:save} is a synonym.{p_end}
 
 {p2col:{opt clear}}clears the saved table before running. {cmd:metest, clear}
 on its own clears it without running anything. It is an option and must
 follow a comma; {cmd:metest clear} is not accepted.{p_end}
+
+{dlgtab:Display}
 
 {p2col:{opt rown:ame(string)}}labels the row. A {cmd::} in the label puts what
 comes before it on a row of its own, with the rest indented underneath, which
@@ -104,8 +136,6 @@ itself is used, e.g. {cmd:(1-2)-(4-5)}. {opt label()} is a synonym.{p_end}
 
 {p2col:{opt d:etails}}shows the underlying {cmd:nlcom} or {cmd:test}
 output.{p_end}
-
-{p2col:{opt l:evel(#)}}confidence level for {opt ll} and {opt ul}.{p_end}
 
 {title:Saved results}
 

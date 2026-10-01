@@ -5,6 +5,39 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.8.2 -- 29sep2026, one blank line after the command and above each note; options table in the help
+
+`di _newline(1)` prints two blank lines -- the `_newline` and the line end
+every `display` adds -- so the output opened with two blank lines and each note
+or message sat under two. All 67 are now `di ""`. The Predicting line and the
+table's title print together (`matlist, noblank` when the Predicting line
+prints), with one blank line before the table:
+
+    . mecompare x2, amount(sd) model(simmod)
+
+    Predicting: Pr(y)
+    Marginal effects (N_simmod=5000)
+
+                                     |  ME #   Estimate         SE      P>|z|
+
+With `commands`, one blank line above the models' command lines (was three).
+When the stored models were fit with `if` or `in`, two blank lines printed
+even when no note followed; the blank line now prints with each note. Notes
+that printed with no blank line above get one: the standard-error note, the
+note that the model from the previous run is reused, a focal variable that is
+also a `by()` variable, and a variable that is not a predictor in every model.
+`melincom.ado` (retired stub): the same, one blank line each. Owner's
+decisions (29sep2026). Only blank lines move (gate 74,
+`test_spacing_gate74_v1_1`).
+
+Help (30sep2026): a Syntax section lists every option in a table, one line
+each, in seven groups (Models, Amount of change, Values of the variables,
+Within levels of a variable, Nominal and ordinal variables, Prediction,
+Reporting); the Options section follows the table's order under headings of
+the same names, the group options under Models and `store()` last under
+Reporting. No option's text changed. metest.sthlp: the same layout (Statistics,
+Accumulating results, Display); metest.ado unchanged (0.3.2).
+
 ## v1.8.1 -- 28sep2026, the models' command lines only with commands
 
 The command line of each model ("Model 1 (m1) is:" and the model) no longer

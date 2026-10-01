@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.8.1 Trenton Mize 2026-09-28  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.8.2 Trenton Mize 2026-09-29  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -139,7 +139,7 @@ foreach mecreq in suest2 _mec_canonical mec_share mec_wcheck mec_gsem {
 	if _rc  local mecmissing "`mecmissing' `mecreq'"
 	}
 if "`mecmissing'" != "" {
-	di _newline(1)
+	di ""
 	di as err "{cmd:mecompare} requires the {cmd:suest2} package, which is "  /*
 	*/ "missing or incomplete. Not found:`mecmissing'. Install or update "  /*
 	*/ "{cmd:suest2} and try again."
@@ -155,7 +155,7 @@ if "`meinequality'" != "" {
 	else if substr("unweighted",1,`mecn') == "`meineqtype'"  local meineqtype "unweighted"
 	else if substr("all",1,`mecn') == "`meineqtype'" | "`meineqtype'" == "both"  local meineqtype "all"
 	else {
-		di _newline(1)
+		di ""
 		di as err "{opt meinequality()} must be {opt weighted}, {opt unweighted}, or {opt all}."
 		exit 198
 		}
@@ -170,7 +170,7 @@ if "`totalme'" != "" {
 	else if substr("unweighted",1,`mecn') == "`totmetype'"  local totmetype "unweighted"
 	else if substr("all",1,`mecn') == "`totmetype'" | "`totmetype'" == "both"  local totmetype "all"
 	else {
-		di _newline(1)
+		di ""
 		di as err "{opt totalme()} must be {opt weighted}, {opt unweighted}, or {opt all}."
 		exit 198
 		}
@@ -304,7 +304,7 @@ if "`decimals'" == "" {
 	else {
 	capture confirm integer number `decimals'
 	if _rc | !inrange(real("`decimals'"), 0, 7) {
-		di _newline(1)
+		di ""
 		di as err "{opt decimals()} must be an integer between 0 and 7."
 		exit 198
 		}
@@ -317,7 +317,7 @@ if "`labwidth'" == "" {
 *32 is the maximum width allowed
 	capture confirm integer number `labwidth'
 	if _rc | !inrange(real("`labwidth'"), 20, 32) {
-		di _newline(1)
+		di ""
 		di as err "{opt labwidth()} must be between 20 and 32. To fit longer " /*
 		*/ "names, shorten them with {opt mod1name()} / {opt mod2name()} or " /*
 		*/ "use shorter names in {opt models()}."
@@ -334,7 +334,7 @@ if "`statwidth'" == "" {
 	else {
 	capture confirm integer number `statwidth'
 	if _rc | !inrange(real("`statwidth'"), 9, 20) {
-		di _newline(1)
+		di ""
 		di as err "{opt statwidth()} must be an integer between 9 and 20."
 		exit 198
 		}
@@ -415,6 +415,7 @@ if `"`models'"' == "" {
 				*/ "{opt models( )}."
 				exit 198
 				}
+			di ""
 			di as text "note: {opt models( )} omitted and {cmd:e()} holds a " /*
 				*/ "previous {cmd:mecompare} table; reusing the " /*
 				*/ "{cmd:`srccmd'} model from that run. Type " /*
@@ -556,12 +557,12 @@ if `nummods' == 1 {
 local engine = lower(strtrim("`engine'"))
 if "`engine'" == ""  local engine "suest2"
 if !inlist("`engine'", "gsem", "suest2") {
-	di _newline(1)
+	di ""
 	di as err "{opt engine()} must be {opt gsem} or {opt suest2}."
 	exit 198
 	}
 if "`engine'" == "gsem" & `nummods' >= 3 {
-	di _newline(1)
+	di ""
 	di as err "{opt engine(gsem)} combines two models; with three or more " /*
 	*/ "models use the default engine."
 	exit 198
@@ -569,7 +570,7 @@ if "`engine'" == "gsem" & `nummods' >= 3 {
 if "`engine'" == "suest2" {
 	capture which suest2
 	if _rc {
-		di _newline(1)
+		di ""
 		di as err "{opt engine(suest2)} needs the {cmd:suest2} command, which " /*
 		*/ "ships with {cmd:mecompare}. It was not found on the adopath."
 		exit 199
@@ -601,7 +602,7 @@ if `nummods' == 1 {
 	*commands prints the model's stored command line
 	if "`commands'" != "" {
 		local mecm1 = cond("`mecsolo'" != "", "m1", "`mod1'")
-		di _newline(1)
+		di ""
 		di 		as text "Model 1 (`mecm1') is:"
 		di 		as result `"     `e(cmdline)'"'
 		}
@@ -627,7 +628,7 @@ if `nummods' == 1 {
 	*/ inlist("`e(cmd)'", "menbreg", "meologit", "meoprobit", "mestreg", "meglm") {
 		if trim("`e(prefix)'") == "" & "`e(wtype)'" == "pweight" & /*
 		*/ trim(`"`e(pweight1)'"') == "" {
-			di _newline(1)
+			di ""
 			di as err "`mecnm1' was fit with a weight but without a stage " /*
 			*/ "weight, so it carries no higher-level weight to build a design " /*
 			*/ "from; a weighted multilevel model needs one, as in " /*
@@ -641,7 +642,7 @@ if `nummods' == 1 {
 		local marginscmd "mimrgns"
 		capture which mimrgns
 		if _rc {
-			di _newline(1)
+			di ""
 			di as err "{cmd:mecompare} needs the user-written {cmd:mimrgns} " /*
 			*/ "package to analyse {cmd:mi estimate} models. Install it " /*
 			*/ "with {stata search mimrgns: search mimrgns}."
@@ -765,7 +766,7 @@ if `s2mimark' == 1 {
 	local ismi`i' = 1
 	capture which mimrgns
 	if _rc {
-		di _newline(1)
+		di ""
 		di as err "{cmd:mecompare} needs the user-written {cmd:mimrgns} " /*
 		*/ "package to compare {cmd:mi estimate} models. Install it with " /*
 		*/ "{stata search mimrgns: search mimrgns}."
@@ -868,7 +869,7 @@ if `nummods' >= 3 {
 if `nummods' >= 2 {
 	forvalues j = 2/`nummods' {
 		if "`mwexp`j''" != "`mwexp1'" | "`mwtype`j''" != "`mwtype1'" {
-			di _newline(1)
+			di ""
 			di as err "The `mectwosp'models were fit with different weights, so they " /*
 			*/ "cannot be combined. Refit them with the same weight."
 			exit 198
@@ -906,7 +907,7 @@ forvalues j = 1/`nummods' {
 			local l : word `p' of `mecbt'
 			local m : word `p' of `mecbm'
 			if "`l'" != "`k'" {
-				di _newline(1)
+				di ""
 				di as err "`v' enters `m' as `l' and `mod`j'' as `k'. The " /*
 				*/ "`mectwosp'models are combined into one set of estimates, which " /*
 				*/ "holds one base level per variable. Refit the models so the base " /*
@@ -930,7 +931,7 @@ forvalues j = 1/`nummods' {
 	}
 if `ismiany' == 1 {
 	if `ismiall' == 0 {
-		di _newline(1)
+		di ""
 		di as err "One model uses {cmd:mi estimate} and `mecother' does not; " /*
 		*/ "`mecbothm' must be {cmd:mi estimate} (or `mecneither')."
 		exit 198
@@ -942,7 +943,7 @@ if `ismiany' == 1 {
 *svy: combine (all models must be svy, and not mixed with mi)
 if `issvyany' == 1 {
 	if `issvyall' == 0 {
-		di _newline(1)
+		di ""
 		di as err "One model uses the {opt svy:} prefix and `mecother' does " /*
 		*/ "not; `mecbothm' must be {opt svy:} (or `mecneither')."
 		exit 198
@@ -965,7 +966,7 @@ if "`groups'" != "" {
 	forvalues j = 1/`nummods' {
 		qui count if `mecgsamp' == `j'
 		if `r(N)' != `Nsav`j'' {
-			di _newline(1)
+			di ""
 			di as err "The {opt groups} option requires distinct " /*
 			*/ "(non-overlapping) samples across the `mectwosp'models, but the " /*
 			*/ "samples overlap. See {help mecompare##groups}."
@@ -978,7 +979,7 @@ if "`groups'" != "" {
 		forvalues j = 1/`nummods' {
 			qui levelsof `mecgrpv' if `mecgsamp' == `j', local(mecgv`j') missing
 			if r(r) != 1 {
-				di _newline(1)
+				di ""
 				di as err "`mecgrpv' takes `r(r)' values in the sample of `mod`j''. " /*
 				*/ "With {opt group(`mecgrpv')} each model is fit to one group, " /*
 				*/ "one value of `mecgrpv'."
@@ -986,7 +987,7 @@ if "`groups'" != "" {
 				}
 			forvalues k = 1/`=`j'-1' {
 				if `"`mecgv`j''"' == `"`mecgv`k''"' {
-					di _newline(1)
+					di ""
 					di as err "`mecgrpv' takes the same value in the samples of " /*
 					*/ "`mod`k'' and `mod`j''. With {opt group(`mecgrpv')} each " /*
 					*/ "model is fit to a different group."
@@ -1002,7 +1003,7 @@ if "`groups'" == "" & `ismi' != 1 {
 	forvalues j = 2/`nummods' {
 		qui count if `mod1samp' == 1 & `mod`j'samp' == 1
 		if `r(N)' == 0 {
-			di _newline(1)
+			di ""
 			if `nummods' == 2  local mecovtxt "The two models"
 			else               local mecovtxt "Models `mod1' and `mod`j''"
 			di as err "`mecovtxt' were fit on non-overlapping samples. If " /*
@@ -1018,7 +1019,7 @@ if "`groups'" == "" & `ismi' != 1 {
 *The number of predictions must agree across the models
 forvalues j = 2/`nummods' {
 	if `mod1cats' != `mod`j'cats' {
-		di _newline(1)
+		di ""
 		di as err "The models return different numbers of predictions: `mod1' " /*
 		*/ "returns `mod1cats' and `mod`j'' returns `mod`j'cats'. {cmd:mecompare} " /*
 		*/ "compares models that return the same number of predictions. See " /*
@@ -1035,7 +1036,7 @@ if `nummods' >= 2 & `mod1cats' >= 3 {
 	forvalues j = 2/`nummods' {
 		qui levelsof `dv`j'name' if `mod`j'samp' == 1, local(mecoc2)
 		if "`mecoc1'" != "`mecoc2'" {
-			di _newline(1)
+			di ""
 			di as err "The outcome categories differ across the models: " /*
 			*/ "`mod1' has `mecoc1' and `mod`j'' has `mecoc2'. {cmd:mecompare} " /*
 			*/ "matches outcomes in order, so the values must agree."
@@ -1046,7 +1047,7 @@ if `nummods' >= 2 & `mod1cats' >= 3 {
 		if "`meclb1'" != "`meclb2'"  local meclbdiff "`meclbdiff' `meclb2'"
 		}
 	if "`meclbdiff'" != "" {
-		di _newline(1)
+		di ""
 		di in red "NOTE: the `mectwosp'outcome variables carry different value " /*
 		*/ "labels (`meclb1' and`meclbdiff'). The outcome VALUES agree, so " /*
 		*/ "the comparison is well defined; the table is labeled with the " /*
@@ -1060,9 +1061,8 @@ forvalues j = 1/`nummods' {
 	if `hadifin`j'' == 1  local hadifinany = 1
 	}
 if "`groups'" == "" & `hadifinany' == 1 {
-	di _newline(1)
 	if `wtinherit' == 1 & `issvy' != 1 {
-	di _newline(1)
+	di ""
 	di in red "NOTE: no weight was given to {cmd:mecompare}, so the weight " /*
 	*/ "from the stored models ([`mwtype1' `mwexp1']) is applied to the " /*
 	*/ "combined fit."
@@ -1070,6 +1070,7 @@ if "`groups'" == "" & `hadifinany' == 1 {
 
 *Note applies to the gsem engine only; suest2 preserves each model's if/in
 if "`engine'" == "gsem" {
+di ""
 di in red "NOTE: a model given in {opt models( )} was fit with an " /*
 	*/ "{help if} or {help in} qualifier. {cmd:mecompare} combines and " /*
 	*/ "refits the models over its own sample, so results will not match " /*
@@ -1122,8 +1123,7 @@ local mecdv2 ""
 	
 *Each model's own stored command line, with commands
 if "`commands'" != "" {
-	di
-	di 		_newline(1)
+	di ""
 	forvalues j = 1/`nummods' {
 		local 	mec_cl`j' = itrim(trim("`cmdline`j''"))
 		local 	mod`j'specs "`mec_cl`j''"
@@ -1159,7 +1159,7 @@ else {
 		}
 	local mecmodlist = trim("`mecmodlist'")
 	if "`commands'" != "" {
-		di _newline(1)
+		di ""
 		di as text "suest2 model is: "
 		di as result "    suest2 `mecmodlist', nowarn"
 		}
@@ -1206,7 +1206,7 @@ if "`groups'" == "" {
 		}
 	local mecnlist = substr(trim("`mecnlist'"), 1, length(trim("`mecnlist'")) - 2)
 	if `mecndiff' == 1 {
-	di _newline(1)
+	di ""
 	if "`engine'" == "gsem" {
 	di in red "Sample size varies across the models: `mecnlist'. " /*
 	*/ "The results from {cmd:mecompare} will not match " /*
@@ -1243,14 +1243,14 @@ if "`sdwtype'" != "" & "`sdwexp'" != ""  local sdwspec "[`sdwtype' `sdwexp']"
 *marginsopt(expression()): one quantity, one model, in place of predict(); the count resets as for predict(outcome(#))
 if `"`mecexpr'"' != "" {
 	if `nummods' >= 2 {
-		di _newline(1)
+		di ""
 		di as err "{opt expression()} in {opt marginsopt()} returns one quantity, " /*
 		*/ "and the two-model table needs one prediction per model. Use " /*
 		*/ "{opt predict()}."
 		exit 198
 		}
 	if "`predict'" != "" {
-		di _newline(1)
+		di ""
 		di as err "{opt expression()} in {opt marginsopt()} replaces {opt predict()}; " /*
 		*/ "margins accepts one or the other. Put the prediction inside the " /*
 		*/ "expression, as in {opt expression(exp(predict(xb)))}."
@@ -1276,7 +1276,7 @@ if "`predict'" != "" {
 		}
 	if `mecanymlogit' == 1 {
 		if !(`nummods' == 1 & `predoc') {
-			di _newline(1)
+			di ""
 			di as err "{opt predict()} with {cmd:mlogit} needs a single-" /*
 			*/ "quantity selection: its predictions are one per outcome " /*
 			*/ "category. With one model, select one, as in " /*
@@ -1293,7 +1293,7 @@ if "`predict'" != "" {
 		}
 	if `predlin' == 0 & `ordmod' == 1 {
 		if !(`nummods' == 1 & `predoc') {
-			di _newline(1)
+			di ""
 			di as err "With a multi-category outcome model {opt predict()} " /*
 			*/ "accepts {opt xb} or {opt eta} (the linear predictor); other " /*
 			*/ "predictions are one per outcome category. With one model, " /*
@@ -1317,13 +1317,13 @@ if "`predict'" != "" {
 
 *Parse and validate by()/over()
 if "`by'" != "" & "`over'" != "" {
-	di _newline(1)
+	di ""
 	di as err "{opt by()} and {opt over()} cannot be specified together."
 	exit 198
 	}
 if "`by'`over'" != "" {
 	if "`groups'" != "" {
-		di _newline(1)
+		di ""
 		di as err "{opt by()}/{opt over()} cannot be combined with {opt groups}."
 		exit 198
 		}
@@ -1350,7 +1350,7 @@ if "`by'`over'" != "" {
 	local byvars = trim(itrim("`byvars'"))
 	local byuniq : list uniq byvars
 	if `: word count `byuniq'' != `: word count `byvars'' {
-		di _newline(1)
+		di ""
 		di as err "A variable is named twice in {opt `botype'()}."
 		exit 198
 		}
@@ -1367,7 +1367,7 @@ if "`by'`over'" != "" {
 			if "`mecbase'" != "`mectk'" & "`mecbase'" == "`byv_`bk''"  local bofound = 1
 			}
 		if `bofound' == 0 {
-			di _newline(1)
+			di ""
 			di as err "Variable {bf:`byv_`bk''} was not found as a nominal (i.) " /*
 			*/ "predictor in the model(s). {opt `botype'()} requires a nominal " /*
 			*/ "variable entered with the i. prefix in the model(s)."
@@ -1381,6 +1381,7 @@ if "`by'`over'" != "" {
 		foreach mectk of local list_ivs {
 			local mectkb = regexr("`mectk'", "^(c|i(b[0-9]+|bn)?)\.", "")
 			if `: list posof "`mectkb'" in byvars' > 0 {
+				di ""
 				di as text "Note: {bf:`mectkb'} is both a focal and a {opt by()} " /*
 				*/ "variable. The {opt by()} level does not apply to its own " /*
 				*/ "marginal effect, so those rows repeat across the levels of " /*
@@ -1393,14 +1394,14 @@ if "`by'`over'" != "" {
 *Value lists: refused with over() and groups; the listed covariate is neither focal nor the by() variable
 if "`covlistvar'`stlistvar'" != "" {
 	if "`over'" != "" {
-		di _newline(1)
+		di ""
 		di as err "A value list in {opt covariates()} or {opt start()} is a " /*
 		*/ "counterfactual and cannot be combined with {opt over()}, which " /*
 		*/ "splits the sample. Use {opt by()} or drop the list."
 		exit 198
 		}
 	if "`groups'" != "" {
-		di _newline(1)
+		di ""
 		di as err "A value list in {opt covariates()} or {opt start()} cannot " /*
 		*/ "be combined with {opt groups}."
 		exit 198
@@ -1409,7 +1410,7 @@ if "`covlistvar'`stlistvar'" != "" {
 if "`covlistvar'" != "" {
 	local covinby : list posof "`covlistvar'" in byvars
 	if `covinby' > 0 {
-		di _newline(1)
+		di ""
 		di as err "{bf:`covlistvar'} carries a value list in {opt covariates()} " /*
 		*/ "and is also a {opt by()} variable. Use one or the other."
 		exit 198
@@ -1427,7 +1428,7 @@ foreach mectk of local covariates {
 foreach mectk of local list_ivs {
 	local mectkb = regexr("`mectk'", "^(c|i(b[0-9]+|bn)?)\.", "")
 	if `: list posof "`mectkb'" in covnames' > 0 {
-		di _newline(1)
+		di ""
 		di as err "{bf:`mectkb'} is in {opt covariates()} but is a focal " /*
 		*/ "variable (every model predictor is focal when no {it:varlist} is " /*
 		*/ "given). A focal variable is not held fixed; a continuous focal " /*
@@ -1507,7 +1508,7 @@ foreach mectk of local list_ivs {
 	if `mecfound' == 0  local mecbadv "`mecbadv' `mectk'"
 	}
 if "`mecbadv'" != "" {
-	di _newline(1)
+	di ""
 	local mecinmods : list uniq mecinmods	// dedupe/clean for the message
 	di as err "{bf:`mecbadv'} is not a predictor in the model(s) given in " /*
 	*/ "{opt models( )}. {cmd:mecompare} calculates marginal effects only " /*
@@ -1574,7 +1575,7 @@ if `s2specany' == 1 {
 			local mecfixnotboth "`mecfixnotboth' `mectk'"
 		}
 	if "`mecfixnotboth'" != "" {
-		di _newline(1)
+		di ""
 		di as err "{bf:`mecfixnotboth'} is fixed by " /*
 		*/ "{opt covariates()}/{opt by()}/{opt over()} but is not a " /*
 		*/ "predictor in `mecbothtxt' models. For {cmd:`cmd1'} models every " /*
@@ -1582,7 +1583,7 @@ if `s2specany' == 1 {
 		exit 111
 		}
 	if "`mecnotboth'" != "" & trim("`mecfixvars'") != "" {
-		di _newline(1)
+		di ""
 		di as err "{bf:`mecnotboth'} is not a predictor in `mecbothtxt' models. " /*
 		*/ "For {cmd:`cmd1'} models this comparison is supported, but not " /*
 		*/ "combined with {opt covariates()}, {opt by()}, or {opt over()}: " /*
@@ -1595,13 +1596,14 @@ if `s2specany' == 1 {
 	if "`mecnotboth'" != "" {
 		local mecnb = trim("`mecnotboth'")
 		if wordcount("`mecnb'") == wordcount("`list_ivs'") {
-			di _newline(1)
+			di ""
 			di as err "None of the requested variables ({bf:`mecnb'}) is a " /*
 			*/ "predictor in `mecbothtxt' models, so there is no cross-model " /*
 			*/ "comparison to make. Run the model that contains them " /*
 			*/ "alone instead."
 			exit 111
 			}
+		di ""
 		di as text "Note: {bf:`mecnotboth'} is not a predictor in `mecnotetxt'"
 		}
 	}
@@ -1647,7 +1649,7 @@ forvalues i = 1/`numvars' {
 	local 	numcats : word count `r(varlist)' 
 	local 	vbase = regexr("`v'", "^(c|i(b[0-9]+|bn)?)\.", "")
 	if "`stlistvar'" != "" & "`vbase'" == "`stlistvar'" & `numcats' != 1 {
-		di _newline(1)
+		di ""
 		di as err "{bf:`stlistvar'} carries a value list in {opt start()} but is " /*
 		*/ "not a continuous focal variable. {opt start()} lists apply to " /*
 		*/ "continuous variables; a nominal moderator takes {opt by()}."
@@ -1661,7 +1663,7 @@ forvalues i = 1/`numvars' {
 		if _rc == 0 {
 			local mecnlev : word count `meconelv'
 			if `mecnlev' == 1 {
-				di _newline(1)
+				di ""
 				di as err "{bf:`mecfvbase'} has only one level in the " /*
 				*/ "estimation sample, so it has no contrast to " /*
 				*/ "compare. {cmd:mecompare} needs a factor variable " /*
@@ -1877,7 +1879,7 @@ if `numcats' == 1 {
 	local endval_1 "`endval'"
 	if "`stlistvar'" != "" & "`vbase'" == "`stlistvar'" {
 		if `istrim`i'' == 1 | `isrange`i'' == 1 | `isgroupsd`i'' == 1 {
-			di _newline(1)
+			di ""
 			di as err "A value list in {opt start()} cannot be combined with " /*
 			*/ "{opt amount(trimrange)}, {opt amount(p#-p#)}, {opt amount(range)} or {opt groupsd}."
 			exit 198
@@ -2122,7 +2124,7 @@ if `"`cochange'"' != "" {
 	local amtag2 ""
 	}
 if "`stlistvar'" != "" & `stlistseen' == 0 {
-	di _newline(1)
+	di ""
 	di as err "{bf:`stlistvar'} carries a value list in {opt start()} but is not " /*
 	*/ "in the {it:varlist}. {opt start()} sets where a focal variable starts."
 	exit 198
@@ -2184,7 +2186,7 @@ if `ismi' == 1 {
 	}
 
 if "`commands'" != "" {		// show command line if requested
-	di _newline(1)
+	di ""
 	di as text "margins command is: "
 	di as result `"    `marginscmd' `if' `in', `mrgspec' `predspec' `mimarginsspec' `overspec' `atmeans' `marginsopt' post"'
 	}
@@ -2257,7 +2259,7 @@ if `nummods' >= 2 & `mod1cats' != 1 {
 		}
 	*groups with a multi-outcome model on this route is not yet verified
 	if `s2spec1' == 1 & "`groups'" != "" & `mod1cats' != 1 {
-		di _newline(1)
+		di ""
 		di as err "{opt groups} is not yet supported for multi-outcome " /*
 		*/ "models on this route ({cmd:`cmd1'}). Compare the groups " /*
 		*/ "separately for now."
@@ -3606,7 +3608,8 @@ local 	rowspec "`rowspec'&"		// so end of table does not have line
 
 *What is being predicted
 if "`plab1'" != "" {
-	di _newline(1)
+	di ""
+	local mecplnb noblank
 	local mecplabsame = 1
 	forvalues j = 2/`nummods' {
 		if "`plab`j''" != "" & "`plab`j''" != "`plab1'"  local mecplabsame = 0
@@ -3627,15 +3630,15 @@ if "`plab1'" != "" {
 
 *Display table
 matlist _mecompare, title("`N_title'") 	///
-		cspec("`colspec'") rspec("`rowspec'") nodotz underscore	
+		cspec("`colspec'") rspec("`rowspec'") nodotz underscore `mecplnb'
 
 if `"`cochange'"' != "" {
-	di _newline(1)
+	di ""
 	di as text "NOTE: `change2': `ccnote'."
 	}
 
 if "`mcmeth'" != "" {
-	di _newline(1)
+	di ""
 	local mcml = cond("`mcmeth'" == "bonferroni", "Bonferroni", "Sidak")
 	if `mcadj' == 1  di as text "NOTE: p-values (and CIs) of the contrasts are `mcml'-adjusted within each " /*
 		*/ "variable and model; the Difference rows are adjusted as a set of their own."
@@ -3644,7 +3647,7 @@ if "`mcmeth'" != "" {
 	}
 
 if "`groups'" != "" & "`amount'" == "sd" {
-	di _newline(1)
+	di ""
 	if "`groupsd'" != "" {
 *		groupsd: each group's SD, from that group's own observations
 		local mecgsdtxt "`mod1lab' uses its own `N1' observations"
@@ -3664,7 +3667,7 @@ if "`groups'" != "" & "`amount'" == "sd" {
 	}
 
 if "`warn_twosd'" != "" {
-	di _newline(1)
+	di ""
 	di as text "NOTE: for twosd we recommend a centered change (now the " /*
 	*/ "default); you specified {opt uncentered}."
 	}
@@ -3681,7 +3684,7 @@ if "`groupme'" != "" {
 	qui est restore `mecsys'
 	`cmdqui' `marginscmd' `if' `in', `mimarginsspec' /*
 		*/ over(`mecgsamp') post
-	di _newline(1)
+	di ""
 	di as text "Average conditional difference in the outcome " /*
 	*/ "(`mod2lab' - `mod1lab'),"
 	di as text "each model averaged over its own sample:"
@@ -3797,6 +3800,7 @@ forvalues j = 1/`nummods' {
 	}
 local mecvcelist = substr(trim("`mecvcelist'"), 1, length(trim("`mecvcelist'")) - 1)
 if `vcerobustall' == 0 & `issvy' != 1 & `ismi' != 1 {
+	di ""
 	if `mecmlany' == 1 {
 	di in red "NOTE: {cmd:mecompare} clusters the standard errors on the " /*
 	*/ "highest-level group of the multilevel or panel model(s), so they " /*
@@ -3857,7 +3861,7 @@ if "`mecsstreg'`mecsmest'" != "" {
 		if "`mecsmest'" != "" & "`mecsurv'" == ""  local mecsurv "the rows for`mecsmest' ({cmd:mestreg}) are changes in the predicted mean survival time"
 		local mecsurv "`mecsurv' (margins' defaults)"
 		}
-	di _newline(1)
+	di ""
 	di as text "NOTE: `mecsurv'.`mecsext' Jones and Metzger (2019) and " /*
 	*/ "Metzger and Jones (2022) recommend interpreting duration models through " /*
 	*/ "survival probabilities at chosen times, which {cmd:mecompare} does not " /*
@@ -4154,7 +4158,7 @@ program define _mec_post, eclass
 			*Skip an empty role
 			local nc : word count `idx'
 			if `nc' == 0 {
-				di _newline(1)
+				di ""
 				di as txt "note: no estimates for `R'; `store'_`sfx' not saved."
 				continue
 				}
@@ -4230,7 +4234,7 @@ program define _mec_post, eclass
 		if missing(`__b'[1,`j'])  local ++__nmiss
 		}
 	if `__nmiss' > 0 {
-		di _newline(1)
+		di ""
 		di in red "note: `__nmiss' of `K' quantities could not be recovered for " /*
 		*/ "e(b); those coefficients are missing and metest cannot use them."
 		forvalues j = 1/`K' {
@@ -4251,7 +4255,7 @@ program define _mec_post, eclass
 			}
 		}
 	if `__vmiss' > 0 {			// missing variances/covariances
-		di _newline(1)
+		di ""
 		di in red "note: `__vmiss' element(s) of the covariance matrix could not " /*
 		*/ "be recovered and were set to 0; treat SEs involving those " /*
 		*/ "quantities, and any metest combination of them, with caution."
@@ -4484,7 +4488,7 @@ if `"`marginsopt'"' != "" {
 		}
 	foreach mectok in at over predict dydx dyex eydx eyex mcompare within {
 		if regexm(`"`mecmotest'"', "[ ,]`mectok'<>") {
-			di _newline(1)
+			di ""
 			if "`mectok'" == "at" {
 				di as err "{opt marginsopt()} may not carry {opt at()}: {cmd:mecompare} " /*
 				*/ "builds every at() set from the varlist, {opt start()}, " /*
@@ -4520,7 +4524,7 @@ if `"`marginsopt'"' != "" {
 		}
 	foreach mectok in post contrast pwcompare nose atmeans {
 		if regexm(`"`mecmotest'"', "[ ,]`mectok'[ ,<]") {
-			di _newline(1)
+			di ""
 			if "`mectok'" == "post" {
 				di as err "{opt marginsopt()} may not carry {opt post}: {cmd:mecompare} " /*
 				*/ "posts the margins results itself."
@@ -5062,7 +5066,7 @@ program define _mec_annotate, rclass
 			local ubase = subinstr(subinstr(substr("`upre'", 3, .), "(", "", .), ")", "", .)
 			capture confirm integer number `ubase'
 			if _rc | "`ubase'" == "" {
-				di _newline(1)
+				di ""
 				di as err "{bf:`uv'}: {cmd:mecompare} reads a base level only as " /*
 				*/ "{bf:ib#.}, where # is the level. Base levels are set on the " /*
 				*/ "stored model(s); type {bf:i.`base'} or {bf:`base'} to use " /*
@@ -5072,7 +5076,7 @@ program define _mec_annotate, rclass
 			local utype "fac"
 			}
 		else if "`upre'" != "" {
-			di _newline(1)
+			di ""
 			di as err "{bf:`uv'}: {cmd:mecompare} reads only the prefixes " /*
 			*/ "{bf:c.}, {bf:i.}, {bf:ib#.}, and {bf:ibn.} in its variable list. " /*
 			*/ "Type {bf:`base'} to use the variable as the stored model(s) entered it."
@@ -5092,7 +5096,7 @@ program define _mec_annotate, rclass
 			}
 		*Refuse a prefix that contradicts the model(s)
 		if "`utype'" == "cont" & "`ftoken'" != "" {
-			di _newline(1)
+			di ""
 			di as err "{bf:`uv'} contradicts the stored model(s): {bf:`base'} was " /*
 			*/ "entered as a factor variable ({bf:`ftoken'}), not as continuous. " /*
 			*/ "Factor syntax is optional in {cmd:mecompare} but must match the " /*
@@ -5100,7 +5104,7 @@ program define _mec_annotate, rclass
 			exit 198
 			}
 		if "`utype'" == "fac" & "`ftoken'" == "" & "`ctoken'" != "" {
-			di _newline(1)
+			di ""
 			di as err "{bf:`uv'} contradicts the stored model(s): {bf:`base'} was " /*
 			*/ "entered as a continuous variable, not with a factor prefix. " /*
 			*/ "Factor syntax is optional in {cmd:mecompare} but must match the " /*
@@ -5113,7 +5117,7 @@ program define _mec_annotate, rclass
 			if "`mbase'" != "" & "`ubase'" != "`mbase'" {
 				if "`mbase'" == "n"  local mbasetxt "no base level ({bf:`ftoken'})"
 				else  local mbasetxt "base level `mbase' ({bf:`ftoken'})"
-				di _newline(1)
+				di ""
 				di as err "{bf:`uv'} contradicts the stored model(s): {bf:`base'} was " /*
 				*/ "entered with `mbasetxt'. The base level is set on the stored " /*
 				*/ "model(s); type {bf:i.`base'} or {bf:`base'}, or refit with {bf:`uv'}."
