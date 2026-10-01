@@ -1,6 +1,6 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.10.0 Bing Han & Trenton Mize 2026-09-28  | history: CHANGELOG-meinequality.md (repo)
+*! meinequality v1.10.1 Bing Han & Trenton Mize 2026-09-30  | history: CHANGELOG-meinequality.md (repo)
 
 program define meinequality, rclass
 	
@@ -53,7 +53,7 @@ foreach meireq in suest2 _mec_canonical mec_share mec_wcheck mec_gsem _mec_omitc
 	if _rc  local meimissing "`meimissing' `meireq'"
 	}
 if "`meimissing'" != "" {
-	di _newline(1)
+	di ""
 	di as err "{cmd:meinequality} requires the {cmd:suest2} package, which "  /*
 	*/ "is missing or incomplete. Not found:`meimissing'. Install or "  /*
 	*/ "update {cmd:suest2} and try again."
@@ -64,7 +64,7 @@ if "`meimissing'" != "" {
 local engine = lower(trim("`engine'"))
 if "`engine'" == ""  local engine "suest2"
 if "`engine'" != "suest2" & "`engine'" != "gsem" {
-	di _newline(1)
+	di ""
 	di as err "{opt engine()} must be {opt suest2} or {opt gsem}."
 	exit 198
 	}
@@ -102,7 +102,7 @@ if "`labwidth'" == "" {
 else {
 	capture confirm integer number `labwidth'
 	if _rc | !inrange(real("`labwidth'"), 20, 32) {
-		di _newline(1)
+		di ""
 		di as err "{opt labwidth()} must be an integer between 20 and 32. " /*
 		*/ "To fit longer names, use shorter names in {opt models()} or " /*
 		*/ "{opt groupnames()}."
@@ -125,7 +125,7 @@ if "`decimals'" == "" {
 else {
 	capture confirm integer number `decimals'
 	if _rc | !inrange(real("`decimals'"), 0, 7) {
-		di _newline(1)
+		di ""
 		di as err "{opt decimals()} must be an integer between 0 and 7."
 		exit 198
 	}
@@ -161,7 +161,7 @@ local nummods: word count `models'
 
 *Error out if 3 or more models are specified
 if `nummods' > 2 {
-	di _newline(1)
+	di ""
 	di as err "Invalid number of models specified in {opt models()} option. " /*
 	*/ "{cmd:meinequality} can only be used with one or two models."
 	exit 198	
@@ -169,7 +169,7 @@ if `nummods' > 2 {
 
 *Error out if group specified incorrectly
 if "`groups'" != "" & `nummods' == 1 {
-	di _newline(1)
+	di ""
 	di as err "The {opt groups} option requires two models to be specified in " /*
 	*/ "the {opt models()} option -- one for each group. See " /*
 	*/ "{help meinequality##groups}."
@@ -179,7 +179,7 @@ if "`groups'" != "" & `nummods' == 1 {
 
 *Set model names in the table
 if "`groupnames'" != "" & "`groups'" == "" {
-	di _newline(1)
+	di ""
 	di as err "The {opt groupnames} option requires two different models " /*
 	*/ "to be specified using the {opt groups()} option. " /*
 	*/ "See {help meinequality##groupnames}."
@@ -215,7 +215,7 @@ if "`weight'" != "" {
 *Only one weighting may be requested
 local nwopt = ("`weighted'" != "") + ("`unweighted'" != "") + ("`all'" != "")
 if `nwopt' > 1 {
-	di _newline(1)
+	di ""
 	di as err "Specify only one of {opt weighted}, {opt unweighted}, or " /*
 	*/ "{opt all}."
 	exit 198
@@ -271,7 +271,7 @@ if `nummods' == 1 {
 	*/ inlist("`e(cmd)'", "menbreg", "meologit", "meoprobit", "mestreg", "meglm") {
 		if trim("`e(prefix)'") == "" & "`e(wtype)'" == "pweight" & /*
 		*/ trim(`"`e(pweight1)'"') == "" {
-			di _newline(1)
+			di ""
 			di as err "model `mod1' was fit with a weight but without a stage " /*
 			*/ "weight, so it carries no higher-level weight to build a design " /*
 			*/ "from; a weighted multilevel model needs one, as in " /*
@@ -304,7 +304,7 @@ if `mei_ismi1' == 1 {
 
 	capture which mimrgns
 		if (_rc) {
-		di _newline(1)
+		di ""
 		di as err "{cmd:meinequality} requires the user-written package " /*
 		*/ "{cmd:mimrgns}. Click the link below to search for " /*
 		*/ "and install {cmd:mimrgns}: {stata search mimrgns: {bf:mimrgns}}."
@@ -332,7 +332,7 @@ local mei_spec  = r(spec)
 if "`mei_canon'" != ""  local cmd_m1 "`mei_canon'"
 
 if `mei_ok' == 0 {
-	di _newline(1)
+	di ""
 	di as err "`mod1' is a {cmd:`mei_raw'}, which {cmd:meinequality} does " /*
 	*/ "not support."
 	exit 198
@@ -370,14 +370,14 @@ if `nummods' == 2 {
 	local mei_spec2  = r(spec)
 	if "`mei_canon2'" != ""  local cmd_m2 "`mei_canon2'"
 	if `mei_ok2' == 0 {
-		di _newline(1)
+		di ""
 		di as err "`mod2' is a {cmd:`e(cmd)'}, which {cmd:meinequality} does " /*
 		*/ "not support."
 		exit 198
 		}
 *The two models must agree about the stripe
 	if "`mei_spec'" != "" & `mei_spec' != `mei_spec2' {
-		di _newline(1)
+		di ""
 		di as err "`mod1' and `mod2' produce marginal predictions labelled " /*
 		*/ "differently, so they cannot be combined by {cmd:meinequality}."
 		exit 198
@@ -421,7 +421,7 @@ else                             qui gen `mod2samp' = e(sample)
 	
 	*Error out if group number is not consistent with the e(sample)
 	if "`groups'" != "" & (`Nsav1_ovlp'!=`Nsav1') {
-		di _newline(1)
+		di ""
 		di as err "{opt groups} option does not support partially overlapping " /*
 		*/ "samples. With the {opt groups} option, samples must be entirely " /*
 		*/ "distinct across models. See {help meinequality##groups} for details."
@@ -433,7 +433,7 @@ else                             qui gen `mod2samp' = e(sample)
 		forvalues j = 1/2 {
 			qui levelsof `mecgrpv' if `meisamp' == `j', local(mecgv`j') missing
 			if r(r) != 1 {
-				di _newline(1)
+				di ""
 				di as err "`mecgrpv' takes `r(r)' values in the sample of `mod`j''. " /*
 				*/ "With {opt group(`mecgrpv')} each model is fit to one group, " /*
 				*/ "one value of `mecgrpv'."
@@ -441,7 +441,7 @@ else                             qui gen `mod2samp' = e(sample)
 			}
 		}
 		if `"`mecgv1'"' == `"`mecgv2'"' {
-			di _newline(1)
+			di ""
 			di as err "`mecgrpv' takes the same value in the samples of " /*
 			*/ "`mod1' and `mod2'. With {opt group(`mecgrpv')} each " /*
 			*/ "model is fit to a different group."
@@ -451,7 +451,7 @@ else                             qui gen `mod2samp' = e(sample)
 		
 	*Error out if command1 != command2
 	if "`cmd_m1'" != "`cmd_m2'" {
-		di _newline(1)
+		di ""
 		di as err "`mod1' is a {cmd:`cmd_m1'}; `mod2' is a {cmd:`cmd_m2'}. " /*
 		*/ "{cmd:meinequality} doesn't support different models."
 	exit 198
@@ -468,7 +468,7 @@ else                             qui gen `mod2samp' = e(sample)
 			if "`v'" == "`w'" & "`k'" != "`l'" {
 				local l = substr("`l'", 2, .)
 				local k = substr("`k'", 2, .)
-				di _newline(1)
+				di ""
 				di as err "`v' enters `mod1' as `l' and `mod2' as `k'. The two " /*
 				*/ "models are combined into one set of estimates, which holds one " /*
 				*/ "base level per variable. Refit one model so the base levels " /*
@@ -481,7 +481,7 @@ else                             qui gen `mod2samp' = e(sample)
 	*gologit2 pair refused under engine(gsem) only
 	if ("`cmd_m1'" == "gologit2" | "`cmd_m2'" == "gologit2") /*
 		*/ & "`engine'" == "gsem" {
-		di _newline(1)
+		di ""
 		di as err "{cmd:gologit2} is not supported for comparing across two " /*
 		*/ "models with {opt engine(gsem)}. That engine uses {cmd:gsem} to " /*
 		*/ "combine model estimates and {cmd:gologit2} estimates cannot be " /*
@@ -509,7 +509,7 @@ else                             qui gen `mod2samp' = e(sample)
 	*Refuse differing outcome counts across the models
 	if `mod1cats' > 1 | `mod2cats' > 1 {
 		if `mod1cats' != `mod2cats' {
-		di _newline(1)
+		di ""
 		di as err "Numbers of outcome categories differ across models `mod1' " /*
 		*/ "and `mod2'. {cmd:meinequality} can only be used with `cmd_m1' when the " /*
 		*/ "number of outcome categories is the same across both models."
@@ -548,7 +548,7 @@ else                             qui gen `mod2samp' = e(sample)
 
 *groups with a multi-outcome specialized model is refused
 	if `meispec' == 1 & "`groups'" != "" & `mod1cats' != 1 {
-		di _newline(1)
+		di ""
 		di as err "{opt groups} is not yet supported for multi-outcome " /*
 		*/ "models of this type ({cmd:`cmd_m1'}). Compare the groups " /*
 		*/ "separately for now."
@@ -567,6 +567,7 @@ else                             qui gen `mod2samp' = e(sample)
 		local cmdline_m1_vce = substr("`cmdline_m1_vce'", `ifcomma' + 1, `ifcomma' + 7)		
 		local cmdline_m1_vce = strtrim("`cmdline_m1_vce'")
 		if "`cmdline_m1_vce'" != "vce(robust)" & "`commands'" != "" {
+			di ""
 			di in red "{cmd:meinequality} shows each model's command line without " /*
 			*/ "its options. Estimation uses `mod1' exactly as it was stored; " /*
 			*/ "nothing is refitted and no option is discarded."			
@@ -583,6 +584,7 @@ else                             qui gen `mod2samp' = e(sample)
 		local cmdline_m2_vce = substr("`cmdline_m2_vce'", `ifcomma' + 1, .)
 		local cmdline_m2_vce = strtrim("`cmdline_m2_vce'")
 		if "`cmdline_m2_vce'" != "vce(robust)" & "`commands'" != "" {
+			di ""
 			di in red "{cmd:meinequality} shows each model's command line without " /*
 			*/ "its options. Estimation uses `mod2' exactly as it was stored; " /*
 			*/ "nothing is refitted and no option is discarded."			
@@ -658,7 +660,7 @@ else                             qui gen `mod2samp' = e(sample)
 	   ("`ifweight2'" != "" & "`prefix2'" != "svy") {
 		if "`weight'" == "" {
 			if "`ifweight1'" != "`ifweight2'" | "`ifwtype1'" != "`ifwtype2'" {
-				di _newline(1)
+				di ""
 				di as err "The two models were fit with different weights, " /*
 				*/ "so they cannot be combined. Refit them with the same " /*
 				*/ "weight, or give the weight to {cmd:meinequality} directly."
@@ -672,7 +674,7 @@ else                             qui gen `mod2samp' = e(sample)
 	*Two-model svy: both models must be svy:
 	if "`prefix1'" == "svy" | "`prefix2'" == "svy" {
 		if "`prefix1'" != "`prefix2'" {
-			di _newline(1)
+			di ""
 			di as err "One model uses the {opt svy:} prefix and the other " /*
 			*/ "does not; both models must be {opt svy:} (or neither)."
 			exit 198
@@ -683,7 +685,7 @@ else                             qui gen `mod2samp' = e(sample)
 	if "`prefix1'" == "mi estimate" | "`prefix2'" == "mi estimate" {
 		
 		if "`prefix1'" != "`prefix2'" {
-			di _newline(1)
+			di ""
 			di as err "The prefixes do not match in the two models. " /*
 			*/ "The prefix for `mod1' is `prefix1', and the prefix for `mod2' is `prefix2'."
 			exit 198
@@ -692,7 +694,7 @@ else                             qui gen `mod2samp' = e(sample)
 	
 	*Any other prefix is refused with two models
 	if "`prefix1'" != "mi estimate" & "`prefix1'" != "svy" & "`prefix1'" != "" {
-		di _newline(1)
+		di ""
 		di as err "{cmd:meinequality} does not support the `prefix1' prefix " /*
 		*/ "when two models are specified."
 		exit 198		
@@ -711,6 +713,7 @@ else                             qui gen `mod2samp' = e(sample)
 	
 	*Warn if vce(robust) was not used on the stored models (no note under svy or mi, as in mecompare)
 	if ("`vcetype1'" != "robust" | "`vcetype2'" != "robust") & "`prefix1'" != "svy" & `mei_ismi1' == 0 & `mei_ismi2' == 0 {
+		di ""
 		if `mei_ml1' | `mei_ml2' {
 		di in red "NOTE: {cmd:meinequality} clusters the standard errors on the " /*
 		*/ "highest-level group of the multilevel or panel model(s), so they " /*
@@ -737,7 +740,7 @@ else                             qui gen `mod2samp' = e(sample)
 
 ** check the by/over options
 if "`by'" != "" & "`over'" != "" {
-	di _newline(1)
+	di ""
 	di as err "{opt by()} and {opt over()} option cannot be specified at the same time."
 	exit 198	
 }
@@ -749,14 +752,14 @@ if "`by'" != "" | "`over'" != "" {
 	local numovervar : word count `over'
 
 	if `numbyvar' > 1 {
-		di _newline(1)
+		di ""
 		di as err "Invalid number of variables specified in {opt by()} option. " /*
 		*/ "{opt by()} can only be used with one variable."
 		exit 198	
 	}
 
 	if `numovervar' > 1 {
-		di _newline(1)
+		di ""
 		di as err "Invalid number of variables specified in {opt over()} option. " /*
 		*/ "{opt over()} can only be used with one variable."
 		exit 198	
@@ -768,7 +771,7 @@ if "`by'" != "" | "`over'" != "" {
 		local byovervar "`byvar'"
 		_mei_isfv, name(`byvar') cols(`meicoln1')
 		if !r(found) {
-			di _newline(1)
+			di ""
 			di as err "Variable `byvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt by()} option." /*	
 			*/ "Check if i. prefix is used for the nominal variable in the model." 
@@ -783,7 +786,7 @@ if "`by'" != "" | "`over'" != "" {
 		local byovervar "`overvar'"
 		_mei_isfv, name(`overvar') cols(`meicoln1')
 		if !r(found) {
-			di _newline(1)
+			di ""
 			di as err "Variable `overvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt over()} option." /*	
 			*/ "Check if i. prefix is used for the nominal variable in the model." 
@@ -834,7 +837,7 @@ forvalues a = 1/`numbyoverlvl' {
 local numvars : word count 	`varlist'
 
 if `numvars' == 0 {
-	di _newline(1)
+	di ""
 	di as err "Specify independent nominal variable. " /*
 	*/ "{cmd:meinequality} can be used with at least one independent nominal variable."
 	exit 198	
@@ -852,7 +855,7 @@ forvalues ithvar=1/`numvars' {
 		local meifound = `meifound' & r(found)
 	}
 	if !`meifound' {
-		di _newline(1)
+		di ""
 		di as err "Variable `nomvar' not found in the model. " ///
 		"See if i. prefix is used for the nominal variable in the model."
 		exit 198
@@ -860,7 +863,7 @@ forvalues ithvar=1/`numvars' {
 *A focal variable may not be the by()/over() variable; mecompare handles that case
 	if "`byovervar'" != "" & "`nomvar'" == "`byovervar'" {
 		local boopt = cond("`by'" != "", "by()", "over()")
-		di _newline(1)
+		di ""
 		di as err "{bf:`nomvar'} is a focal variable and is also the {opt `boopt'} " /*
 		*/ "variable. {cmd:meinequality} does not estimate the ME inequality " /*
 		*/ "of a variable within levels of that same variable; use " /*
@@ -882,6 +885,7 @@ if `nummods' == 1 {
 	local samp1_size = e(N)
 
 	if "`commands'" != "" {
+		di ""
 		di 		as text "Model (`mod1') is:"
 		di 		as result "     `cmdline_m1'"
 		}
@@ -890,18 +894,18 @@ if `nummods' == 1 {
 else if `nummods' == 2 {
 	
 	*The models' command lines print with commands
-	if "`commands'" != ""  di _newline(1)
 
 	local 	mod1specs "`cmdline_m1_show'"
 	local 	mod2specs "`cmdline_m2_show'"
 
 	if `wtinherit' == 1 {
-		di _newline(1)
+		di ""
 		di in red "NOTE: no weight was given to {cmd:meinequality}, so the " /*
 		*/ "weight from the stored models ([`ifwtype1' `ifweight1']) is " /*
 		*/ "applied to the combined fit."
 		}
 	if "`commands'" != "" {
+		di ""
 		di 		as text "Model 1 (`mod1') is:"
 		di 		as result "     `mod1specs'"
 		di 		as text "Model 2 (`mod2') is:"
@@ -910,7 +914,7 @@ else if `nummods' == 2 {
 
 	*Combine the stored estimates; nothing is refitted
 	if "`groups'" == "" & `Nsav1' != `Nsav2' {
-		di _newline(1)
+		di ""
 		di as text "NOTE: the models were fit on different numbers of "  /*
 		*/ "observations (N_`mod1'=`Nsav1'; N_`mod2'=`Nsav2'). Each model "  /*
 		*/ "keeps its own sample; the estimates match the models as fit."
@@ -918,7 +922,7 @@ else if `nummods' == 2 {
 
 	*Error out if either model has no observations
 	if `Nsav1' == 0 | `Nsav2' == 0 {
-		di _newline(1)
+		di ""
 		di as err "`mod1' has `Nsav1' observations and `mod2' has `Nsav2'. "  /*
 		*/ "{cmd:meinequality} cannot combine a model with no observations."
 		exit 2000
@@ -929,7 +933,7 @@ else if `nummods' == 2 {
 		capture `meishow' suest2 `mod1' `mod2', nowarn
 		local combrc = _rc
 		if `combrc' != 0 {
-			di _newline(1)
+			di ""
 			di as err "{cmd:suest2} could not combine `mod1' and `mod2' "  /*
 			*/ "(rc `combrc'). Its own message follows."
 *Repeat the failing call noisily, then pass the code up
@@ -948,7 +952,7 @@ else if `nummods' == 2 {
 			*/ `g_groups' `g_samp' `quietly'
 		local combrc = _rc
 		if `combrc' != 0 {
-			di _newline(1)
+			di ""
 			di as err "{cmd:engine(gsem)} could not combine `mod1' and "  /*
 			*/ "`mod2' (rc `combrc'). Its own message follows."
 			capture noisily mec_gsem `mod1' `mod2' `weightspec', /*
@@ -1727,7 +1731,7 @@ forvalues p = 1/`bod_n' {
 	}
 
 if `meizero' {
-	di _newline(1)
+	di ""
 	di as err "NOTE: a Diff. row shown as 0 with no z or p-value is zero by " /*
 	*/ "construction: the model does not let the effect vary across the levels " /*
 	*/ "of `byovervar' (for example, a linear model without an interaction), " /*
@@ -1735,7 +1739,7 @@ if `meizero' {
 	}
 
 if `meisemiss' > 0 {
-	di _newline(1)
+	di ""
 	di as err "NOTE: standard errors are missing for `meisemiss' " /*
 	*/ "of the quantities above. {cmd:nlcom} could not compute them, " /*
 	*/ "which " /*
@@ -1769,6 +1773,7 @@ program define _mei_terms, rclass
 	syntax, nomvar(string) nlevel(string) numlevels(integer) ///
 		[bospec(string) prefix(string) weighted psamp(string) ///
 		shsamp(string) mi(integer 0) wspec(string asis)]
+	qui est restore meineq_margins
 	local term 0
 	forvalues i = 1/`numlevels' {
 		local ilevel: word `i' of `nlevel'
@@ -1780,20 +1785,19 @@ program define _mei_terms, rclass
 		forvalues j = 1/`numlevels' {
 			if `i' < `j' {
 				local jlevel: word `j' of `nlevel'
+*				each |d| enters as s*d, s the sign of d at the estimates: an exact derivative for nlcom
+				local d (_b[`prefix'`bospec'`ilevel'.`nomvar'] - _b[`prefix'`bospec'`jlevel'.`nomvar'])
+				capture local s = cond(`d' < 0, -1, 1)
 				if "`weighted'" != "" {
 					mec_share `nomvar' if `psamp' == 1 & `shsamp', level(`jlevel') ///
 						mi(`mi') wspec(`wspec')
 					local p_j = r(share)
 *					the pair weight, corrected for redundant comparisons
 					local multiplier = (`p_i'+`p_j') / (`numlevels' - 1)
-					local term `term' + ( `multiplier' * ///
-						abs(_b[`prefix'`bospec'`ilevel'.`nomvar'] ///
-						- _b[`prefix'`bospec'`jlevel'.`nomvar']))
+					local term `term' + ( `multiplier' * `s'*`d')
 				}
 				else {
-					local term `term' ///
-						+ abs(_b[`prefix'`bospec'`ilevel'.`nomvar'] ///
-						- _b[`prefix'`bospec'`jlevel'.`nomvar'])
+					local term `term' + `s'*`d'
 				}
 			}
 		}
@@ -1822,11 +1826,6 @@ program define _mei_nlcom, rclass
 			di as err "{cmd:meinequality} could not compute {bf:`name'}: " /*
 			*/ "{cmd:nlcom} returned r(`meirc1'), and r(`meirc2') on " /*
 			*/ "the rescaled retry."
-			di as err "This happens when a quantity the summary averages " /*
-			*/ "over sits at or near zero -- most often when an outcome " /*
-			*/ "category holds very few observations. {cmd:tabulate} the " /*
-			*/ "dependent variable; combining sparse categories usually " /*
-			*/ "resolves it."
 			di as err "Your model has been restored to {cmd:e()}."
 			exit 498
 			}

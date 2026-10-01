@@ -1,5 +1,32 @@
 # CHANGELOG -- meinequality
 
+## v1.10.1 -- 30sep2026, exact standard errors; one blank line above each note
+
+**Standard errors.** The ME inequality now goes to `nlcom` as a linear
+expression. It was a sum of `abs()` terms, whose derivatives `nlcom`
+approximates numerically; when a difference sat near zero, `nlcom` could fail
+and meinequality refused -- for example, when an outcome category holds very
+few observations. Each `abs(d)` is now `s*d`, with `s` the sign of `d` at the
+estimates (+1 when `d` is exactly zero), as in mecompare's `meinequality`
+option, so those fits now compute and every standard error is exact. The
+estimates do not change, and in the tests the standard errors that were
+computed before do not change either (gate 75, `test_se_sign_gate75_v1_2`). The
+refusal, kept for any other failure of `nlcom`, no longer names sparse
+categories as the cause.
+
+**Output.** As mecompare 1.8.2: `di _newline(1)` prints two blank lines, so
+each note or message sat under two; all 40 are now `di ""`. The standard-error
+note and the note that the command lines are shown without their options, which
+printed with no blank line above, get one. With `commands`, one blank line
+above the models' command lines: one model had none; with two, the blank line
+printed before the weight note as well, giving two. Owner's decisions
+(29sep2026). Only blank lines move (gate 74, `test_spacing_gate74_v1_2`).
+
+**Help.** A Syntax section lists every option in a table, one line each, in
+the groups of mecompare's help (Models, Weighting, Values of the covariates,
+Within levels of a variable, Reporting); the Options section follows the
+table's order, with `groupnames()` beside `groups`. No option's text changed.
+
 ## v1.10.0 -- 28sep2026, full labels; the model's command line only with commands
 
 **Labels, as in mecompare 1.8.0.** The table's labels use the whole label

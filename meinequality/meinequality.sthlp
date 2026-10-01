@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-28 Bing Han, Trenton D. Mize -- matches meinequality v1.10.0}{...}
+{* 2026-09-30 Bing Han, Trenton D. Mize -- matches meinequality v1.10.1}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -16,10 +16,43 @@ after most regression models.
 {p_end}
 {p2colreset}{...}
 
-{title:General syntax}
+{marker syntax}{...}
+{title:Syntax}
 
-{p 4 18 2}
-{cmdab:meineq:uality} {varlist} {ifin} {cmdab:,} [options]{p_end}
+{p 8 18 2}
+{cmdab:meineq:uality} {varlist} {ifin} [{cmd:,} {it:options}]
+{p_end}
+
+{synoptset 28 tabbed}{...}
+{synopthdr}
+{synoptline}
+{syntab:Models}
+{synopt:{opt mod:els(list)}}stored models to use; default is the model in {cmd:e()}{p_end}
+{synopt:{opt group:s}}the models were fit on distinct groups{p_end}
+{synopt:{opt groupn:ames(name1 name2)}}labels for the two groups{p_end}
+
+{syntab:Weighting}
+{synopt:{opt wei:ghted}}contrasts weighted by level shares; the default{p_end}
+{synopt:{opt unw:eighted}}all contrasts weighted equally{p_end}
+{synopt:{opt all}}report both weighted and unweighted{p_end}
+
+{syntab:Values of the covariates}
+{synopt:{opt atmean:s}}hold the covariates at their means{p_end}
+
+{syntab:Within levels of a variable}
+{synopt:{opt by(varname)}}ME inequality at each level, as a counterfactual{p_end}
+{synopt:{opt over(varname)}}ME inequality within each subpopulation{p_end}
+
+{syntab:Reporting}
+{synopt:{opt ci}}add confidence intervals{p_end}
+{synopt:{opt level(#)}}confidence level; default is 95{p_end}
+{synopt:{opt dec:imals(#)}}decimal places; default is 3{p_end}
+{synopt:{opt labw:idth(#)}}width of the label column; default is 24{p_end}
+{synopt:{opt title(string)}}title of the table{p_end}
+{synopt:{opt command:s}}display the commands used{p_end}
+{synopt:{opt detail:s}}display the {cmd:margins} and {cmd:suest2} output{p_end}
+{synoptline}
+{p2colreset}{...}
 
 {marker overview}
 {title:Overview}
@@ -56,18 +89,19 @@ for the rules that apply when two models are compared.
 
 {title:Table of contents}
 
+	{help meinequality##syntax:Syntax and list of options}
 	{help meinequality##estimators:Which models and estimators are supported}
-	{help meinequality##Weighted:Setting weighted/unweighted calculations}
-	{help meinequality##covariates:Setting values of the covariates}
 	{help meinequality##Models:Required option for two model comparison}
 	{help meinequality##groups:Required option if fitting models over two distinct samples}
+	{help meinequality##Weighted:Setting weighted/unweighted calculations}
+	{help meinequality##covariates:Setting values of the covariates}
 	{help meinequality##by/over:Estimations for subpopulations}
-	{help meinequality##sampleweights:Setting sample weights and multiple imputation estimates}	
-	{help meinequality##options:Optional options for formatting, reporting, missing data, etc.}
+	{help meinequality##options:Reporting options: confidence intervals, formatting, output}
+	{help meinequality##sampleweights:Setting sample weights and multiple imputation estimates}
 	{help meinequality##matrices:Saved estimates and matrices}
 	{help meinequality##bootstrap:Bootstrap standard errors}
 	{help meinequality##examples:Examples}
-	
+
 {marker estimators}{...}
 {title:Supported estimators}
 
@@ -167,8 +201,51 @@ though the two were on one scale.
 
 {title:Options}
 
+{marker Models}
+{dlgtab:Models}
+
+{p2colset 5 18 19 0}
+
+{p2col:{opt mod:els(list)}} is required to compare {it:ME inequalities} across two models. 
+The models must have been estimated and saved using {help estimates store} 
+before running {cmdab:meineq:uality}. {opt mod:els(list)} is optional 
+for one model estimation; if no {opt mod:els(list)} option is included the default 
+is to use the model estimates in memory. {cmdab:meineq:uality} is limited to one or two models. 
+The {opt vce(robust)} option is strongly recommended when conducting two-model comparisons 
+because SUEST is used to combine the model estimates which uses robust variance 
+estimation.
+{p_end}
+
+{marker groups}
+
+{p2colset 5 18 19 0}
+{p2col:{opt group:s}} specifies that the two models used for comparison 
+are fit on distinct samples. When the {opt groups} option is specified, 
+the models listed in the {opt models(list)} option must have been fit 
+separately across distinct samples (e.g., distinct groups in data).
+{opt group(varname)}, the syntax of earlier versions, is also accepted; {it:varname} must
+take one value in each model's sample and a different value in each model.
+{p_end}
+
+{pmore}With {opt groups}, a weighted ME inequality weights each model by the 
+level proportions of {bf:its own} sample. The comparison therefore reflects 
+differences in the marginal effects {it:and} differences in composition 
+between the samples. Use {opt unweighted} to compare the marginal effects 
+alone.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt groupn:ames(string)}} specifies the row names in the table 
+corresponding to the ME Inequality for Model 1 and Model 2. Two group names 
+must be provided; there can be no spaces in each group name. 
+The {opt groups} option is required when using 
+{opt groupn:ames(string)}. By default, the rows are named based on the 
+stored estimate names specified in the {opt models(list)} option. 
+Long names are shortened only as needed to fit the table.
+{p_end}
+
 {marker Weighted}
-{dlgtab:Weighted options}
+{dlgtab:Weighting}
 
 {p2colset 5 18 19 0}
 
@@ -204,7 +281,7 @@ weighted one is shown.
 {p_end}
 
 {marker covariates}
-{dlgtab:Setting values of covariates}
+{dlgtab:Values of the covariates}
 {p2colset 5 18 19 0}
 {p2col:{opt atmean:s}} By default, the observed values of the other variables 
 in the model are used for calculating the marginal effects (i.e., the margins 
@@ -212,42 +289,8 @@ default of {it:asobserved} is used; see {help margins}). Alternatively, the
 covariates can be set to their sample means with the {opt atmeans} option.
 {p_end}
 
-{marker Models}
-{dlgtab:Models Option}
-
-{p2colset 5 18 19 0}
-
-{p2col:{opt mod:els(list)}} is required to compare {it:ME inequalities} across two models. 
-The models must have been estimated and saved using {help estimates store} 
-before running {cmdab:meineq:uality}. {opt mod:els(list)} is optional 
-for one model estimation; if no {opt mod:els(list)} option is included the default 
-is to use the model estimates in memory. {cmdab:meineq:uality} is limited to one or two models. 
-The {opt vce(robust)} option is strongly recommended when conducting two-model comparisons 
-because SUEST is used to combine the model estimates which uses robust variance 
-estimation.
-{p_end}
-
-{marker groups}
-{dlgtab:Groups options}
-
-{p2colset 5 18 19 0}
-{p2col:{opt group:s}} specifies that the two models used for comparison 
-are fit on distinct samples. When the {opt groups} option is specified, 
-the models listed in the {opt models(list)} option must have been fit 
-separately across distinct samples (e.g., distinct groups in data).
-{opt group(varname)}, the syntax of earlier versions, is also accepted; {it:varname} must
-take one value in each model's sample and a different value in each model.
-{p_end}
-
-{pmore}With {opt groups}, a weighted ME inequality weights each model by the 
-level proportions of {bf:its own} sample. The comparison therefore reflects 
-differences in the marginal effects {it:and} differences in composition 
-between the samples. Use {opt unweighted} to compare the marginal effects 
-alone.
-{p_end}
-
 {marker by/over}
-{dlgtab:Subpopulation estimation options}
+{dlgtab:Within levels of a variable (by, over)}
 
 {p2colset 5 18 19 0}
 {p2col:{opt by(varname)}} estimates ME inequality separately for each level 
@@ -285,6 +328,48 @@ printed under the table. All quantities come from one {help margins} call,
 so the tests use the joint covariance of the levels. 
 {p_end}
 
+{marker options}
+{dlgtab:Reporting}
+
+{p2colset 5 18 19 0}
+{p2col:{opt ci}} adds the lower and upper bounds of the confidence 
+intervals (CIs) for all estimates, at the level set by {opt level(#)} (95% by 
+default). 
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt level(#)}} sets the confidence level for reported confidence 
+intervals. The default is {cmd:level(95)}. Values from 10 to 99 are allowed.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt dec:imals(#)}} changes the number of decimal places reported 
+in the table. The default is 3. Any integer between 0 - 7 is allowed.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt labw:idth(#)}} changes the width of the leftmost column of the 
+table that provides the labels for the variables and associated marginal 
+effects. The default is 24. Any integer between 20 - 32 is allowed.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt title(string)}} changes title of the output table. 
+The default is "ME Inequality Estimates".
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt command:s}} displays the command of each model, the {cmd:margins} 
+command used to calculate 
+the predictions that make up the ME inequality estimate, and when two models 
+are used, the {cmd:suest2} command used to combine the two models. 
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt detail:s}} displays the output of the {cmdab:margins} 
+command and, when two models are used, the {cmd:suest2} output.
+{p_end}
+
 {marker sampleweights}
 {dlgtab:Sample weights and multiple imputation estimation options}
 
@@ -318,58 +403,6 @@ weight directly on the {bf:stored models} -- e.g. {cmd:logit y x [pw=w]}.
 {cmd:meinequality} takes the weighting from the models, so the results 
 reported are the ones the stored models themselves imply. With two models, 
 both must carry the same weight.
-{p_end}
-
-{marker options}
-{dlgtab:Additional Optional Options}
-
-{p2colset 5 18 19 0}
-{p2col:{opt level(#)}} sets the confidence level for reported confidence 
-intervals. The default is {cmd:level(95)}. Values from 10 to 99 are allowed.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt dec:imals(#)}} changes the number of decimal places reported 
-in the table. The default is 3. Any integer between 0 - 7 is allowed.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt ci}} adds the lower and upper bounds of the confidence 
-intervals (CIs) for all estimates, at the level set by {opt level(#)} (95% by 
-default). 
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt labw:idth(#)}} changes the width of the leftmost column of the 
-table that provides the labels for the variables and associated marginal 
-effects. The default is 24. Any integer between 20 - 32 is allowed.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt title(string)}} changes title of the output table. 
-The default is "ME Inequality Estimates".
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt groupn:ames(string)}} specifies the row names in the table 
-corresponding to the ME Inequality for Model 1 and Model 2. Two group names 
-must be provided; there can be no spaces in each group name. 
-The {opt groups} option is required when using 
-{opt groupn:ames(string)}. By default, the rows are named based on the 
-stored estimate names specified in the {opt models(list)} option. 
-Long names are shortened only as needed to fit the table.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt command:s}} displays the command of each model, the {cmd:margins} 
-command used to calculate 
-the predictions that make up the ME inequality estimate, and when two models 
-are used, the {cmd:suest2} command used to combine the two models. 
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt detail:s}} displays the output of the {cmdab:margins} 
-command and, when two models are used, the {cmd:suest2} output.
 {p_end}
 
 {marker matrices}
