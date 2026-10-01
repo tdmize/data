@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-28 Bing Han, Trenton D. Mize -- matches totalme v1.8.0}{...}
+{* 2026-09-30 Bing Han, Trenton D. Mize -- matches totalme v1.8.1}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -19,10 +19,49 @@ estimation for one or two models. For two models, the command performs
 cross-model comparisons of the {it:totalMEs}. {p_end}
 {p2colreset}{...}
 
-{title:General Syntax}
+{marker syntax}{...}
+{title:Syntax}
 
-{p 4 18 2}
-{cmdab:totalme} {varlist} {ifin} {cmdab:,} [options]{p_end}
+{p 8 18 2}
+{cmd:totalme} {varlist} {ifin} [{cmd:,} {it:options}]
+{p_end}
+
+{synoptset 28 tabbed}{...}
+{synopthdr}
+{synoptline}
+{syntab:Models}
+{synopt:{opt mod:els(list)}}stored models to use; default is the model in {cmd:e()}{p_end}
+{synopt:{opt group:s}}the models were fit on distinct groups{p_end}
+{synopt:{opt groupn:ames(name1 name2)}}labels for the two groups{p_end}
+
+{syntab:Amount of change}
+{synopt:{opt amount(list)}}change for continuous variables; default is {bf:one}{p_end}
+{synopt:{opt center:ed}}centered change; the default{p_end}
+{synopt:{opt uncent:ered}}change from the value up by the amount{p_end}
+
+{syntab:Values of the variables}
+{synopt:{opt start(list)}}starting values of the focal variables{p_end}
+{synopt:{opt atmean:s}}hold the covariates at their means{p_end}
+
+{syntab:Within levels of a variable}
+{synopt:{opt by(varname)}}Total ME at each level, as a counterfactual{p_end}
+{synopt:{opt over(varname)}}Total ME within each subpopulation{p_end}
+
+{syntab:Nominal variables}
+{synopt:{opt wei:ghted}}contrasts weighted by level shares; the default{p_end}
+{synopt:{opt unw:eighted}}all contrasts weighted equally{p_end}
+{synopt:{opt all}}report both weighted and unweighted{p_end}
+
+{syntab:Reporting}
+{synopt:{opt ci}}add confidence intervals{p_end}
+{synopt:{opt level(#)}}confidence level; default is 95{p_end}
+{synopt:{opt dec:imals(#)}}decimal places; default is 3{p_end}
+{synopt:{opt labw:idth(#)}}width of the label column; default is 24{p_end}
+{synopt:{opt title(string)}}title of the table{p_end}
+{synopt:{opt command:s}}display the commands used{p_end}
+{synopt:{opt detail:s}}display the {cmd:margins} and {cmd:suest2} output{p_end}
+{synoptline}
+{p2colreset}{...}
 
 {marker overview}
 {title:Overview}
@@ -66,20 +105,21 @@ which is a required package.
 
 {title:Table of contents}
 
+	{help totalme##syntax:Syntax and list of options}
 	{help totalme##models:Supported estimation commands}
 	{help totalme##Models:Required option for two model comparison}
 	{help totalme##groups:Required option if fitting models over two distinct samples}
 	{help totalme##amount:Amount of change to compute for continuous variables}
 	{help totalme##start:Setting starting values of variables in varlist}
 	{help totalme##covariates:Setting values of the covariates}
-	{help totalme##Weighted:Weighting options for ME inequality for nominal IVs}
 	{help totalme##byover:Estimations for subpopulations}
+	{help totalme##Weighted:Weighting options for ME inequality for nominal IVs}
+	{help totalme##options:Reporting options: confidence intervals, formatting, output}
 	{help totalme##sampleweights:Setting sample weights and multiple imputation estimates}
-	{help totalme##options:Optional options for formatting, reporting, missing data, etc.}
 	{help totalme##matrices:Saved estimates and matrices}
 	{help totalme##bootstrap:Bootstrap standard errors}
 	{help totalme##examples:Examples}
-	
+
 {marker models}{...}
 {title:Supported estimators}
 
@@ -124,7 +164,7 @@ Comparing two {cmd:xtcloglog} models requires each to be fitted with
 {title:Options}
 
 {marker Models}
-{dlgtab:Models Option}
+{dlgtab:Models}
 
 {p2colset 5 18 19 0}
 
@@ -140,7 +180,6 @@ The two models specified can be the same or different estimation commands.
 {p_end}
 
 {marker groups}
-{dlgtab:Groups options}
 
 {p2colset 5 18 19 0}
 {p2col:{opt group:s}} specifies that the two models used for comparison 
@@ -152,8 +191,17 @@ separately across distinct samples (e.g., distinct groups in the data).
 take one value in each model's sample and a different value in each model.
 {p_end}
 
+{p2colset 5 18 19 0}
+{p2col:{opt groupn:ames(string)}} specifies the row names in the table 
+corresponding to the total ME for Model 1 and Model 2. Two group names must 
+be provided. The {opt groups} option is required when using 
+{opt groupn:ames(string)}. By default, the rows are named based on the 
+stored estimate names specified in the {opt models(list)} option. 
+Long names are shortened only as needed to fit the table.
+{p_end}
+
 {marker amount}
-{dlgtab:Amount of change and related options for continuous independent variables}
+{dlgtab:Amount of change}
 {p2colset 8 25 25 0}
 {p2col:{opt amount(list)}}specifies the amount of change to be computed for 
 the continuous independent variables. If only one value is specified in 
@@ -204,7 +252,7 @@ rather than the default centered change.
 
 
 {marker start}
-{dlgtab:Setting starting values of variables in varlist}
+{dlgtab:Values of the variables}
 {p2colset 8 25 25 0}
 {p2col:{opt start(list)}}By default, the observed values of the focal independent 
 variables specified in the {it:varlist} are used as the starting points for 
@@ -216,7 +264,6 @@ per variable is allowed.
 {p_end}
 
 {marker covariates}
-{dlgtab:Setting values of covariates}
 {p2colset 8 25 25 0}
 {p2col:{opt atmean:s}}By default, the observed values of the other variables 
 in the model are used for calculating the marginal effects (i.e., the margins 
@@ -224,39 +271,8 @@ default of {it:asobserved} is used; see {help margins}). Alternatively, the
 covariates can be set to their sample means with the {opt atmeans} option.
 {p_end}
 
-{marker Weighted}
-{dlgtab:Weighting options for total ME inequality}
-
-{p2colset 5 18 19 0}
-
-{pstd} For nominal independent variables, total {it:ME inequalities} are 
-calculated; see {help meinequality}. {opt wei:ghted}, {opt unw:eighted}, 
-and {opt all} options can be specified. {p_end}
-
-{p2col:{opt wei:ghted}} is the default. Weighting accounts for the relative 
-frequency of each level of 
-the nominal variable in the sample. The weight assigned to each pairwise 
-comparison is the corrected sum of the proportions of the two levels used 
-in the comparison within the sample: w_ab = (prop_a + prob_b)/(L - 1). 
-Here, prop_a and prop_b refer to the proportions of the sample in Levels 
-A and B, respectively. The term L-1 serves as a correction for the fact 
-that each group is represented in multiple contrasts, ensuring the total 
-sums to 1. 
-{p_end}
-
-{p2col:{opt unw:eighted}} ignores the relative frequency of each level 
-of the nominal variable in the sample. Instead, {opt unw:eighted} assigns 
-equal weights to each comparison: 1/ (L(L-1)/2), where L(L-1)/2 presents 
-the total number of pairwise comparisons. 
-{p_end}
-
-{p2col:{opt all}} reports both {opt wei:ghted} and {opt unw:eighted} 
-total {it:ME inequalities}.
-{p_end}
-
-
 {marker byover}
-{dlgtab:Subpopulation estimation options}
+{dlgtab:Within levels of a variable (by, over)}
 
 {p2colset 5 18 19 0}
 {p2col:{opt by(varname)}} estimates total ME for each level of the specified 
@@ -293,6 +309,80 @@ printed under the table. All quantities come from one {help margins} call,
 so the tests use the joint covariance of the levels. 
 {p_end}
 
+{marker Weighted}
+{dlgtab:Nominal variables}
+
+{p2colset 5 18 19 0}
+
+{pstd} For nominal independent variables, total {it:ME inequalities} are 
+calculated; see {help meinequality}. {opt wei:ghted}, {opt unw:eighted}, 
+and {opt all} options can be specified. {p_end}
+
+{p2col:{opt wei:ghted}} is the default. Weighting accounts for the relative 
+frequency of each level of 
+the nominal variable in the sample. The weight assigned to each pairwise 
+comparison is the corrected sum of the proportions of the two levels used 
+in the comparison within the sample: w_ab = (prop_a + prob_b)/(L - 1). 
+Here, prop_a and prop_b refer to the proportions of the sample in Levels 
+A and B, respectively. The term L-1 serves as a correction for the fact 
+that each group is represented in multiple contrasts, ensuring the total 
+sums to 1. 
+{p_end}
+
+{p2col:{opt unw:eighted}} ignores the relative frequency of each level 
+of the nominal variable in the sample. Instead, {opt unw:eighted} assigns 
+equal weights to each comparison: 1/ (L(L-1)/2), where L(L-1)/2 presents 
+the total number of pairwise comparisons. 
+{p_end}
+
+{p2col:{opt all}} reports both {opt wei:ghted} and {opt unw:eighted} 
+total {it:ME inequalities}.
+{p_end}
+
+
+{marker options}
+{dlgtab:Reporting}
+
+{p2colset 5 18 19 0}
+{p2col:{opt ci}} adds the lower and upper bounds of the confidence 
+intervals (CIs) for all estimates, at the level set by {opt level(#)} (95% by 
+default).
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt level(#)}} sets the confidence level for reported confidence 
+intervals. The default is {cmd:level(95)}. Values can range from 10 to 99.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt dec:imals(#)}} changes the number of decimal places reported 
+in the table. The default is 3. Any integer between 0 - 7 is allowed.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt labw:idth(#)}} changes the width of the leftmost column of the 
+table that provides the labels for the variables and associated marginal 
+effects. The default is 24. Any integer between 20 - 32 is allowed.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt title(string)}} changes title of the output table. 
+The default is "Total ME Estimates".
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt command:s}} displays the command of each model, the {cmd:margins} 
+command used to estimate 
+the marginal effects, and when two models are specified, the {cmd:suest2} 
+command used to combine the model estimates.
+{p_end}
+
+{p2colset 5 18 19 0}
+{p2col:{opt detail:s}} displays the output of the {cmdab:margins} estimates 
+which are the constituent parts of the {it:total ME} calculation, and when two 
+models are specified, the {cmd:suest2} output with the combined model estimates.
+{p_end}
+
 {marker sampleweights}
 {dlgtab:Sample weights and multiple imputation estimation options}
 
@@ -327,58 +417,6 @@ specify the weight on the {bf:stored models} -- e.g.
 both must carry the same weight.
 {p_end}
 
-
-{marker options}
-{dlgtab:Additional Optional Options}
-
-{p2colset 5 18 19 0}
-{p2col:{opt level(#)}} sets the confidence level for reported confidence 
-intervals. The default is {cmd:level(95)}. Values can range from 10 to 99.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt dec:imals(#)}} changes the number of decimal places reported 
-in the table. The default is 3. Any integer between 0 - 7 is allowed.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt ci}} adds the lower and upper bounds of the confidence 
-intervals (CIs) for all estimates, at the level set by {opt level(#)} (95% by 
-default).
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt labw:idth(#)}} changes the width of the leftmost column of the 
-table that provides the labels for the variables and associated marginal 
-effects. The default is 24. Any integer between 20 - 32 is allowed.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt title(string)}} changes title of the output table. 
-The default is "Total ME Estimates".
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt groupn:ames(string)}} specifies the row names in the table 
-corresponding to the total ME for Model 1 and Model 2. Two group names must 
-be provided. The {opt groups} option is required when using 
-{opt groupn:ames(string)}. By default, the rows are named based on the 
-stored estimate names specified in the {opt models(list)} option. 
-Long names are shortened only as needed to fit the table.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt command:s}} displays the command of each model, the {cmd:margins} 
-command used to estimate 
-the marginal effects, and when two models are specified, the {cmd:suest2} 
-command used to combine the model estimates.
-{p_end}
-
-{p2colset 5 18 19 0}
-{p2col:{opt detail:s}} displays the output of the {cmdab:margins} estimates 
-which are the constituent parts of the {it:total ME} calculation, and when two 
-models are specified, the {cmd:suest2} output with the combined model estimates.
-{p_end}
 
 {marker matrices}
 {dlgtab:Saved estimates and matrices}

@@ -1,5 +1,35 @@
 # CHANGELOG -- totalme
 
+## v1.8.1 -- 30sep2026, exact standard errors; one blank line above each note
+
+**Standard errors.** The standard errors of the Total ME and the Total ME
+inequality are now exact when one of the changes being summed is near zero. The
+summaries were passed to `nlcom` as sums of `abs()` terms; `nlcom` approximates
+derivatives numerically, and for a change near zero it understated the
+derivative of `abs()`, so the standard error was off (Example 5.2.c of Mize and
+Han (2025), parent: z = 2.976 where the exact value is 2.932). Each `abs(d)` is
+now `s*d`, with `s` the sign of `d` at the estimates (+1 when `d` is exactly
+zero), as in mecompare's `totalme` option, so each expression is linear and its
+standard error exact. Summaries that `nlcom` could not compute before, which
+totalme refused, now compute -- for example, when an outcome category holds
+very few observations. The refusal, kept for any other failure of `nlcom`, no
+longer names sparse categories as the cause. The estimates do not change (gate
+75, `test_se_sign_gate75_v1_2`).
+
+**Output.** As mecompare 1.8.2: `di _newline(1)` prints two blank lines, so
+each note or message sat under two; all 40 are now `di ""`. The standard-error
+note and the note that the command lines are shown without their options, which
+printed with no blank line above, get one. With `commands`, one blank line
+above the models' command lines: one model had none; with two, the blank line
+printed before the weight note as well, giving two. Owner's decisions
+(29sep2026). Only blank lines move (gate 74, `test_spacing_gate74_v1_2`).
+
+**Help.** A Syntax section lists every option in a table, one line each, in
+the groups of mecompare's help (Models, Amount of change, Values of the
+variables, Within levels of a variable, Nominal variables, Reporting); the
+Options section follows the table's order, with `groupnames()` beside
+`groups`. No option's text changed.
+
 ## v1.8.0 -- 28sep2026, full labels; the model's command line only with commands
 
 **Labels, as in mecompare 1.8.0.** The table's labels use the whole label

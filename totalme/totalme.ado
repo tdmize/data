@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.8.0 Bing Han & Trenton Mize 2026-09-28  | history: CHANGELOG-totalme.md (repo)
+*! totalme v1.8.1 Bing Han & Trenton Mize 2026-09-30  | history: CHANGELOG-totalme.md (repo)
 
 program define totalme, rclass
 	
@@ -62,7 +62,7 @@ foreach tmreq in suest2 _mec_canonical mec_share mec_wcheck mec_gsem /*
 	if _rc  local tmmissing "`tmmissing' `tmreq'"
 	}
 if "`tmmissing'" != "" {
-	di _newline(1)
+	di ""
 	di as err "{cmd:totalme} requires the {cmd:suest2} package, which "  /*
 	*/ "is missing or incomplete. Not found:`tmmissing'. Install or "  /*
 	*/ "update {cmd:suest2} and try again."
@@ -73,7 +73,7 @@ if "`tmmissing'" != "" {
 local engine = lower(trim("`engine'"))
 if "`engine'" == ""  local engine "suest2"
 if "`engine'" != "suest2" & "`engine'" != "gsem" {
-	di _newline(1)
+	di ""
 	di as err "{opt engine()} must be {opt suest2} or {opt gsem}."
 	exit 198
 	}
@@ -115,7 +115,7 @@ if "`labwidth'" == "" {
 else {
 	capture confirm integer number `labwidth'
 	if _rc | !inrange(real("`labwidth'"), 20, 32) {
-		di _newline(1)
+		di ""
 		di as err "{opt labwidth()} must be an integer between 20 and 32. " /*
 		*/ "To fit longer names, use shorter names in {opt models()} or " /*
 		*/ "{opt groupnames()}."
@@ -131,7 +131,7 @@ if "`decimals'" == "" {
 else {
 	capture confirm integer number `decimals'
 	if _rc | !inrange(real("`decimals'"), 0, 7) {
-		di _newline(1)
+		di ""
 		di as err "{opt decimals()} must be an integer between 0 and 7."
 		exit 198
 	}
@@ -180,7 +180,7 @@ if `nummods' > 2 {
 
 *Error out if group specified incorrectly.
 if "`groups'" != "" & `nummods' == 1 {
-	di _newline(1)
+	di ""
 	di as err "The {opt groups} option requires two models to be specified in " /*
 	*/ "the {opt models()} option -- one for each group. See " /*
 	*/ "{help totalme##groups}."
@@ -224,7 +224,7 @@ if "`weight'" != "" {
 *Only one weighting may be requested
 local nwopt = ("`weighted'" != "") + ("`unweighted'" != "") + ("`all'" != "")
 if `nwopt' > 1 {
-	di _newline(1)
+	di ""
 	di as err "Specify only one of {opt weighted}, {opt unweighted}, or " /*
 	*/ "{opt all}."
 	exit 198
@@ -279,7 +279,7 @@ if `nummods' == 1 {
 	*/ inlist("`e(cmd)'", "menbreg", "meologit", "meoprobit", "mestreg", "meglm") {
 		if trim("`e(prefix)'") == "" & "`e(wtype)'" == "pweight" & /*
 		*/ trim(`"`e(pweight1)'"') == "" {
-			di _newline(1)
+			di ""
 			di as err "model `mod1' was fit with a weight but without a stage " /*
 			*/ "weight, so it carries no higher-level weight to build a design " /*
 			*/ "from; a weighted multilevel model needs one, as in " /*
@@ -312,7 +312,7 @@ if `tm_ismi1' == 1 {
 
 	capture which mimrgns
 		if (_rc) {
-		di _newline(1)
+		di ""
 		di as err "{cmd:totalme} requires the user-written package " /*
 		*/ "{cmd:mimrgns}. Click on the link below to search for " /*
 		*/ "and install {cmd:mimrgns}: {stata search mimrgns: {bf:mimrgns}}"
@@ -336,7 +336,7 @@ local cmd_m1 "`r(canon)'"
 local tm_ok1 = r(ok)
 
 if `tm_ok1' == 0 {
-	di _newline(1)
+	di ""
 	di as err "`mod1' is a {cmd:`tm_raw'}. {cmd:totalme} does not support " /*
 	*/ "this estimation command. See {help totalme##models}."
 	exit 198
@@ -351,7 +351,7 @@ local tm_catmods "`tm_catmods' xtlogit xtprobit xtcloglog xtmlogit"
 local tm_catmods "`tm_catmods' hetprobit"
 local tm_incat : list posof "`cmd_m1'" in tm_catmods
 if `tm_incat' == 0 {
-	di _newline(1)
+	di ""
 	_tm_norefuse "`mod1'" "`cmd_m1'"
 	exit 198
 }
@@ -361,7 +361,7 @@ _tm_cats "`cmd_m1'" 1
 local mod1cats = r(ncat)
 local div1 = r(div)
 if `mod1cats' >= . | `mod1cats' < 1 {
-	di _newline(1)
+	di ""
 	di as err "{cmd:totalme} could not read the number of outcome " /*
 	*/ "categories for `mod1' (a {cmd:`cmd_m1'}). Without it the " /*
 	*/ "statistic cannot be formed."
@@ -411,7 +411,7 @@ else                qui gen `mod2samp' = e(sample)
 	
 	*Error out if group number is not consistent with the e(sample)
 	if "`groups'" != "" & (`Nsav1_ovlp'!=`Nsav1') {
-		di _newline(1)
+		di ""
 		di as err "{opt groups} option does not support overlapped samples across groups. " /*
 		*/ "See {help totalme##groups} for details."
 		exit 198		
@@ -422,7 +422,7 @@ else                qui gen `mod2samp' = e(sample)
 		forvalues j = 1/2 {
 			qui levelsof `mecgrpv' if `tmsamp' == `j', local(mecgv`j') missing
 			if r(r) != 1 {
-				di _newline(1)
+				di ""
 				di as err "`mecgrpv' takes `r(r)' values in the sample of `mod`j''. " /*
 				*/ "With {opt group(`mecgrpv')} each model is fit to one group, " /*
 				*/ "one value of `mecgrpv'."
@@ -430,7 +430,7 @@ else                qui gen `mod2samp' = e(sample)
 			}
 		}
 		if `"`mecgv1'"' == `"`mecgv2'"' {
-			di _newline(1)
+			di ""
 			di as err "`mecgrpv' takes the same value in the samples of " /*
 			*/ "`mod1' and `mod2'. With {opt group(`mecgrpv')} each " /*
 			*/ "model is fit to a different group."
@@ -441,7 +441,7 @@ else                qui gen `mod2samp' = e(sample)
 	*A gologit2 pair is allowed on the default engine; refused under engine(gsem) only
 	if ("`cmd_m1'" == "gologit2" | "`cmd_m2'" == "gologit2") /*
 		*/ & "`engine'" == "gsem" { 	
-		di _newline(1)
+		di ""
 		di as err "{cmd:gologit2} cannot be compared across two models with " /*
 		*/ "{opt engine(gsem)}. That engine uses {cmd:gsem} to combine " /*
 		*/ "model estimates and {cmd:gologit2} estimates cannot be " /*
@@ -457,14 +457,14 @@ else                qui gen `mod2samp' = e(sample)
 	local cmd_m2 "`r(canon)'"
 	local tm_ok2 = r(ok)
 	if `tm_ok2' == 0 {
-		di _newline(1)
+		di ""
 		di as err "`mod2' is a {cmd:`tm_raw2'}. {cmd:totalme} does not " /*
 		*/ "support this estimation command."
 		exit 198
 		}
 	local tm_incat2 : list posof "`cmd_m2'" in tm_catmods
 	if `tm_incat2' == 0 {
-		di _newline(1)
+		di ""
 		_tm_norefuse "`mod2'" "`cmd_m2'"
 		exit 198
 		}
@@ -472,7 +472,7 @@ else                qui gen `mod2samp' = e(sample)
 	local mod2cats = r(ncat)
 	local div2 = r(div)
 	if `mod2cats' >= . | `mod2cats' < 1 {
-		di _newline(1)
+		di ""
 		di as err "{cmd:totalme} could not read the number of outcome " /*
 		*/ "categories for `mod2' (a {cmd:`cmd_m2'})."
 		exit 198
@@ -489,7 +489,7 @@ else                qui gen `mod2samp' = e(sample)
 			if "`v'" == "`w'" & "`k'" != "`l'" {
 				local l = substr("`l'", 2, .)
 				local k = substr("`k'", 2, .)
-				di _newline(1)
+				di ""
 				di as err "`v' enters `mod1' as `l' and `mod2' as `k'. The two " /*
 				*/ "models are combined into one set of estimates, which holds one " /*
 				*/ "base level per variable. Refit one model so the base levels " /*
@@ -511,6 +511,7 @@ else                qui gen `mod2samp' = e(sample)
 		local cmdline_m1_vce = substr("`cmdline_m1_vce'", `ifcomma' + 1, `ifcomma' + 7)		
 		local cmdline_m1_vce = strtrim("`cmdline_m1_vce'")
 		if "`cmdline_m1_vce'" != "vce(robust)" & "`commands'" != "" {
+			di ""
 			di in red "{cmd:totalme} shows each model's command line without " /*
 			*/ "its options. Estimation uses `mod1' exactly as it was stored; " /*
 			*/ "nothing is refitted and no option is discarded."			
@@ -527,6 +528,7 @@ else                qui gen `mod2samp' = e(sample)
 		local cmdline_m2_vce = substr("`cmdline_m2_vce'", `ifcomma' + 1, .)
 		local cmdline_m2_vce = strtrim("`cmdline_m2_vce'")
 		if "`cmdline_m2_vce'" != "vce(robust)" & "`commands'" != "" {
+			di ""
 			di in red "{cmd:totalme} shows each model's command line without " /*
 			*/ "its options. Estimation uses `mod2' exactly as it was stored; " /*
 			*/ "nothing is refitted and no option is discarded."			
@@ -602,7 +604,7 @@ else                qui gen `mod2samp' = e(sample)
 	   ("`ifweight2'" != "" & "`prefix2'" != "svy") {
 		if "`weight'" == "" {
 			if "`ifweight1'" != "`ifweight2'" | "`ifwtype1'" != "`ifwtype2'" {
-				di _newline(1)
+				di ""
 				di as err "The two models were fit with different weights, " /*
 				*/ "so they cannot be combined. Refit them with the same " /*
 				*/ "weight, or give the weight to {cmd:totalme} directly."
@@ -616,7 +618,7 @@ else                qui gen `mod2samp' = e(sample)
 	*Two-model svy: both models must be svy:
 	if "`prefix1'" == "svy" | "`prefix2'" == "svy" {
 		if "`prefix1'" != "`prefix2'" {
-			di _newline(1)
+			di ""
 			di as err "One model uses the {opt svy:} prefix and the other " /*
 			*/ "does not; both models must be {opt svy:} (or neither)."
 			exit 198
@@ -628,7 +630,7 @@ else                qui gen `mod2samp' = e(sample)
 	if "`prefix1'" == "mi estimate" | "`prefix2'" == "mi estimate" {
 		
 		if "`prefix1'" != "`prefix2'" {
-			di _newline(1)
+			di ""
 			di as err "The prefixes do not match in the two models. " /*
 			*/ "The prefix for `mod1' is `prefix1', and the prefix for `mod2' is `prefix2'."
 			exit 198
@@ -637,7 +639,7 @@ else                qui gen `mod2samp' = e(sample)
 	
 	*Any other prefix is refused with two models
 	if "`prefix1'" != "mi estimate" & "`prefix1'" != "svy" & "`prefix1'" != "" {
-		di _newline(1)
+		di ""
 		di as err "{cmd:totalme} does not support `prefix1' prefix " /*
 		*/ "when two models are specified."
 		exit 198		
@@ -656,6 +658,7 @@ else                qui gen `mod2samp' = e(sample)
 	
 	*Warn if vce(robust) was not used on the stored models (no note under svy or mi, as in mecompare)
 	if ("`vcetype1'" != "robust" | "`vcetype2'" != "robust") & "`prefix1'" != "svy" & `tm_ismi1' == 0 & `tm_ismi2' == 0 {
+		di ""
 		if `tm_ml1' | `tm_ml2' {
 		di in red "NOTE: {cmd:totalme} clusters the standard errors on the " /*
 		*/ "highest-level group of the multilevel or panel model(s), so they " /*
@@ -684,7 +687,7 @@ else                qui gen `mod2samp' = e(sample)
 
 ** check the by/over options
 if "`by'" != "" & "`over'" != "" {
-	di _newline(1)
+	di ""
 	di as err "{opt by()} and {opt over()} option cannot be specified at the same time."
 	exit 198	
 }
@@ -696,14 +699,14 @@ if "`by'" != "" | "`over'" != "" {
 	local numovervar : word count `over'
 
 	if `numbyvar' > 1 {
-		di _newline(1)
+		di ""
 		di as err "Invalid number of variables specified in {opt by()} option. " /*
 		*/ "{opt by()} can only be used with one variable."
 		exit 198	
 	}
 
 	if `numovervar' > 1 {
-		di _newline(1)
+		di ""
 		di as err "Invalid number of variables specified in {opt over()} option. " /*
 		*/ "{opt over()} can only be used with one variable."
 		exit 198	
@@ -715,7 +718,7 @@ if "`by'" != "" | "`over'" != "" {
 		local byovervar "`byvar'"
 		_tm_fvtype, name(`byvar') cols(`tmcoln1')
 		if "`r(type)'" != "factor" {
-			di _newline(1)
+			di ""
 			di as err "Variable `byvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt by()} option." /*	
 			*/ "Check if i. prefix is used for the nominal variable in the model." 
@@ -730,7 +733,7 @@ if "`by'" != "" | "`over'" != "" {
 		local byovervar "`overvar'"
 		_tm_fvtype, name(`overvar') cols(`tmcoln1')
 		if "`r(type)'" != "factor" {
-			di _newline(1)
+			di ""
 			di as err "Variable `overvar' not found in the model. " /*
 			*/ "Only nominal variable can be specified in {opt over()} option." /*	
 			*/ "Check if i. prefix is used for the nominal variable in the model." 
@@ -780,6 +783,7 @@ if `nummods' == 1 {
 	local samp1_size = e(N)
 
 	if "`commands'" != "" {
+		di ""
 		di 		as text "Model (`mod1') is:"
 		di 		as result "     `cmdline_m1'"
 		}
@@ -791,18 +795,18 @@ if `nummods' == 1 {
 else if `nummods' == 2 {
 	
 	*The models' command lines print with commands
-	if "`commands'" != ""  di _newline(1)
 
 	local 	mod1specs "`cmdline_m1_show'"
 	local 	mod2specs "`cmdline_m2_show'"
 	
 	if `wtinherit' == 1 {
-		di _newline(1)
+		di ""
 		di in red "NOTE: no weight was given to {cmd:totalme}, so the " /*
 		*/ "weight from the stored models ([`ifwtype1' `ifweight1']) is " /*
 		*/ "applied to the combined fit."
 		}
 	if "`commands'" != "" {
+		di ""
 		di 		as text "Model 1 (`mod1') is:"
 		di 		as result "     `mod1specs'"
 		di 		as text "Model 2 (`mod2') is:"
@@ -811,7 +815,7 @@ else if `nummods' == 2 {
 
 	*The stored estimates are combined, not refitted; each model keeps its own sample
 	if "`groups'" == "" & `Nsav1' != `Nsav2' {
-		di _newline(1)
+		di ""
 		di as text "NOTE: the models were fit on different numbers of "  /*
 		*/ "observations (N_`mod1'=`Nsav1'; N_`mod2'=`Nsav2'). Each model "  /*
 		*/ "keeps its own sample; the estimates match the models as fit."
@@ -819,7 +823,7 @@ else if `nummods' == 2 {
 
 	*Error out if either model has no observations
 	if `Nsav1' == 0 | `Nsav2' == 0 {
-		di _newline(1)
+		di ""
 		di as err "`mod1' has `Nsav1' observations and `mod2' has `Nsav2'. "  /*
 		*/ "{cmd:totalme} cannot combine a model with no observations."
 		exit 2000
@@ -831,7 +835,7 @@ else if `nummods' == 2 {
 		capture `tmshow' suest2 `mod1' `mod2', nowarn
 		if _rc {
 			local tmrc = _rc
-			di _newline(1)
+			di ""
 			di as err "{cmd:suest2} could not combine `mod1' and `mod2' "  /*
 			*/ "(rc `tmrc'). Its message follows."
 			capture noisily suest2 `mod1' `mod2', nowarn
@@ -849,7 +853,7 @@ else if `nummods' == 2 {
 			*/ `g_groups' `g_samp' `quietly'
 		if _rc {
 			local tmrc = _rc
-			di _newline(1)
+			di ""
 			di as err "{cmd:engine(gsem)} could not combine `mod1' and "  /*
 			*/ "`mod2' (rc `tmrc'). Its message follows."
 			capture noisily mec_gsem `mod1' `mod2' `weightspec', /*
@@ -912,7 +916,7 @@ if "`engine'" != "gsem" {
 local numvars : word count 	`varlist'
 
 if `numvars' == 0 {
-	di _newline(1)
+	di ""
 	di as err "Specify at least one independent nominal variable. " /*
 	*/ "{cmd:totalme} can be used with at least one independent variable."
 	exit 198	
@@ -932,7 +936,7 @@ forvalues ithvar=1/`numvars' {
 
 	if `nummods' == 1 {
 		if "`tmty'" == "" {
-			di _newline(1)
+			di ""
 			di as err "Variable `ivar' not found in the model."
 			exit 198
 		}
@@ -940,7 +944,7 @@ forvalues ithvar=1/`numvars' {
 	else if `nummods' == 2 {
 		_tm_fvtype, name(`ivar') cols(`tmcoln2')
 		if "`tmty'" == "" | "`r(type)'" == "" {
-			di _newline(1)
+			di ""
 			di as err "Variable `ivar' not found in both models."
 			exit 198
 		}
@@ -969,7 +973,7 @@ if "`byovervar'" != "" {
 	local bobare = subinstr("`byovervar'", "i.", "", .)
 	local boopt = cond("`by'" != "", "by()", "over()")
 	if `: list posof "`bobare'" in conivs' > 0 | `: list posof "`bobare'" in nomivs' > 0 {
-		di _newline(1)
+		di ""
 		di as err "{bf:`bobare'} is a focal variable and is also the {opt `boopt'} " /*
 		*/ "variable. {cmd:totalme} does not estimate the total marginal effect " /*
 		*/ "of a variable within levels of that same variable; use {cmd:mecompare} " /*
@@ -984,14 +988,14 @@ local numamounts : word count `amount'
 local numpconvars : word count `pconivs'
 
 if "`amount'" != "" & `numpconvars' == 0 {
-	di _newline(1)
+	di ""
 	di as err "Incorrect specification in {opt amount( )} option. " /*
 	*/ "This option is only for continuous variables. "
 	exit 198
 }
 	
 if `numamounts' > 1 & `numamounts' != `numpconvars' {
-	di _newline(1)
+	di ""
 	di as err "Incorrect specification in {opt amount( )} option. Either " /*
 	*/ "specify only one amount which is used for all of the continuous " /*
 	*/ "independent variables or specify an equal number of amounts as " /*
@@ -1325,14 +1329,18 @@ if `numcontvars' != 0 {
 				di as result _skip(5) `"`tmmargcmd'"'
 			}
 	
+			*Each |d| enters as s*d, s the sign of d at the estimates: an exact derivative for nlcom
 			if `mod1cats' == 1 { 
-				local term_base abs(_b[2._at`bospec'] - _b[1._at`bospec'])
+				local tmd (_b[2._at`bospec'] - _b[1._at`bospec'])
+				capture local tms = cond(`tmd' < 0, -1, 1)
+				local term_base `tms'*`tmd'
 			}
 			
 			else {
 				forvalues i = 1/`mod1cats' {			
-					local part1 ///
-					+ abs(_b[`i'._predict#2._at`bospec'] - _b[`i'._predict#1._at`bospec'])	
+					local tmd (_b[`i'._predict#2._at`bospec'] - _b[`i'._predict#1._at`bospec'])
+					capture local tms = cond(`tmd' < 0, -1, 1)
+					local part1 + `tms'*`tmd'
 					local term_base `term_base' `part1'	
 				}	
 			}
@@ -1411,16 +1419,18 @@ if `numcontvars' != 0 {
 			}
 			
 			forvalues i = 1/`mod1cats' {	
-				local part1 ///
-				+ abs(_b[`tmpre1_`i''2._at`mod_samp_spec1'`bospec'] ///
-				- _b[`tmpre1_`i''1._at`mod_samp_spec1'`bospec'])	
+				local tmd (_b[`tmpre1_`i''2._at`mod_samp_spec1'`bospec'] ///
+				- _b[`tmpre1_`i''1._at`mod_samp_spec1'`bospec'])
+				capture local tms = cond(`tmd' < 0, -1, 1)
+				local part1 + `tms'*`tmd'
 				local term_base `term_base' `part1'	
 			}
 
 			forvalues i = 1/`mod2cats' {				
-				local part2 ///
-				+ abs(_b[`tmpre2_`i''2._at`mod_samp_spec2'`bospec'] ///
-				- _b[`tmpre2_`i''1._at`mod_samp_spec2'`bospec'])	
+				local tmd (_b[`tmpre2_`i''2._at`mod_samp_spec2'`bospec'] ///
+				- _b[`tmpre2_`i''1._at`mod_samp_spec2'`bospec'])
+				capture local tms = cond(`tmd' < 0, -1, 1)
+				local part2 + `tms'*`tmd'
 				local term_com `term_com' `part2'	
 			}
 			*rate: the step is divided out
@@ -1603,10 +1613,10 @@ if `numnomvars' != 0 {
 									*/ mi(`mecismi') wspec(`mecwspec')
 								local p_j = r(share)
 								local multiplier = (`p_i'+`p_j') / (`numlevels' - 1)
-								local part1 ///
-								+ ( `multiplier' * ///
-								abs(_b[`predictspec'`bospec'`ilevel'.`nomvar'] ///
-								- _b[`predictspec'`bospec'`jlevel'.`nomvar']))		
+								local tmd (_b[`predictspec'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`predictspec'`bospec'`jlevel'.`nomvar'])
+								capture local tms = cond(`tmd' < 0, -1, 1)
+								local part1 + ( `multiplier' * `tms'*`tmd')
 								local term_base `term_base' `part1'	
 							}
 						}			
@@ -1633,7 +1643,7 @@ if `numnomvars' != 0 {
 			} // end: weighted meinequality
 			
 			if "`all'"!="" | "`unweighted'"!="" {
-				
+				qui est restore totalme_margins
 				local term_base_all 0
 				forvalues dvnum = 1/`mod1cats'{
 					
@@ -1651,9 +1661,10 @@ if `numnomvars' != 0 {
 						forvalues j = 1/`numlevels' {
 							if `i' < `j' {
 								local jlevel: word `j' of `nlevel'
-								local part1 ///
-								+ abs(_b[`predictspec'`bospec'`ilevel'.`nomvar'] ///
+								local tmd (_b[`predictspec'`bospec'`ilevel'.`nomvar'] ///
 								- _b[`predictspec'`bospec'`jlevel'.`nomvar'])
+								capture local tms = cond(`tmd' < 0, -1, 1)
+								local part1 + `tms'*`tmd'
 								local term_base `term_base' `part1'
 							}
 						}	
@@ -1745,10 +1756,10 @@ if `numnomvars' != 0 {
 								local p_j = r(share)
 								*Calculate weight, corrected for redundant comparisons
 								local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
-								local part1 ///
-								+ ( `multiplier' * ///
-									abs(_b[`tmpre1_`dvnum''`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
-									- _b[`tmpre1_`dvnum''`mod_samp_spec1'`bospec'`jlevel'.`nomvar']))
+								local tmd (_b[`tmpre1_`dvnum''`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`tmpre1_`dvnum''`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
+								capture local tms = cond(`tmd' < 0, -1, 1)
+								local part1 + ( `multiplier' * `tms'*`tmd')
 								local term_base `term_base' `part1'
 							}
 						}	
@@ -1773,10 +1784,10 @@ if `numnomvars' != 0 {
 								local p_j = r(share)
 								*Calculate weight, corrected for redundant comparisons
 								local multiplier = [(`p_i'+`p_j') / (`numlevels' - 1)]
-								local part2 ///
-								+ ( `multiplier' * ///
-									abs(_b[`tmpre2_`dvnum''`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
-									- _b[`tmpre2_`dvnum''`mod_samp_spec2'`bospec'`jlevel'.`nomvar']))
+								local tmd (_b[`tmpre2_`dvnum''`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
+								- _b[`tmpre2_`dvnum''`mod_samp_spec2'`bospec'`jlevel'.`nomvar'])
+								capture local tms = cond(`tmd' < 0, -1, 1)
+								local part2 + ( `multiplier' * `tms'*`tmd')
 								local term_com `term_com' `part2'
 							}		
 						}	
@@ -1824,7 +1835,7 @@ if `numnomvars' != 0 {
 					
 			** unweighted calculation
 			if "`all'"!="" | "`unweighted'"!="" {
-
+				qui est restore totalme_margins
 				local term_base_all 0
 				local term_com_all 0
 				
@@ -1837,9 +1848,10 @@ if `numnomvars' != 0 {
 						forvalues j = 1/`numlevels' {
 							if `i' < `j' {
 								local jlevel: word `j' of `nlevel'
-								local part1 ///
-								+ abs(_b[`tmpre1_`dvnum''`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
+								local tmd (_b[`tmpre1_`dvnum''`mod_samp_spec1'`bospec'`ilevel'.`nomvar'] ///
 								- _b[`tmpre1_`dvnum''`mod_samp_spec1'`bospec'`jlevel'.`nomvar'])
+								capture local tms = cond(`tmd' < 0, -1, 1)
+								local part1 + `tms'*`tmd'
 								local term_base `term_base' `part1'
 							}
 						}	
@@ -1855,9 +1867,10 @@ if `numnomvars' != 0 {
 						forvalues j = 1/`numlevels' {
 							if `i' < `j' {
 								local jlevel: word `j' of `nlevel'
-								local part2 ///
-								+ abs(_b[`tmpre2_`dvnum''`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
+								local tmd (_b[`tmpre2_`dvnum''`mod_samp_spec2'`bospec'`ilevel'.`nomvar'] ///
 								- _b[`tmpre2_`dvnum''`mod_samp_spec2'`bospec'`jlevel'.`nomvar'])
+								capture local tms = cond(`tmd' < 0, -1, 1)
+								local part2 + `tms'*`tmd'
 								local term_com `term_com' `part2'						
 							}
 						}	
@@ -2019,7 +2032,7 @@ forvalues p = 1/`bod_n' {
 	}
 
 if `tmsemiss' > 0 {
-	di _newline(1)
+	di ""
 	di as err "NOTE: standard errors are missing for `tmsemiss' " /*
 	*/ "of the quantities above. {cmd:nlcom} could not compute them, " /*
 	*/ "which " /*
@@ -2067,11 +2080,6 @@ program define _tm_nlcom, rclass
 			di as err "{cmd:totalme} could not compute {bf:`name'}: " /*
 			*/ "{cmd:nlcom} returned r(`tmrc1'), and r(`tmrc2') on " /*
 			*/ "the rescaled retry."
-			di as err "This happens when a quantity the summary averages " /*
-			*/ "over sits at or near zero -- most often when an outcome " /*
-			*/ "category holds very few observations. {cmd:tabulate} the " /*
-			*/ "dependent variable; combining sparse categories usually " /*
-			*/ "resolves it."
 			di as err "Your model has been restored to {cmd:e()}."
 			exit 498
 			}
