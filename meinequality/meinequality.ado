@@ -1,6 +1,6 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.10.1 Bing Han & Trenton Mize 2026-09-30  | history: CHANGELOG-meinequality.md (repo)
+*! meinequality v1.10.2 Bing Han & Trenton Mize 2026-10-01  | history: CHANGELOG-meinequality.md (repo)
 
 program define meinequality, rclass
 	
@@ -800,7 +800,6 @@ if "`by'" != "" | "`over'" != "" {
 	qui 	levelsof 		`byovervar' if `levsamp'
 	local 	byoverlvl 		`r(levels)'
 	local 	numbyoverlvl	`r(r)'	
-	local  	labname : value label `byovervar'	
 	
 }
 
@@ -1037,7 +1036,7 @@ forvalues ithvar=1/`numvars' {
 	if `numbyoverlvl' > 1 {
 		local bolvl: word `m' of `byoverlvl'
 		local bolvlspec "_`bolvl'"
-		local temp_bolvlname: label `labname' `bolvl'
+		local temp_bolvlname: label (`byovervar') `bolvl'
 		local bolvlname "`temp_bolvlname'"
 		local bospec "`bolvl'.`byovervar'#"
 	}

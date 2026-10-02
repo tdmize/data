@@ -1,5 +1,14 @@
 # CHANGELOG -- meinequality
 
+## v1.10.2 -- 01oct2026, by() and over() with a variable without value labels
+
+**Fix.** `by()` and `over()` stopped with r(198) ("1 invalid name") when the
+by/over variable had no value labels: the names of its levels were read through
+a value label it did not have. They are now read from the variable, as the
+Diff. footnotes already were, so its levels are named by their values.
+Variables with value labels print as before, and no estimate or standard error
+changes (gate 76, `test_byover_nolabel_gate76_v1_0`).
+
 ## v1.10.1 -- 30sep2026, exact standard errors; one blank line above each note
 
 **Standard errors.** The ME inequality now goes to `nlcom` as a linear

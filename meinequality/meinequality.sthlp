@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-30 Bing Han, Trenton D. Mize -- matches meinequality v1.10.1}{...}
+{* 2026-10-01 Bing Han, Trenton D. Mize -- matches meinequality v1.10.2}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
