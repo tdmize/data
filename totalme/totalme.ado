@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.8.1 Bing Han & Trenton Mize 2026-09-30  | history: CHANGELOG-totalme.md (repo)
+*! totalme v1.8.2 Bing Han & Trenton Mize 2026-10-01  | history: CHANGELOG-totalme.md (repo)
 
 program define totalme, rclass
 	
@@ -747,7 +747,6 @@ if "`by'" != "" | "`over'" != "" {
 	qui 	levelsof 		`byovervar' if `levsamp'
 	local 	byoverlvl 		`r(levels)'
 	local 	numbyoverlvl	`r(r)'	
-	local  	labname : value label `byovervar'	
 	
 }
 
@@ -1072,7 +1071,7 @@ if `numcontvars' != 0 {
 		if `numbyoverlvl' > 1 {
 			local bolvl: word `m' of `byoverlvl'
 			local bolvlspec "_`bolvl'"
-			local temp_bolvlname: label `labname' `bolvl'
+			local temp_bolvlname: label (`byovervar') `bolvl'
 			local bolvlname "`temp_bolvlname'"
 			local bolvlnamespec "(`bolvlname')"
 			local bospec "#`bolvl'.`byovervar'"
@@ -1553,7 +1552,7 @@ if `numnomvars' != 0 {
 		if `numbyoverlvl' > 1 {
 			local bolvl: word `m' of `byoverlvl'
 			local bolvlspec "_`bolvl'"
-			local temp_bolvlname: label `labname' `bolvl'
+			local temp_bolvlname: label (`byovervar') `bolvl'
 			local bolvlname "`temp_bolvlname'"
 			local bolvlnamespec "(`bolvlname')"
 			local bospec "`bolvl'.`byovervar'#"
