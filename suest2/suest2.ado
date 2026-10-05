@@ -1,4 +1,4 @@
-*! version 1.1.0  25sep2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.1.1  05oct2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -143,6 +143,14 @@ program define suest2, sortpreserve eclass
             }
 
             if `s2need' {
+                // streg Weibull stores e(V_modelbased) in another parameterization
+                local s2k 0
+                foreach nm of local s2names {
+                    local ++s2k
+                    quietly estimates restore `nm'
+                    local s2wb`s2k' = "`e(cmd)'" == "weibull" & inlist("`e(vce)'", "robust", "cluster")
+                    if `s2wb`s2k''  suest2_weibullmb `nm' s2wbV`s2k'
+                }
                 // Remember what each model carried, convert it, and put the
                 // macros back below.  Only these three are touched.
                 local s2k 0
@@ -158,10 +166,11 @@ program define suest2, sortpreserve eclass
                     capture matrix drop s2omb`s2k'
                     capture confirm matrix e(V_modelbased)
                     if !_rc  matrix s2omb`s2k' = e(V_modelbased)
+                    if `s2wb`s2k''  ereturn matrix V_modelbased = s2wbV`s2k'
                     local s2_mbscaled 0
                     if `"`s2cvar'"' != ""  quietly suest2_vceconvert, clearclust
                     else                   quietly suest2_vceconvert
-                    local s2wasmb`s2k' = `s2_mbscaled'
+                    local s2wasmb`s2k' = `s2_mbscaled' | `s2wb`s2k''
                     capture quietly estimates drop `nm'
                     quietly estimates store `nm'
                 }
@@ -767,7 +776,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.1.0"
+    ereturn local suest2_version "1.1.1"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'
@@ -1014,6 +1023,35 @@ program define suest2_vceconvert, eclass
         ereturn matrix V_modelbased = `mbV', copy
     }
     c_local s2_mbscaled = `mbfire'
+end
+
+// Refit a robust or clustered streg Weibull model without vce(); its e(V) is the bread
+program define suest2_weibullmb
+    version 16
+    args nm out
+    tempname b b0
+    tempvar s
+    matrix `b0' = e(b)
+    quietly generate byte `s' = e(sample)
+    local cmd `"`e(cmdline)'"'
+    local c = strpos(`"`cmd'"', ",")
+    local left = substr(`"`cmd'"', 1, `c' - 1)
+    local 0 = substr(`"`cmd'"', `c', .)
+    capture syntax [, VCE(passthru) Robust CLuster(passthru) *]
+    capture quietly `left', `options'
+    local ok = !_rc & `c' > 0 & "`e(vce)'" == "oim"
+    if `ok' {
+        matrix `b' = e(b)
+        quietly count if `s' != e(sample)
+        local ok = !r(N) & colsof(`b') == colsof(`b0')
+    }
+    if `ok'  local ok = mreldif(`b', `b0') < 1e-8
+    if `ok'  matrix `out' = e(V)
+    quietly estimates restore `nm'
+    if !`ok' {
+        di as err "suest2 could not refit Weibull model {bf:`nm'} without vce() to obtain its model-based variance"
+        exit 459
+    }
 end
 
 // Put back exactly what a model carried before conversion.  Empty values are
@@ -5620,9 +5658,9 @@ program define suest2_meheteroestimate, sortpreserve eclass
                 local errtext "store conventional adaptive-quadrature estimates and request robust or clustered VCE with suest2"
                 continue, break
             }
-            if "`e(intmethod)'"!="mvaghermite" {
+            if !inlist("`e(intmethod)'","mvaghermite","mcaghermite") {
                 local rc 322
-                local errtext "model `name' requires adaptive Gaussian-Hermite quadrature; Laplace integration is not supported"
+                local errtext "model `name' was fit with intmethod(`e(intmethod)'); suest2 supports intmethod(mvaghermite) and intmethod(mcaghermite)"
                 continue, break
             }
             local nquad`i'=real("`e(n_quad)'")
@@ -7084,9 +7122,9 @@ program define suest2_meestimate, sortpreserve eclass
                 continue, break
             }
         }
-        if "`e(intmethod)'" != "mvaghermite" {
+        if !inlist("`e(intmethod)'", "mvaghermite", "mcaghermite") {
             local rc 322
-            local errtext "`__s2c_fam' support currently requires adaptive Gaussian-Hermite quadrature; refit model `name' without intmethod(laplace)"
+            local errtext "model `name' was fit with intmethod(`e(intmethod)'); suest2 supports intmethod(mvaghermite) and intmethod(mcaghermite)"
             continue, break
         }
         local nquad`i' = real("`e(n_quad)'")
@@ -11448,6 +11486,8 @@ program define suest2_xtpoissonfeestimate, sortpreserve eclass
     matrix `Vmb'=e(V_modelbased)
     local Nsys=e(N)
     local Gsys=e(N_clust)
+    // native xtpoisson, fe vce(robust) applies no G/(G-1)
+    matrix `Vout'=((`Gsys'-1)/`Gsys')*`Vout'
     mata: st_numscalar("__s2_xtpf_breaddiff",max(abs(st_matrix("`Vsys'"):-st_matrix("`Vmb'"))))
     if scalar(__s2_xtpf_breaddiff)>1e-12 {
         di as err "the xtpoisson, fe model-based covariance was not preserved"

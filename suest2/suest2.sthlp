@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  26sep2026}{...}
+{* *! version 1.1.1  05oct2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -164,6 +164,10 @@ highest-level group of the multilevel or panel model.
 Supported {cmd:mestreg} distributions are exponential, Weibull, lognormal,
 loglogistic, and gamma, including the applicable proportional-hazards and
 accelerated-failure-time forms.
+
+{pstd}
+Fit multilevel models with {cmd:intmethod(mvaghermite)}, the default, or
+{cmd:intmethod(mcaghermite)}.
 
 {pstd}
 Supported multilevel families may be combined in one system. Every model must

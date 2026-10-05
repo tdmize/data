@@ -623,3 +623,44 @@ itself reports (measured to 2e-8 for the default gamma random effects,
 purpose (owner, 10sep2026); the question to StataCorp about native's robust
 variance for this model is still open. No `.ado` moved; no `{stata}` line
 was added.
+
+## suest2.ado 1.1.1 -- 05oct2026
+
+Three fixes, found while checking the suest R package against Stata (the
+owner's handoffs `suest2_streg_weibull_handoff_v01.md`, 04oct2026, and
+`suest2_mcaghermite_xtpoisson_handoff_v02.md`, 05oct2026).
+
+**Weibull `streg` with `vce(robust)` or `vce(cluster)`.** After these fits
+Stata stores an `e(V_modelbased)` that is not in the parameterization of
+`e(b)` (largest gap against the same model fit without `vce()`: 3.3e-3 in the
+accelerated failure-time metric, 1.3e-3 in the proportional-hazards metric;
+0 for every other `streg` distribution). The ordinary route hands that matrix
+to official `suest` as the bread, so the standard errors were wrong: about
+twice native in the accelerated failure-time metric (model A, `x1`: 0.069
+against native 0.034) and smaller errors in the proportional-hazards metric
+(`_cons`: 0.061 against 0.077). suest2 now refits each such model from its
+`e(cmdline)` without `vce()`, requires the same sample and coefficients
+(reldif 1e-8), and uses that fit's `e(V)` as the bread (`suest2_weibullmb`).
+The refits run before any stored model is touched, and each model is put back
+as it was stored, `e(V_modelbased)` included.
+
+**`intmethod(mcaghermite)`.** Multilevel models fit with mode-curvature
+adaptive quadrature are accepted on the single-family and the mixed-family
+routes; their scores come from the model's own `predict, scores`, as for
+`mvaghermite`. Other methods are still refused, and the message now names the
+method the model used: "model A was fit with intmethod(laplace); suest2
+supports intmethod(mvaghermite) and intmethod(mcaghermite)". Before, every
+other method was reported as Laplace.
+
+**`xtpoisson, fe`.** The joint covariance no longer carries `G/(G-1)` for the
+clusters in the union of the samples (116/115 in the handoff's example), so
+each model's block equals its native `vce(robust)` result, which applies no
+such factor. The same holds under a larger `cluster()`, for which native
+`xtpoisson, fe` has no option. The gamma `xtpoisson, re` route removes the
+factor the same way.
+
+Help: one sentence in the multilevel section naming the two accepted
+integration methods. Gate 77 (`test_suest2_gate77_v01`) passed 48 / 1: every
+model's block equals its native result; the one cell compares Stata's 7-point
+`melogit` with R (covariance 9.4e-4), not suest2. The 36-suite regression
+passed 36 / 36. The banner and `e(suest2_version)` move to 1.1.1.
