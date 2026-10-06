@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.8.2 Bing Han & Trenton Mize 2026-10-01  | history: CHANGELOG-totalme.md (repo)
+*! totalme v1.8.3 Bing Han & Trenton Mize 2026-10-05  | history: CHANGELOG-totalme.md (repo)
 
 program define totalme, rclass
 	
@@ -2261,7 +2261,8 @@ program define _tm_ismi, rclass
 	foreach c in mixed melogit meprobit mecloglog mepoisson menbreg meologit meoprobit mestreg meglm xtologit xtoprobit {
 		if "`e(cmd)'" == "`c'" | "`e(cmd2)'" == "`c'"  local ml = 1
 		}
-	if inlist("`e(cmd)'", "xtlogit", "xtprobit", "xtcloglog", "xtpoisson") & "`e(model)'" == "re"  local ml = 1
+	*Every xt panel model, any estimator; xtgee (pa) and clogit (xtlogit, fe) carry the xt command in e(cmd2)
+	if substr("`e(cmd)'", 1, 2) == "xt" | substr("`e(cmd2)'", 1, 2) == "xt"  local ml = 1
 	return scalar ml = `ml'
 	return scalar ismi = `ismi'
 	return local under "`under'"

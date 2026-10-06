@@ -1,5 +1,26 @@
 # CHANGELOG -- totalme
 
+## v1.8.3 -- 05oct2026, the standard-error note for every panel model
+
+The note for multilevel and panel models (1.7.8) printed for xtlogit, xtprobit
+and xtcloglog only with the re estimator. With the pa or fe estimator, and for
+xtmlogit, the vce(robust) note printed instead and recommended refitting with
+vce(robust), which suest2's help advises against for every panel model and which
+suest2 refuses for the pa estimator and for xtmlogit. The test is now whether
+the model is an xt command (`e(cmd)`, or `e(cmd2)` for xtgee and for clogit
+under xtlogit, fe), so every panel model gets the note, whatever its estimator.
+Found 05oct2026 writing the Stata Journal article. Nothing else moves (gate 78,
+`test_panel_vcenote_gate78_v1_0`).
+
+Help: `models()` gains the article's sentence: "When either model is a
+multilevel or panel model, fit both models without vce(robust); suest2 then
+clusters the standard errors on the highest-level group." Supported
+estimators: "any two combinations of the supported model estimations are
+possible" overstated what suest2 combines; it now says the two models may be
+fit by the same or different commands, and that a multilevel or panel model
+pairs with a single-level model only if that model is a logit, probit,
+cloglog, ologit or oprobit.
+
 ## v1.8.2 -- 01oct2026, by() and over() with a variable without value labels
 
 **Fix.** `by()` and `over()` stopped with r(198) ("1 invalid name") when the

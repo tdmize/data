@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-10-01 Bing Han, Trenton D. Mize -- matches totalme v1.8.2}{...}
+{* 2026-10-05 Bing Han, Trenton D. Mize -- matches totalme v1.8.3}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -127,8 +127,10 @@ which is a required package.
 {cmdab:totalme} accepts one or two models from the following families. 
 When two models are specified, cross-model comparisons of the equality of the 
 {it:total MEs} are automatically calculated. In the two-model case, the models can 
-be the same or different types of models. That is, any two combinations of the 
-supported model estimations are possible. 
+be fit by the same or different estimation commands, such as {cmd:logit} and 
+{cmd:mlogit}. A multilevel or panel model can be paired with a single-level 
+model only if the single-level model is a {cmd:logit}, {cmd:probit}, 
+{cmd:cloglog}, {cmd:ologit}, or {cmd:oprobit} model. 
 {p_end}
 
 {dlgtab:Ordinary single-level models}
@@ -175,7 +177,9 @@ single-model estimation; by default, {cmdab:totalme} will use the model estimate
 in memory. {cmdab:totalme} is limited to one or two models. 
 The {opt vce(robust)} option is strongly recommended for the two-model case because 
 the estimates are combined by seemingly unrelated estimation, which uses robust 
-variance estimation. 
+variance estimation. When either model is a multilevel or panel model, fit both 
+models without {opt vce(robust)}; {cmd:suest2} then clusters the standard errors 
+on the highest-level group. 
 The two models specified can be the same or different estimation commands. 
 {p_end}
 
