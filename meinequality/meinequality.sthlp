@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-10-01 Bing Han, Trenton D. Mize -- matches meinequality v1.10.2}{...}
+{* 2026-10-05 Bing Han, Trenton D. Mize -- matches meinequality v1.10.3}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -213,7 +213,9 @@ for one model estimation; if no {opt mod:els(list)} option is included the defau
 is to use the model estimates in memory. {cmdab:meineq:uality} is limited to one or two models. 
 The {opt vce(robust)} option is strongly recommended when conducting two-model comparisons 
 because SUEST is used to combine the model estimates which uses robust variance 
-estimation.
+estimation. When the models are multilevel or panel models, fit both without 
+{opt vce(robust)}; {cmd:suest2} then clusters the standard errors on the 
+highest-level group.
 {p_end}
 
 {marker groups}

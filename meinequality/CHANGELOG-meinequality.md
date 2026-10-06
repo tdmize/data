@@ -1,5 +1,22 @@
 # CHANGELOG -- meinequality
 
+## v1.10.3 -- 05oct2026, the standard-error note for every panel model
+
+The note for multilevel and panel models (1.9.5) printed for xtologit and
+xtoprobit, and for xtlogit, xtprobit, xtcloglog and xtpoisson only with the re
+estimator. For xtreg, xtnbreg and xtmlogit, and for the pa and fe estimators,
+the vce(robust) note printed instead and recommended refitting with
+vce(robust), which suest2's help advises against for every panel model and
+which suest2 refuses for most of them. The test is now whether the model is an
+xt command (`e(cmd)`, or `e(cmd2)` for xtgee and for clogit under xtlogit,
+fe), so every panel model gets the note, whatever its estimator. Found
+05oct2026 writing the Stata Journal article. Nothing else moves (gate 78,
+`test_panel_vcenote_gate78_v1_0`).
+
+Help: `models()` gains the article's sentence: "When the models are multilevel
+or panel models, fit both without vce(robust); suest2 then clusters the
+standard errors on the highest-level group."
+
 ## v1.10.2 -- 01oct2026, by() and over() with a variable without value labels
 
 **Fix.** `by()` and `over()` stopped with r(198) ("1 invalid name") when the

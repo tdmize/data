@@ -1,6 +1,6 @@
 // Inequality stats for nominal independent variable's effects
 capture program drop meinequality
-*! meinequality v1.10.2 Bing Han & Trenton Mize 2026-10-01  | history: CHANGELOG-meinequality.md (repo)
+*! meinequality v1.10.3 Bing Han & Trenton Mize 2026-10-05  | history: CHANGELOG-meinequality.md (repo)
 
 program define meinequality, rclass
 	
@@ -1946,7 +1946,8 @@ program define _mei_ismi, rclass
 	foreach c in mixed melogit meprobit mecloglog mepoisson menbreg meologit meoprobit mestreg meglm xtologit xtoprobit {
 		if "`e(cmd)'" == "`c'" | "`e(cmd2)'" == "`c'"  local ml = 1
 		}
-	if inlist("`e(cmd)'", "xtlogit", "xtprobit", "xtcloglog", "xtpoisson") & "`e(model)'" == "re"  local ml = 1
+	*Every xt panel model, any estimator; xtgee (pa) and clogit (xtlogit, fe) carry the xt command in e(cmd2)
+	if substr("`e(cmd)'", 1, 2) == "xt" | substr("`e(cmd2)'", 1, 2) == "xt"  local ml = 1
 	return scalar ml = `ml'
 	return scalar ismi = `ismi'
 	return local under "`under'"
