@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-30 Trenton D Mize -- matches mecompare v1.8.2}{...}
+{* 2026-10-05 Trenton D Mize -- matches mecompare v1.8.3}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -228,7 +228,9 @@ in each. With three or more models the table lists every model's marginal
 effects, one set of rows per model, and reports no differences: choose the
 comparisons you want and test them with {help metest} (e.g.
 {cmd:metest 1 - 2}). A focal variable absent from one of the models gets a
-blank row for that model.
+blank row for that model. When a multilevel or panel model is among the models,
+fit every model without {opt vce(robust)}; {cmd:suest2} then clusters the standard
+errors on the highest-level group.
 {p_end}
 
 {pstd}
@@ -660,7 +662,10 @@ contributes its own default prediction, or the one given in
 {opt predict()}, so a cross-family comparison contrasts, e.g., logit's 
 predicted probabilities with regress's linear predictions. Models that 
 return different numbers of predictions (e.g. a 3-category {cmd:ologit} vs 
-a {cmd:logit}) cannot be compared.
+a {cmd:logit}) cannot be compared. A multilevel or panel model can be paired 
+with a single-level model only if the single-level model is a {cmd:regress}, 
+{cmd:logit}, {cmd:probit}, {cmd:cloglog}, {cmd:poisson}, {cmd:nbreg}, 
+{cmd:ologit}, or {cmd:oprobit} model.
 {p_end}
 
 {pstd} When the models have a multi-category outcome, the outcome categories

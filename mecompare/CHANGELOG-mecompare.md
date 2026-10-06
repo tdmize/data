@@ -5,6 +5,26 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.8.3 -- 05oct2026, the standard-error note for every panel model
+
+As totalme 1.8.3 and meinequality 1.10.3. The note for multilevel and panel
+models (1.7.1) printed for xtologit and xtoprobit, and for xtlogit, xtprobit,
+xtcloglog and xtpoisson only with the re estimator. For xtreg, xtnbreg and
+xtmlogit, and for the pa and fe estimators, the vce(robust) note printed
+instead and recommended refitting with vce(robust), which suest2's help
+advises against for every panel model and which suest2 refuses for most of
+them. The test (`mecml#`, in the models loop) is now whether the model is an
+xt command (`e(cmd)`, or `e(cmd2)` for xtgee and for clogit under xtlogit,
+fe), so every panel model gets the note, whatever its estimator. Nothing else
+moves (gate 78, `test_panel_vcenote_gate78_v1_0`).
+
+Help: `models()` gains one sentence: "When a multilevel or panel model is
+among the models, fit every model without vce(robust); suest2 then clusters
+the standard errors on the highest-level group." The comparable-models
+section adds that a multilevel or panel model pairs with a single-level model
+only if that model is a regress, logit, probit, cloglog, poisson, nbreg,
+ologit or oprobit (as suest2's help says).
+
 ## v1.8.2 -- 29sep2026, one blank line after the command and above each note; options table in the help
 
 `di _newline(1)` prints two blank lines -- the `_newline` and the line end

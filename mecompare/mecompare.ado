@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.8.2 Trenton Mize 2026-09-29  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.8.3 Trenton Mize 2026-10-05  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -745,7 +745,8 @@ local mecml`i' = 0
 foreach mecc in mixed melogit meprobit mecloglog mepoisson menbreg meologit meoprobit mestreg meglm xtologit xtoprobit {
 	if "`e(cmd)'" == "`mecc'" | "`e(cmd2)'" == "`mecc'"  local mecml`i' = 1
 	}
-if inlist("`e(cmd)'", "xtlogit", "xtprobit", "xtcloglog", "xtpoisson") & "`e(model)'" == "re"  local mecml`i' = 1
+*Every xt panel model, any estimator; xtgee (pa) and clogit (xtlogit, fe) carry the xt command in e(cmd2)
+if substr("`e(cmd)'", 1, 2) == "xt" | substr("`e(cmd2)'", 1, 2) == "xt"  local mecml`i' = 1
 *mi checks / info
 local ismi`i' = 0
 local s2mimark = 0
