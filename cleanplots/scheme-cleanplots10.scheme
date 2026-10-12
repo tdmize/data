@@ -1,0 +1,213 @@
+*! cleanplots10 v1.1.0 Trenton Mize 2026-10-12
+*! Ordinal companion scheme to cleanplots: 10 sequential cividis colors
+*
+* Inherits the primary cleanplots scheme via #include. Overrides colors
+* in Stata's 15 plot slots, while retaining independent line patterns
+* and marker symbols. Ordered categories run from light yellow to dark navy.
+*
+* Color source: cividis (Nunez, Anderton, & Renslow 2018), sampled at end=.95 and direction=-1.
+* Matching R scale:
+*   scale_color_viridis_d(option = "cividis", end = 0.95, direction = -1)
+*
+* Colors recycle after 10 series when there are more than 10 plots.
+* The 15 plot styles retain their own line patterns and marker symbols.
+* Bar/area fills inherit cleanplots' 70 percent intensity.
+*
+* Example: graph bar price, over(rep78) asyvars scheme(cleanplots10)
+
+#include cleanplots
+
+color p1              "246 221 77"
+color p1line          "246 221 77"
+color p1lineplot      "246 221 77"
+color p1markline      "246 221 77"
+color p1bar           "246 221 77"
+color p1barline       "246 221 77"
+color p1area          "246 221 77"
+color p1arealine      "246 221 77"
+color p1pie           "246 221 77"
+linepattern p1line solid
+linepattern p1lineplot solid
+symbol p1 smcircle
+
+color p2              "215 196 99"
+color p2line          "215 196 99"
+color p2lineplot      "215 196 99"
+color p2markline      "215 196 99"
+color p2bar           "215 196 99"
+color p2barline       "215 196 99"
+color p2area          "215 196 99"
+color p2arealine      "215 196 99"
+color p2pie           "215 196 99"
+linepattern p2line dash
+linepattern p2lineplot dash
+symbol p2 smsquare
+
+color p3              "185 172 112"
+color p3line          "185 172 112"
+color p3lineplot      "185 172 112"
+color p3markline      "185 172 112"
+color p3bar           "185 172 112"
+color p3barline       "185 172 112"
+color p3area          "185 172 112"
+color p3arealine      "185 172 112"
+color p3pie           "185 172 112"
+linepattern p3line shortdash
+linepattern p3lineplot shortdash
+symbol p3 smtriangle
+
+color p4              "158 150 119"
+color p4line          "158 150 119"
+color p4lineplot      "158 150 119"
+color p4markline      "158 150 119"
+color p4bar           "158 150 119"
+color p4barline       "158 150 119"
+color p4area          "158 150 119"
+color p4arealine      "158 150 119"
+color p4pie           "158 150 119"
+linepattern p4line longdash
+linepattern p4lineplot longdash
+symbol p4 smdiamond
+
+color p5              "132 129 121"
+color p5line          "132 129 121"
+color p5lineplot      "132 129 121"
+color p5markline      "132 129 121"
+color p5bar           "132 129 121"
+color p5barline       "132 129 121"
+color p5area          "132 129 121"
+color p5arealine      "132 129 121"
+color p5pie           "132 129 121"
+linepattern p5line dash_dot
+linepattern p5lineplot dash_dot
+symbol p5 plus
+
+color p6              "108 110 114"
+color p6line          "108 110 114"
+color p6lineplot      "108 110 114"
+color p6markline      "108 110 114"
+color p6bar           "108 110 114"
+color p6barline       "108 110 114"
+color p6area          "108 110 114"
+color p6arealine      "108 110 114"
+color p6pie           "108 110 114"
+linepattern p6line shortdash_dot
+linepattern p6lineplot shortdash_dot
+symbol p6 x
+
+color p7              "84 90 108"
+color p7line          "84 90 108"
+color p7lineplot      "84 90 108"
+color p7markline      "84 90 108"
+color p7bar           "84 90 108"
+color p7barline       "84 90 108"
+color p7area          "84 90 108"
+color p7arealine      "84 90 108"
+color p7pie           "84 90 108"
+linepattern p7line longdash_dot
+linepattern p7lineplot longdash_dot
+symbol p7 smcircle_hollow
+
+color p8              "54 71 107"
+color p8line          "54 71 107"
+color p8lineplot      "54 71 107"
+color p8markline      "54 71 107"
+color p8bar           "54 71 107"
+color p8barline       "54 71 107"
+color p8area          "54 71 107"
+color p8arealine      "54 71 107"
+color p8pie           "54 71 107"
+linepattern p8line dot
+linepattern p8lineplot dot
+symbol p8 smsquare_hollow
+
+color p9              "0 51 111"
+color p9line          "0 51 111"
+color p9lineplot      "0 51 111"
+color p9markline      "0 51 111"
+color p9bar           "0 51 111"
+color p9barline       "0 51 111"
+color p9area          "0 51 111"
+color p9arealine      "0 51 111"
+color p9pie           "0 51 111"
+linepattern p9line "-.."
+linepattern p9lineplot "-.."
+symbol p9 smtriangle_hollow
+
+color p10              "0 32 77"
+color p10line          "0 32 77"
+color p10lineplot      "0 32 77"
+color p10markline      "0 32 77"
+color p10bar           "0 32 77"
+color p10barline       "0 32 77"
+color p10area          "0 32 77"
+color p10arealine      "0 32 77"
+color p10pie           "0 32 77"
+linepattern p10line "--.."
+linepattern p10lineplot "--.."
+symbol p10 smdiamond_hollow
+
+color p11              "246 221 77"
+color p11line          "246 221 77"
+color p11lineplot      "246 221 77"
+color p11markline      "246 221 77"
+color p11bar           "246 221 77"
+color p11barline       "246 221 77"
+color p11area          "246 221 77"
+color p11arealine      "246 221 77"
+color p11pie           "246 221 77"
+linepattern p11line "-...."
+linepattern p11lineplot "-...."
+symbol p11 smplus
+
+color p12              "215 196 99"
+color p12line          "215 196 99"
+color p12lineplot      "215 196 99"
+color p12markline      "215 196 99"
+color p12bar           "215 196 99"
+color p12barline       "215 196 99"
+color p12area          "215 196 99"
+color p12arealine      "215 196 99"
+color p12pie           "215 196 99"
+linepattern p12line "--."
+linepattern p12lineplot "--."
+symbol p12 circle
+
+color p13              "185 172 112"
+color p13line          "185 172 112"
+color p13lineplot      "185 172 112"
+color p13markline      "185 172 112"
+color p13bar           "185 172 112"
+color p13barline       "185 172 112"
+color p13area          "185 172 112"
+color p13arealine      "185 172 112"
+color p13pie           "185 172 112"
+linepattern p13line "-.-."
+linepattern p13lineplot "-.-."
+symbol p13 square_hollow
+
+color p14              "158 150 119"
+color p14line          "158 150 119"
+color p14lineplot      "158 150 119"
+color p14markline      "158 150 119"
+color p14bar           "158 150 119"
+color p14barline       "158 150 119"
+color p14area          "158 150 119"
+color p14arealine      "158 150 119"
+color p14pie           "158 150 119"
+linepattern p14line "---."
+linepattern p14lineplot "---."
+symbol p14 triangle
+
+color p15              "132 129 121"
+color p15line          "132 129 121"
+color p15lineplot      "132 129 121"
+color p15markline      "132 129 121"
+color p15bar           "132 129 121"
+color p15barline       "132 129 121"
+color p15area          "132 129 121"
+color p15arealine      "132 129 121"
+color p15pie           "132 129 121"
+linepattern p15line "--..-"
+linepattern p15lineplot "--..-"
+symbol p15 diamond_hollow

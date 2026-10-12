@@ -38,10 +38,13 @@ full-strength colors overwhelm; {cmd:cleanplots} fades them for a cleaner
 look while full-strength colors remain on markers, lines, and outlines.
 
 {pstd}
-The default {cmd:cleanplots} colors are a nominal palette, meaning no 
-ordering is implied by the colors or markers. When an ordered (ordinal) 
-palette is needed, use the {cmd:cleanplots#} schemes on a single graph 
+The default {cmd:cleanplots} colors are a nominal palette,
+meaning no ordering is implied by the colors or markers.
+For ordered categories, sequential cividis and viridis
+palettes are available with 2 through 15 colors, each
+with light-to-dark and dark-to-light versions
 (see {help cleanplots##ordinal:Ordinal color schemes} below).
+
 
 {pstd}
 For more information and to see examples, see the 
@@ -100,38 +103,60 @@ of the colors interactively at
 {title:Ordinal color schemes}
 
 {pstd}
-The default {cmd:cleanplots} colors are nominal, with no implied ordering: 
+The default {cmd:cleanplots} palette is nominal, for unordered
+categories. For ordered categories, the sequential ordinal
+schemes provide four choices for every number of colors
+from 2 through 15:
 
-{phang2} {stata sysuse auto, clear}{p_end}
-{phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots)}{p_end}
+{p2colset 8 30 32 2}{...}
+{p2col:{cmd:cleanplots#}} Cividis, light to dark (default){p_end}
+{p2col:{cmd:cleanplots#r}} Cividis, {ul:r}eversed dark to light{p_end}
+{p2col:{cmd:cleanplots#v}} Viridis, light to dark{p_end}
+{p2col:{cmd:cleanplots#vr}} Viridis, {ul:r}eversed dark to light{p_end}
+{p2colreset}{...}
 
 {pstd}
-To have the colors reflect ordering, use the {cmd:cleanplots#} schemes on 
-a single graph. Five are available -- {cmd:cleanplots3}, 
-{cmd:cleanplots5}, {cmd:cleanplots7}, {cmd:cleanplots9}, and 
-{cmd:cleanplots11} -- where the number is how many sequential colors the 
-scheme provides. Colors run from light yellow to dark navy, so higher 
-categories are darker. For example, for a chart with 5 ordered groups: 
+Replace {cmd:#} with the number of ordered groups,
+from 2 through 15. For example, with five ordered categories:
 
 {phang2} {stata sysuse auto, clear}{p_end}
 {phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots5)}{p_end}
+{phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots5r)}{p_end}
+{phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots5v)}{p_end}
+{phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots5vr)}{p_end}
 
 {pstd}
-The ordinal colors are from the cividis palette (Nunez, Anderton, & Renslow 
-2018), a variant of viridis (van der Walt & Smith 2015) optimized so that 
-readers with red-green color blindness see essentially the same palette 
-as everyone else. Because the colors run monotonically from light to 
-dark, the ordering itself also survives black and white printing.
+Cividis runs between light yellow and dark navy and is
+recommended for maximum color-vision accessibility.
+Viridis runs between light yellow and dark purple,
+passing through green and blue; it uses more distinct hues.
+Both palettes are designed to be perceptually uniform
+and colorblind friendly.
 
 {pstd}
-The {cmd:cleanplots#} schemes inherit all layout, sizing, and legend 
-settings from the main {cmd:cleanplots} scheme, and each series gets a 
-distinct line pattern and marker 
-symbol for maximum distinguishability. If a graph has more groups than 
-the scheme has colors, the colors recycle (e.g., under {cmd:cleanplots3} 
-the 4th group repeats color 1) while the line patterns and marker symbols 
-continue to vary, so recycled groups never share both color and 
-pattern/symbol.
+The {cmd:r} suffix reverses only the sequence of colors;
+all other layout, legend, marker, and line-pattern settings
+remain unchanged. Stata does not have a general graph
+option to reverse a scheme's colors.
+
+{pstd}
+The palettes are based on the R {cmd:viridisLite} palettes,
+sampled with {cmd:end = .95}. The default schemes run
+light to dark ({cmd:direction = -1}), while the reversed
+schemes run dark to light ({cmd:direction = 1}).
+The five originally released cividis schemes (3, 5, 7,
+9, 11) retain their original RGB values.
+
+{pstd}
+All ordinal schemes inherit the layout and formatting of
+{cmd:cleanplots}. When a graph has more series than the
+number of colors specified by {cmd:#}, colors repeat,
+while line patterns and marker symbols continue to vary.
+
+{pstd}
+With many ordered categories, adjacent colors become
+increasingly difficult to distinguish. Labels or additional
+visual cues are recommended for such graphs.
 
 {title:Updates}
 
@@ -143,6 +168,12 @@ direct right of the graph {p_end}
 
 {pstd} I recommend using the updated scheme. But if you are feeling nostalgic, 
 the older version is preserved as {cmd:cleanplots_classic}. {p_end}
+
+{pstd}
+In October 2026, the ordinal schemes were expanded to
+include every number of colors from 2 through 15.
+Viridis palettes and reverse-order versions of both
+cividis and viridis were also added. {p_end}
 
 {title:cleanplots for R}
 
@@ -170,11 +201,18 @@ effective data visualizations." https://www.trentonmize.com/software/cleanplots
 {p_end}
 
 {pstd}
-If using the ordinal {cmd:cleanplots#} schemes, please also credit the 
-cividis colors: {p_end}
+If using the ordinal schemes, please also credit the
+corresponding color palette: Nunez et al. (2018) for
+cividis, or van der Walt and Smith (2015) for viridis. {p_end}
 
 {pstd}
 Nunez, Jamie R., Christopher R. Anderton, and Ryan S. Renslow. 2018. 
 "Optimizing colormaps with consideration for color vision deficiency to 
 enable accurate interpretation of scientific data." PLOS ONE 13(7): e0199239.
+{p_end}
+
+{pstd}
+van der Walt, Stefan, and Nathaniel Smith. 2015.
+"Viridis: A Better Default Colormap for Matplotlib."
+https://bids.github.io/colormap/
 {p_end}

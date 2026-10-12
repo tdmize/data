@@ -1,0 +1,213 @@
+*! cleanplots2v v1.1.0 Trenton Mize 2026-10-12
+*! Ordinal companion scheme to cleanplots: 2 sequential viridis colors
+*
+* Inherits the primary cleanplots scheme via #include. Overrides colors
+* in Stata's 15 plot slots, while retaining independent line patterns
+* and marker symbols. Ordered categories run from light yellow to dark purple.
+*
+* Color source: viridis (van der Walt & Smith 2015), sampled at end=.95 and direction=-1.
+* Matching R scale:
+*   scale_color_viridis_d(option = "viridis", end = 0.95, direction = -1)
+*
+* Colors recycle after 2 series when there are more than 2 plots.
+* The 15 plot styles retain their own line patterns and marker symbols.
+* Bar/area fills inherit cleanplots' 70 percent intensity.
+*
+* Example: graph bar price, over(rep78) asyvars scheme(cleanplots2v)
+
+#include cleanplots
+
+color p1              "222 227 24"
+color p1line          "222 227 24"
+color p1lineplot      "222 227 24"
+color p1markline      "222 227 24"
+color p1bar           "222 227 24"
+color p1barline       "222 227 24"
+color p1area          "222 227 24"
+color p1arealine      "222 227 24"
+color p1pie           "222 227 24"
+linepattern p1line solid
+linepattern p1lineplot solid
+symbol p1 smcircle
+
+color p2              "68 1 84"
+color p2line          "68 1 84"
+color p2lineplot      "68 1 84"
+color p2markline      "68 1 84"
+color p2bar           "68 1 84"
+color p2barline       "68 1 84"
+color p2area          "68 1 84"
+color p2arealine      "68 1 84"
+color p2pie           "68 1 84"
+linepattern p2line dash
+linepattern p2lineplot dash
+symbol p2 smsquare
+
+color p3              "222 227 24"
+color p3line          "222 227 24"
+color p3lineplot      "222 227 24"
+color p3markline      "222 227 24"
+color p3bar           "222 227 24"
+color p3barline       "222 227 24"
+color p3area          "222 227 24"
+color p3arealine      "222 227 24"
+color p3pie           "222 227 24"
+linepattern p3line shortdash
+linepattern p3lineplot shortdash
+symbol p3 smtriangle
+
+color p4              "68 1 84"
+color p4line          "68 1 84"
+color p4lineplot      "68 1 84"
+color p4markline      "68 1 84"
+color p4bar           "68 1 84"
+color p4barline       "68 1 84"
+color p4area          "68 1 84"
+color p4arealine      "68 1 84"
+color p4pie           "68 1 84"
+linepattern p4line longdash
+linepattern p4lineplot longdash
+symbol p4 smdiamond
+
+color p5              "222 227 24"
+color p5line          "222 227 24"
+color p5lineplot      "222 227 24"
+color p5markline      "222 227 24"
+color p5bar           "222 227 24"
+color p5barline       "222 227 24"
+color p5area          "222 227 24"
+color p5arealine      "222 227 24"
+color p5pie           "222 227 24"
+linepattern p5line dash_dot
+linepattern p5lineplot dash_dot
+symbol p5 plus
+
+color p6              "68 1 84"
+color p6line          "68 1 84"
+color p6lineplot      "68 1 84"
+color p6markline      "68 1 84"
+color p6bar           "68 1 84"
+color p6barline       "68 1 84"
+color p6area          "68 1 84"
+color p6arealine      "68 1 84"
+color p6pie           "68 1 84"
+linepattern p6line shortdash_dot
+linepattern p6lineplot shortdash_dot
+symbol p6 x
+
+color p7              "222 227 24"
+color p7line          "222 227 24"
+color p7lineplot      "222 227 24"
+color p7markline      "222 227 24"
+color p7bar           "222 227 24"
+color p7barline       "222 227 24"
+color p7area          "222 227 24"
+color p7arealine      "222 227 24"
+color p7pie           "222 227 24"
+linepattern p7line longdash_dot
+linepattern p7lineplot longdash_dot
+symbol p7 smcircle_hollow
+
+color p8              "68 1 84"
+color p8line          "68 1 84"
+color p8lineplot      "68 1 84"
+color p8markline      "68 1 84"
+color p8bar           "68 1 84"
+color p8barline       "68 1 84"
+color p8area          "68 1 84"
+color p8arealine      "68 1 84"
+color p8pie           "68 1 84"
+linepattern p8line dot
+linepattern p8lineplot dot
+symbol p8 smsquare_hollow
+
+color p9              "222 227 24"
+color p9line          "222 227 24"
+color p9lineplot      "222 227 24"
+color p9markline      "222 227 24"
+color p9bar           "222 227 24"
+color p9barline       "222 227 24"
+color p9area          "222 227 24"
+color p9arealine      "222 227 24"
+color p9pie           "222 227 24"
+linepattern p9line "-.."
+linepattern p9lineplot "-.."
+symbol p9 smtriangle_hollow
+
+color p10              "68 1 84"
+color p10line          "68 1 84"
+color p10lineplot      "68 1 84"
+color p10markline      "68 1 84"
+color p10bar           "68 1 84"
+color p10barline       "68 1 84"
+color p10area          "68 1 84"
+color p10arealine      "68 1 84"
+color p10pie           "68 1 84"
+linepattern p10line "--.."
+linepattern p10lineplot "--.."
+symbol p10 smdiamond_hollow
+
+color p11              "222 227 24"
+color p11line          "222 227 24"
+color p11lineplot      "222 227 24"
+color p11markline      "222 227 24"
+color p11bar           "222 227 24"
+color p11barline       "222 227 24"
+color p11area          "222 227 24"
+color p11arealine      "222 227 24"
+color p11pie           "222 227 24"
+linepattern p11line "-...."
+linepattern p11lineplot "-...."
+symbol p11 smplus
+
+color p12              "68 1 84"
+color p12line          "68 1 84"
+color p12lineplot      "68 1 84"
+color p12markline      "68 1 84"
+color p12bar           "68 1 84"
+color p12barline       "68 1 84"
+color p12area          "68 1 84"
+color p12arealine      "68 1 84"
+color p12pie           "68 1 84"
+linepattern p12line "--."
+linepattern p12lineplot "--."
+symbol p12 circle
+
+color p13              "222 227 24"
+color p13line          "222 227 24"
+color p13lineplot      "222 227 24"
+color p13markline      "222 227 24"
+color p13bar           "222 227 24"
+color p13barline       "222 227 24"
+color p13area          "222 227 24"
+color p13arealine      "222 227 24"
+color p13pie           "222 227 24"
+linepattern p13line "-.-."
+linepattern p13lineplot "-.-."
+symbol p13 square_hollow
+
+color p14              "68 1 84"
+color p14line          "68 1 84"
+color p14lineplot      "68 1 84"
+color p14markline      "68 1 84"
+color p14bar           "68 1 84"
+color p14barline       "68 1 84"
+color p14area          "68 1 84"
+color p14arealine      "68 1 84"
+color p14pie           "68 1 84"
+linepattern p14line "---."
+linepattern p14lineplot "---."
+symbol p14 triangle
+
+color p15              "222 227 24"
+color p15line          "222 227 24"
+color p15lineplot      "222 227 24"
+color p15markline      "222 227 24"
+color p15bar           "222 227 24"
+color p15barline       "222 227 24"
+color p15area          "222 227 24"
+color p15arealine      "222 227 24"
+color p15pie           "222 227 24"
+linepattern p15line "--..-"
+linepattern p15lineplot "--..-"
+symbol p15 diamond_hollow
