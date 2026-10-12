@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-07-10 Trenton D Mize}{...}
+{* 2026-10-12 Trenton D Mize}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -27,7 +27,7 @@ lighter colors so that the first several groups remain distinguishable by
 lightness alone when a figure is printed in black and white.
 
 {pstd}
-Color alone reliably distinguishes about 4-5 groups. Beyond that, addiitonal 
+Color alone reliably distinguishes about 4-5 groups. Beyond that, additional 
 markers or patterns are needed for distinguishability. {cmd:cleanplots} 
 automatically varies markers, line patterns, and other features.
 
@@ -103,8 +103,13 @@ of the colors interactively at
 {title:Ordinal color schemes}
 
 {pstd}
-The default {cmd:cleanplots} palette is nominal, for unordered
-categories. For ordered categories, the sequential ordinal
+The default {cmd:cleanplots} colors are nominal, with no implied ordering: 
+
+{phang2} {stata sysuse auto, clear}{p_end}
+{phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots)}{p_end}
+
+{pstd}
+For ordered categories, the sequential ordinal
 schemes provide four choices for every number of colors
 from 2 through 15:
 
@@ -124,6 +129,13 @@ from 2 through 15. For example, with five ordered categories:
 {phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots5r)}{p_end}
 {phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots5v)}{p_end}
 {phang2} {stata graph bar price, over(rep78) asyvars scheme(cleanplots5vr)}{p_end}
+
+{pstd}
+The default ordinal colors are from the cividis palette (Nunez, Anderton, & Renslow 
+2018), a variant of viridis (van der Walt & Smith 2015) optimized so that 
+readers with red-green color blindness see essentially the same palette 
+as everyone else. Because both palettes vary monotonically in lightness,
+the ordering itself also survives black and white printing.
 
 {pstd}
 Cividis runs between light yellow and dark navy and is
@@ -148,10 +160,14 @@ The five originally released cividis schemes (3, 5, 7,
 9, 11) retain their original RGB values.
 
 {pstd}
-All ordinal schemes inherit the layout and formatting of
-{cmd:cleanplots}. When a graph has more series than the
-number of colors specified by {cmd:#}, colors repeat,
-while line patterns and marker symbols continue to vary.
+The {cmd:cleanplots#} schemes inherit all layout, sizing, and legend 
+settings from the main {cmd:cleanplots} scheme, and each series gets a 
+distinct line pattern and marker 
+symbol for maximum distinguishability. If a graph has more groups than 
+the scheme has colors, the colors recycle (e.g., under {cmd:cleanplots3} 
+the 4th group repeats color 1) while the line patterns and marker symbols 
+continue to vary, so recycled groups never share both color and 
+pattern/symbol.
 
 {pstd}
 With many ordered categories, adjacent colors become
@@ -162,7 +178,7 @@ visual cues are recommended for such graphs.
 
 {pstd} {cmd:cleanplots} was overhauled in July 2026 to ensure all 10 colors 
 and the choices of lines, markers, etc. are color-blind friendly and work as 
-well as possible in black and white. In addiiton, the ordinal {cmd:cleanplots#} 
+well as possible in black and white. In addition, the ordinal {cmd:cleanplots#} 
 schemes were added. Finally, the legend was  moved to be at the 
 direct right of the graph {p_end}
 
