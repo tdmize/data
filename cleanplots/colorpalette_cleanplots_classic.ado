@@ -1,4 +1,4 @@
-program colorpalette_cleanplots
+program colorpalette_cleanplots_classic
     syntax [, n(str) ] // n() not used
 	c_local P 213 0 0, eltblue, gs8, black, 0 213 213, purple,/*
 		*/gold, dkgreen, lavender, navy
