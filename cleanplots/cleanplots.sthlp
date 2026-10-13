@@ -175,9 +175,10 @@ increasingly difficult to distinguish. Labels or additional
 visual cues are recommended for such graphs.
 
 {pstd}
-The colors of every {cmd:cleanplots} scheme are also available by name in
-Ben Jann's {cmd:colorpalette} command (from the {cmd:palettes} package on SSC),
-for example {cmd:colorpalette cleanplots5v}.
+The colors of the {cmd:cleanplots} and {cmd:cleanplots_classic} schemes, and of
+the ordinal schemes for 3, 4, 5, 6, 7, 9, and 15 categories, are also available
+by name in Ben Jann's {cmd:colorpalette} command (from the {cmd:palettes}
+package on SSC), for example {cmd:colorpalette cleanplots5v}.
 
 {title:Updates}
 
