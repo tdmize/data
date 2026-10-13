@@ -174,6 +174,11 @@ With many ordered categories, adjacent colors become
 increasingly difficult to distinguish. Labels or additional
 visual cues are recommended for such graphs.
 
+{pstd}
+The colors of every {cmd:cleanplots} scheme are also available by name in
+Ben Jann's {cmd:colorpalette} command (from the {cmd:palettes} package on SSC),
+for example {cmd:colorpalette cleanplots5v}.
+
 {title:Updates}
 
 {pstd} {cmd:cleanplots} was overhauled in July 2026 to ensure all 10 colors 
