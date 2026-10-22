@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  05oct2026}{...}
+{* *! version 1.1.2  22oct2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}

@@ -664,3 +664,30 @@ integration methods. Gate 77 (`test_suest2_gate77_v01`) passed 48 / 1: every
 model's block equals its native result; the one cell compares Stata's 7-point
 `melogit` with R (covariance 9.4e-4), not suest2. The 36-suite regression
 passed 36 / 36. The banner and `e(suest2_version)` move to 1.1.1.
+
+## suest2.ado 1.1.2 -- 22oct2026
+
+**`regress` with `vce(robust)` or `vce(cluster)`: standard errors too large when
+the errors are heteroskedastic.** Found in the MED project's simulations (the
+owner's handoff `suest2_regress_rescale_handoff_v01.md`, 22oct2026). After these
+fits Stata stores `e(V_modelbased)` without the residual variance, so suest2
+multiplies it by `e(rmse)^2` before official `suest` uses it as the bread. suest2
+decided whether to do this with a ratio check: the median ratio of the robust
+`e(V)` to `e(V_modelbased)` had to lie within 0.5 to 1.5 times `e(rmse)^2`. With
+strongly heteroskedastic errors the check missed, the matrix went to `suest`
+unscaled, and that model's standard errors came out too large. Linear probability
+models with a rare or common outcome are the common case. On the handoff's data
+(N = 20,000), mecompare's Difference had a standard error 109 times too large for
+a binary outcome at 1%, and 31 times too large for a continuous outcome whose
+error SD is .05 or .35 across a binary regressor. Point estimates were not
+affected. `regress` is now rescaled whenever it was fit with `vce(robust)`,
+`vce(cluster)`, `vce(hc2)` or `vce(hc3)`, and never after `vce(bootstrap)` or
+`vce(jackknife)`, whose `e(V_modelbased)` already carries the residual variance;
+the old check also rescaled those when `e(rmse)^2` was between about 2/3 and 2
+(measured at 1.4). Other families keep the ratio check. Models fit without
+`vce()` were never affected. Help: header line only. Gate 80
+(`test_suest2_rescale_gate80_v1_0`) passed 86 / 0: on five data sets, suest2's
+joint covariance from fits with each `vce()` type equals the one from the same
+models fit without `vce()`, and mecompare's Difference has the same standard
+error with robust and with plain fits. The 36-suite regression passed 36 / 36.
+The banner and `e(suest2_version)` move to 1.1.2.

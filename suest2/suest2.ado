@@ -1,4 +1,4 @@
-*! version 1.1.1  05oct2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.1.2  22oct2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -776,7 +776,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.1.1"
+    ereturn local suest2_version "1.1.2"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'
@@ -1000,23 +1000,25 @@ program define suest2_mbdetect, rclass
     local med : word `mid' of `rs'
     return scalar medr = `med'
 
-    // fire only when the observed discrepancy IS sigma^2
+    // regress/anova: rescale after robust, cluster and HC fits; other families: when the discrepancy IS sigma^2
     local rel = `med' / `s2'
-    if `rel' > 0.5 & `rel' < 1.5 return scalar fires = 1
+    if inlist("`e(cmd)'", "regress", "anova")  return scalar fires = inlist("`e(vce)'", "robust", "cluster", "hc2", "hc3")
+    else if `rel' > 0.5 & `rel' < 1.5  return scalar fires = 1
 end
 program define suest2_vceconvert, eclass
     version 16
     syntax [, CLEARClust]
-    ereturn local vce "oim"
-    ereturn local vcetype ""
-    if "`clearclust'" != ""  ereturn local clustvar ""
 
     // Rescale a SCALE-FREE e(V_modelbased) to the conventional covariance
     // (without this, regress SEs came back 32.9x too small, ivregress
     // 1896x). suest2_mbdetect decides; r() read into locals at once (rule 9).
+    // it reads e(vce), so it runs before the vce macros are cleared
     quietly suest2_mbdetect
     local mbfire = r(fires)
     local mbsig2 = r(sig2)
+    ereturn local vce "oim"
+    ereturn local vcetype ""
+    if "`clearclust'" != ""  ereturn local clustvar ""
     if `mbfire' == 1 {
         tempname mbV
         matrix `mbV' = e(V_modelbased) * `mbsig2'
