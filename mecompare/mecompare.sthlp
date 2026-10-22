@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-10-05 Trenton D Mize -- matches mecompare v1.8.3}{...}
+{* 2026-10-20 Trenton D Mize -- matches mecompare v1.9.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -57,6 +57,7 @@ the models.{p_end}
 
 {syntab:Reporting}
 {synopt:{opt stat:istics(list)}}statistics to display; default is estimate, se, pvalue{p_end}
+{synopt:{opt rr:atios}}add ratios of the predictions, e.g. risk ratios{p_end}
 {synopt:{opt dec:imals(#)}}decimal places; default is 3{p_end}
 {synopt:{opt mod1:name(string)}}label for the first model{p_end}
 {synopt:{opt mod2:name(string)}}label for the second model{p_end}
@@ -588,6 +589,15 @@ included in {it:list}.
 {p2line}
 
 {p2colset 5 18 19 0}
+{p2col:{opt rr:atios}} adds, under each variable's marginal effects, the 
+ratio of the same two predictions: a risk ratio when the predictions are 
+probabilities, and a ratio of counts or means otherwise. As in Stata's 
+{cmd:eform} output, the p-value and confidence interval are calculated on the 
+log scale, testing that the ratio equals 1. No ratio is reported for 
+{opt amount(rate)} or when a prediction is zero or negative.
+{p_end}
+
+{p2colset 5 18 19 0}
 {p2col:{opt dec:imals(#)}} changes the number of decimal places reported 
 in the table. The default is 3. Any integer between 0 - 7 is allowed.
 {p_end}
@@ -965,6 +975,10 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 {phang} {stata mecompare age hours, models(basemod medmod) amount(rate): mecompare age hours, models(basemod medmod) amount(rate)} {p_end}
 
 {phang} {stata mecompare age hours, models(basemod medmod) amount(range): mecompare age hours, models(basemod medmod) amount(range)} {p_end}
+
+{pstd}{it:Risk ratios beside the marginal effects:}
+
+{phang} {stata mecompare age collgrad race, models(basemod medmod) rratios: mecompare age collgrad race, models(basemod medmod) rratios} {p_end}
 
 {pstd}{it:Labeling the models:}
 

@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.8.3 Trenton Mize 2026-10-05  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.9.0 Trenton Mize 2026-10-20  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -107,7 +107,7 @@ program define mecompare, eclass
 		STORE(name) BY(string) OVER(string) PWCompare MCOMPare(string) MEINEQuality(string) ///
 		PREDict(string) ENGine(string) ///
 		TOTALme(string) MARGINSopt(string asis) ATMeans cochange(string) ///
-		LABWidth(numlist integer) STATWidth(numlist integer)]  
+		LABWidth(numlist integer) STATWidth(numlist integer) RRatios]  
 	if `mecgrpon' == 1  local groups "groups"
 	if `"`cochange'"' != "" {
 		_mec_ccvars `cochange', focal(`varlist')
@@ -1316,6 +1316,13 @@ if "`predict'" != "" {
 		}
 	}
 
+*rratios: a linear predictor can be zero or negative, so it has no ratio
+if "`rratios'" != "" & `predlin' == 1 {
+	di as err "{opt rratios} needs predictions that are positive; {opt predict(`predict')} " /*
+	*/ "is the linear predictor, which can be zero or negative."
+	exit 198
+	}
+
 *Parse and validate by()/over()
 if "`by'" != "" & "`over'" != "" {
 	di ""
@@ -2214,6 +2221,9 @@ if `mod1cats' > 1 {
 		}
 	}
 
+*rratios: probabilities give risk ratios; other predictions a ratio
+local rrlab = cond(ustrregexm(`"`plab1'"', "Pr\(|probab", 1), "Risk ratio", "Ratio")
+
 qui est 	store mec_margins	// For use with post-estimation metest
 
 ****************************************************************************
@@ -2391,6 +2401,8 @@ forvalues i = 1/`numvars' {
 	*the amount tag of a copy made by an amount list; . otherwise
 	local mctag "`amtag`i''"
 	if "`mctag'" == ""  local mctag "."
+	local rrg = 0
+	local rrn`i' = 0
 *	The variable's position in its own list; keys the per-variable macros
 	local vnum = `i'
 *Exact membership test, not substring
@@ -2558,6 +2570,9 @@ forvalues i = 1/`numvars' {
 			if `i' == 1  local totmeinit = 1
 			}
 	
+		local ++rrg
+		local rrq`rrg' ""
+		local rrh`rrg' ""
 		forvalues o = 1/`mod1cats' {
 	
 	_mec_catlabs, ncats(`mod1cats') out1("`out_1_`o''") out2("`out_2_`o''")
@@ -2608,6 +2623,10 @@ forvalues i = 1/`numvars' {
 			}
 		else  _mec_addz, matrix(_mlincom) rowname("`sectitle':`_rn1'")
 		}
+	if "`rratios'" != "" {
+		local rrok = (`inm1' > 0 | `nummods' == 1) * (1 + ("`rpre'" == ""))
+		local rrq`rrg' "`rrq`rrg'' `=rowsof(_mlincom)'|`rrok'|`=`me_num' - 1'|`prnum1_`o''`a2'._at`bog1_`bo''|`prnum1_`o''`a1'._at`bog1_`bo''"
+		}
 	}
 	*---- models 2..k marginal effects ----
 	forvalues j = 2/`nummods' {
@@ -2634,6 +2653,10 @@ forvalues i = 1/`numvars' {
 		}
 	else {
 		_mec_addz, matrix(_mlincom) rowname("`sectitle':`_rn2'")
+		}
+	if "`rratios'" != "" {
+		local rrok = (`inm`j'' > 0) * (1 + ("`rpre'" == ""))
+		local rrq`rrg' "`rrq`rrg'' `=rowsof(_mlincom)'|`rrok'|`=`me_num' - 1'|`prnum`j'_`o''`am2'._at`bog`j'_`bo''|`prnum`j'_`o''`am1'._at`bog`j'_`bo''"
 		}
 	}
 	}
@@ -2696,6 +2719,9 @@ forvalues i = 1/`numvars' {
 	*Binary IVs
 	if `numcats' == 2 { 
 		local nc_at = 2		// by(): #at positions per level for a binary var
+		local ++rrg
+		local rrq`rrg' ""
+		local rrh`rrg' ""
 			forvalues o = 1/`mod1cats' {
 	
 	_mec_catlabs, ncats(`mod1cats') out1("`out_1_`o''") out2("`out_2_`o''")
@@ -2824,6 +2850,10 @@ forvalues i = 1/`numvars' {
 	else if `nummods' >= 2 {
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
 		}
+	if "`rratios'" != "" {
+		local rrok = (`inm1' > 0 | `nummods' == 1) * (1 + ("`rpre'" == ""))
+		local rrq`rrg' "`rrq`rrg'' `=rowsof(_mlincom)'|`rrok'|`=`me_num' - 1'|`prnum1_`o''`a2'._at`bog1_`bo''|`prnum1_`o''`a1'._at`bog1_`bo''"
+		}
 	}
 	*---- models 2..k marginal effects ----
 	forvalues j = 2/`nummods' {
@@ -2849,6 +2879,10 @@ forvalues i = 1/`numvars' {
 		}
 	else {
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
+		}
+	if "`rratios'" != "" {
+		local rrok = (`inm`j'' > 0) * (1 + ("`rpre'" == ""))
+		local rrq`rrg' "`rrq`rrg'' `=rowsof(_mlincom)'|`rrok'|`=`me_num' - 1'|`prnum`j'_`o''`am2'._at`bog`j'_`bo''|`prnum`j'_`o''`am1'._at`bog`j'_`bo''"
 		}
 	}
 	}
@@ -3193,6 +3227,13 @@ forvalues i = 1/`numvars' {
 	
 	local ncontr = `mcncontr_`vnum''	// #contrasts (vs-base, or all pairs)
 	forvalues h = 1/`ncontr' {		// Loop through the contrast list
+		local ++rrg
+		local rrq`rrg' ""
+		local rrh`rrg' ""
+		if "`rratios'" != "" {
+			_mec_fit `rcs' "" `"`mcfa_`vnum'_`h''"' " / " `"`mcfb_`vnum'_`h''"'
+			local rrh`rrg' `"`r(lab)'"'
+			}
 		*Absolute _at positions for this contrast's lower/higher levels
 		local pclo = `atnum1' + `mcctrlo_`vnum'_`h'' - 1
 		local pchi = `atnum1' + `mcctrhi_`vnum'_`h'' - 1
@@ -3263,6 +3304,10 @@ forvalues i = 1/`numvars' {
 	else if `nummods' >= 2 {
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
 		}
+	if "`rratios'" != "" {
+		local rrok = (`inm1' > 0 | `nummods' == 1) * (1 + ("`rpre'" == ""))
+		local rrq`rrg' "`rrq`rrg'' `=rowsof(_mlincom)'|`rrok'|`=`me_num' - 1'|`prnum1_`o''`a2'._at`bog1_`bo''|`prnum1_`o''`a1'._at`bog1_`bo''"
+		}
 	}
 	*---- models 2..k marginal effects ----
 	forvalues j = 2/`nummods' {
@@ -3289,6 +3334,10 @@ forvalues i = 1/`numvars' {
 		}
 	else {
 		_mec_addz, matrix(_mlincom) rowname("`varname':{sf}`_mcrn'")
+		}
+	if "`rratios'" != "" {
+		local rrok = (`inm`j'' > 0) * (1 + ("`rpre'" == ""))
+		local rrq`rrg' "`rrq`rrg'' `=rowsof(_mlincom)'|`rrok'|`=`me_num' - 1'|`prnum`j'_`o''`am2'._at`bog`j'_`bo''|`prnum`j'_`o''`am1'._at`bog`j'_`bo''"
 		}
 	}
 	}
@@ -3332,6 +3381,52 @@ forvalues i = 1/`numvars' {
 		local atnum2 = `atnum2' + `numcats'*`bymul'	//   k*bylevels _at positions
 		}		// close if numcats>=3
 	
+	*rratios: the variable's ratios under its marginal effects, one row per model row
+	if "`rratios'" != "" & `rrg' > 0 {
+		qui est restore mec_margins
+		local rr0 = rowsof(_mlincom)
+		forvalues rrj = 1/`rrg' {
+			gettoken rrt : rrq`rrj'
+			local rrs = substr("`rrt'", 1, strpos("`rrt'", "|") - 1)
+			if `rrj' == 1  _mec_rrrow, src(`rrs') head("`rrlab'")
+			if `"`rrh`rrj''"' != ""  _mec_rrrow, src(`rrs') head(`"`rrh`rrj''"')
+			foreach rrt of local rrq`rrj' {
+				if !ustrregexm("`rrt'", "^([0-9]+)\|([0-2])\|([0-9]+)\|([^|]*)\|([^|]*)$")  continue
+				local rrs = ustrregexs(1)
+				local rro = ustrregexs(2)
+				local rrk = ustrregexs(3)
+				local rrnm = ustrregexs(4)
+				local rrdn = ustrregexs(5)
+				_mec_rrrow, src(`rrs') num(`rrnm') den(`rrdn') ok(`rro')
+				if `rro' == 1 | (`rro' == 2 & r(ok) == 0)  local rrnote 1
+				if r(ok) == 1 {
+					local mexp`me_num' (_b[`rrnm']/_b[`rrdn'])
+					foreach rrl in eqn rol lev {
+						local rrw : word `rrk' of `MEC_`rrl''
+						local MEC_`rrl' "`MEC_`rrl'' `rrw'"
+						}
+					local rrw : word `rrk' of `MEC_ctr'
+					local rrw = cond("`rrw'" == ".", "RR", "`rrw'_RR")
+					local MEC_ctr "`MEC_ctr' `rrw'"
+					*the stored name carries the ratio label in its third part
+					local rrw : word `rrk' of `MEC_nam'
+					local rrp = strpos(`"`rrw'"', "`mecd'")
+					local rrp = `rrp' + strpos(substr(`"`rrw'"', `rrp' + 1, .), "`mecd'")
+					local rra = substr(`"`rrw'"', 1, `rrp')
+					local rrb = substr(`"`rrw'"', `rrp' + 1, .)
+					local MEC_nam `"`MEC_nam' `"`rra'`rrlab'`rrb'"'"'
+					foreach rrf of local mcfams {
+						if strpos("`rrf'", "`rrk'#") == 1 {
+							local rrf = substr("`rrf'", strlen("`rrk'#") + 1, .)
+							local mcfams "`mcfams' `me_num'#`rrf'|RR"
+							}
+						}
+					local ++me_num
+					}
+				}
+			}
+		local rrn`i' = rowsof(_mlincom) - `rr0'
+		}
 }	// End of ME calculation loop
 	
 *********************
@@ -3602,6 +3697,13 @@ forvalues i = 1/`numvars' {
 			}
 		}
 	}
+	if "`rratios'" != "" & `rrn`i'' > 0 {
+		local rowspec = substr("`rowspec'", 1, length("`rowspec'") - 1)
+		forvalues c = 1/`rrn`i'' {
+			local rowspec "`rowspec'&"
+			}
+		local rowspec "`rowspec'-"
+		}
 }	
 
 local 	rowspec = substr("`rowspec'",1,length("`rowspec'")-1)
@@ -3645,6 +3747,12 @@ if "`mcmeth'" != "" {
 		*/ "variable and model; the Difference rows are adjusted as a set of their own."
 	else  di as text "NOTE: {opt mcompare()} adjusts the contrasts of a nominal variable with " /*
 		*/ "three or more categories; there are none here, so nothing was adjusted."
+	}
+
+if "`rrnote'" != "" {
+	di ""
+	di as text "NOTE: no ratio is reported for a rate of change ({opt amount(rate)}) " /*
+	*/ "or where a prediction is zero or negative."
 	}
 
 if "`groups'" != "" & "`amount'" == "sd" {
@@ -4673,13 +4781,67 @@ program define _mec_mcadj
 			*the half-width grows by the ratio of critical values (t with the df lincom used, else normal)
 			if missing(`mcdf')  local mcf = invnormal(1 - `mcaa'/2) / invnormal(1 - `mca'/2)
 			else  local mcf = invttail(`mcdf', `mcaa'/2) / invttail(`mcdf', `mca'/2)
+			*a ratio row is adjusted on the log scale
+			local mclg = substr("`mcfam`mcr0''", -3, 3) == "|RR"
+			if `mclg'  matrix _mlincom[`rr',`mclc'] = ln(_mlincom[`rr',`mclc'])
+			if `mclg'  matrix _mlincom[`rr',`mcuc'] = ln(_mlincom[`rr',`mcuc'])
 			local mcmid = (_mlincom[`rr',`mclc'] + _mlincom[`rr',`mcuc']) / 2
 			local mchw = (_mlincom[`rr',`mcuc'] - _mlincom[`rr',`mclc']) / 2
 			matrix _mlincom[`rr',`mclc'] = `mcmid' - `mcf'*`mchw'
 			matrix _mlincom[`rr',`mcuc'] = `mcmid' + `mcf'*`mchw'
+			if `mclg'  matrix _mlincom[`rr',`mclc'] = exp(_mlincom[`rr',`mclc'])
+			if `mclg'  matrix _mlincom[`rr',`mcuc'] = exp(_mlincom[`rr',`mcuc'])
 			}
 		}
 
+end
+
+capture program drop _mec_rrrow
+program define _mec_rrrow, rclass
+*rratios: a heading row, or the ratio of two predictions with its test and interval on the log scale, as eform output
+	version 16.0
+	syntax , src(integer) [num(string) den(string) ok(integer 0) head(string)]
+	tempname s r b se cv p
+	matrix `s' = _mlincom[`src', 1...]
+	local eq : roweq `s'
+	local nm : rownames `s'
+	return scalar ok = 0
+	if `"`head'"' != "" {
+		_mec_addz, matrix(_mlincom) rowname("`eq':{it}`head'    ")
+		exit
+		}
+	if substr(`"`nm'"', 1, 4) != "{sf}"  local nm "{sf}`nm'"
+	local good = `ok' == 2
+	if `good'  local good = _b[`num'] > 0 & _b[`den'] > 0
+	if `good' {
+		capture qui nlcom ln(_b[`num']/_b[`den'])
+		local good = _rc == 0
+		}
+	if `good' == 0 {
+		_mec_addz, matrix(_mlincom) rowname("`eq':`nm'")
+		exit
+		}
+	scalar `b' = r(b)[1,1]
+	scalar `se' = sqrt(r(V)[1,1])
+	local df = e(df_r)
+	scalar `cv' = cond(missing(`df'), invnormal(1 - (100 - c(level))/200), invttail(`df', (100 - c(level))/200))
+	scalar `p' = cond(missing(`df'), 2*normal(-abs(`b'/`se')), 2*ttail(`df', abs(`b'/`se')))
+	local cn : colnames _mlincom
+	matrix `r' = J(1, `: word count `cn'', .)
+	local k = 0
+	foreach c of local cn {
+		local ++k
+		if "`c'" == "se"           matrix `r'[1,`k'] = exp(`b')*`se'
+		else if "`c'" == "zvalue"  matrix `r'[1,`k'] = `b'/`se'
+		else if "`c'" == "pvalue"  matrix `r'[1,`k'] = `p'
+		else if "`c'" == "ll"      matrix `r'[1,`k'] = exp(`b' - `cv'*`se')
+		else if "`c'" == "ul"      matrix `r'[1,`k'] = exp(`b' + `cv'*`se')
+		else                       matrix `r'[1,`k'] = exp(`b')
+		}
+	matrix colnames `r' = `cn'
+	matrix rownames `r' = "`eq':`nm'"
+	matrix _mlincom = _mlincom \ `r'
+	return scalar ok = 1
 end
 
 capture program drop _mec_ccvars

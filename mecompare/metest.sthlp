@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-09-30 Trenton D Mize -- matches metest v0.3.2}{...}
+{* 2026-10-20 Trenton D Mize -- matches metest v0.3.2}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -244,15 +244,20 @@ multiplication, division, nonlinear functions, and equality tests:{p_end}
 
 {pstd}
 After {help margins:margins, post}, a number refers to a row of the
-{cmd:margins} table. E.g., a risk ratio -- the ratio of two predicted
-probabilities, averaging over observed values -- in the Health and
-Retirement Study 2020:{p_end}
+{cmd:margins} table. E.g., the difference in two predicted probabilities,
+averaging over observed values, in the Health and Retirement Study 2020;
+this replicates {cmd:mecompare collegeB}:{p_end}
 
 {phang2}{stata "use https://tdmize.github.io/data/data/cda_hrs, clear":use https://tdmize.github.io/data/data/cda_hrs, clear}{p_end}
 {phang2}{stata "drop if missing(cogB, marstatB, collegeB, woman, age)":drop if missing(cogB, marstatB, collegeB, woman, age)}{p_end}
-{phang2}{stata "logit cogB i.collegeB i.marstatB i.woman c.age, or":logit cogB i.collegeB i.marstatB i.woman c.age, or}{p_end}
+{phang2}{stata "logit cogB i.collegeB i.marstatB i.woman c.age":logit cogB i.collegeB i.marstatB i.woman c.age}{p_end}
 {phang2}{stata "margins collegeB, post":margins collegeB, post}{p_end}
-{phang2}{stata "metest 1 / 2":metest 1 / 2}{p_end}
+{phang2}{stata "metest 2 - 1":metest 2 - 1}{p_end}
+
+{pstd}
+For risk ratios, use the {opt rratios} option of {helpb mecompare}, which
+tests each ratio against 1. {cmd:metest} would test a risk ratio against a
+null of 0, which is not appropriate for risk ratios.{p_end}
 
 {pstd}
 Two things to keep in mind away from {cmd:mecompare}. Omitted ({cmd:o.})

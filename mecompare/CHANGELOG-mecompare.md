@@ -5,6 +5,37 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.9.0 -- 20oct2026, rratios: ratios of the predictions under the marginal effects
+
+`rratios` reports, under each variable's marginal effects, the ratio of the same
+two predictions (end over start): headed "Risk ratio" when the predictions are
+probabilities, "Ratio" otherwise (counts, means). As in Stata's eform output, z,
+the p-value and the confidence interval come from the log of the ratio -- the
+test is that the ratio equals 1 and the interval is exponentiated -- and the SE
+shown is the ratio times the SE of its log, the delta-method SE that e(V) holds.
+A nominal variable's contrasts repeat inside the block as "hi / lo". The ratio
+rows are numbered and posted in e(b) like the other rows (names end in `_RR`), so
+the ME numbers of later variables shift when `rratios` is on and metest can use
+the ratios. With two models there is no cross-model ratio row; `metest` gives the
+difference of the two ratios. No ratio is reported for `amount(rate)` rows or
+where a prediction is zero or negative, with a note under the table;
+`predict(xb)` is refused. `mcompare()` adjusts a nominal variable's ratios as a
+set of their own, the interval on the log scale. Without `rratios` nothing moves.
+
+Implementation: each model row records its two predictions as it is built; at
+the end of the variable the new helper `_mec_rrrow` appends the heading and one
+row per model row from `nlcom` of the log ratio, and the row spec adds the block
+before the variable's closing line. Owner's decisions (20oct2026). Gate 79
+(`test_rratios_gate79_v1_0`, 173 / 2, both failures instrument defects, fixed
+in v1_1): against glm log-binomial eform and poisson on saturated models, and
+against margins plus nlcom by hand.
+
+Help: `rratios` in the Reporting group, its entry, and one example. metest.sthlp:
+the `margins, post` example now takes the difference of two predicted
+probabilities (`metest 2 - 1`, as `mecompare collegeB` gives), and a paragraph
+points risk ratios to `mecompare, rratios`, noting that metest would test a
+ratio against 0, which is not appropriate for risk ratios.
+
 ## v1.8.3 -- 05oct2026, the standard-error note for every panel model
 
 As totalme 1.8.3 and meinequality 1.10.3. The note for multilevel and panel
