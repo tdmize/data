@@ -691,3 +691,34 @@ joint covariance from fits with each `vce()` type equals the one from the same
 models fit without `vce()`, and mecompare's Difference has the same standard
 error with robust and with plain fits. The 36-suite regression passed 36 / 36.
 The banner and `e(suest2_version)` move to 1.1.2.
+
+## suest2.ado 1.1.3 -- 29oct2026
+
+**`gologit2` with a value label that cannot be an equation name: a clear message instead of
+official `suest`'s.** Found in the owner's checks of ordinal models (the owner's handoff
+`suest2_gologit2_comma_handoff_v02.md`, 29oct2026). `gologit2` names its equations after the
+outcome's value labels. It turns spaces, periods and colons into underscores and parentheses
+into braces, and keeps every other character, so the GSS `polviews` label "moderate, middle of
+the road" becomes the equation `moderate,_middle_of_the_road`. `gologit2`'s own
+`predict, scores` then fails (r(111) for a comma, r(198) for most other characters), and
+official `suest` stopped with "unable to generate scores for model gol", r(322), which does not
+say what is wrong. Only the scores fail; ordinary predictions work. Relabeling without refitting
+does not help, since `predict` uses the stored names. suest2 now checks every stored `gologit2`
+model before choosing a route and stops with r(459):
+
+    model gol uses gologit2, which names its equations after the value labels of polviews;
+    equation moderate,_middle_of_the_road is not a valid Stata name, so gologit2 cannot compute
+    the scores suest2 needs
+    use only letters, numbers and spaces in the value label of polviews = 4, then refit the model
+
+The check (`suest2_g2scan`) refuses an equation name with a character a Stata name cannot have
+(it compares the name with `ustrtoname(name, 0)`). A leading digit is allowed, because
+`gologit2`'s scores work with it. The category is read from `e(cat)`. mecompare, totalme and
+meinequality pass the message and r(459) through. Help: header line only. Gate 81
+(`test_suest2_g2comma_gate81`, 2018 GSS, final round 27 / 0) showed that for 22 labels, suest2
+refuses exactly when `gologit2`'s scores fail. That covers a comma, parentheses, an apostrophe,
+a slash, a hyphen, `&`, `%`, `+`, `#`, `=`, `*`, `;`, `?` and the GSS label "2-3 times a month".
+It combines when the scores work: spaces, periods, colons, digits, accented letters and a
+60-character label. With the comma removed and the models refit, suest2 and mecompare give
+results identical to 1.1.2. The 36-suite regression passed 36 / 36. The banner and
+`e(suest2_version)` move to 1.1.3.

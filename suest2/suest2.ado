@@ -1,4 +1,4 @@
-*! version 1.1.2  22oct2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.1.3  29oct2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -26,6 +26,9 @@ program define suest2, sortpreserve eclass
         // a trailing comma with nothing after it is not valid syntax
         local 0 = regexr(`"`0'"', ",[ ]*$", "")
     }
+
+    // gologit2 cannot compute scores when an equation name has a character a Stata name cannot have
+    suest2_g2scan `0'
 
     // MI-pooled constituent results require a re-estimation within each imputation
     quietly suest2_miscan `0'
@@ -776,7 +779,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.1.2"
+    ereturn local suest2_version "1.1.3"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'
@@ -943,6 +946,35 @@ program define suest2_routescan, rclass
         return scalar n_svyivregress = `nsvyiv'
     }
     return local names `"`names'"'
+end
+
+// gologit2 names its equations after the outcome's value labels; its predict, scores fails on a character a name cannot have
+program define suest2_g2scan
+    version 16
+    syntax [anything] [, *]
+    est_expand `"`anything'"', min(1) default(.)
+    local names `"`r(names)'"'
+    local names : list uniq names
+    foreach name of local names {
+        if "`name'" == "." continue
+        capture quietly estimates restore `name'
+        if _rc | "`e(cmd)'" != "gologit2" continue
+        local eqs : coleq e(b)
+        local eqs : list uniq eqs
+        local j 0
+        foreach eq of local eqs {
+            local ++j
+            if `"`eq'"' == ustrtoname(`"`eq'"', 0) continue
+            local v
+            capture local v = " = " + string(e(cat)[1,`j'])
+            di as err "model {bf:`name'} uses {cmd:gologit2}, which names its equations after the value " /*
+            */ "labels of {bf:`e(depvar)'}; equation `eq' is not a valid Stata name, so {cmd:gologit2} " /*
+            */ "cannot compute the scores {cmd:suest2} needs"
+            di as err "use only letters, numbers and spaces in the value label of {bf:`e(depvar)'`v'}, " /*
+            */ "then refit the model"
+            exit 459
+        }
+    }
 end
 
 // Clear ONLY the macros suest's guards read, inside a private copy of a
