@@ -722,3 +722,9 @@ It combines when the scores work: spaces, periods, colons, digits, accented lett
 60-character label. With the comma removed and the models refit, suest2 and mecompare give
 results identical to 1.1.2. The 36-suite regression passed 36 / 36. The banner and
 `e(suest2_version)` move to 1.1.3.
+
+## suest2.sthlp -- 04nov2026, help only
+
+The correlated random effects section cites Mize and Han as forthcoming rather
+than 2026 (the chapter is not yet published). No `.ado` moved; suest2 stays
+1.1.3. Distribution-Date 20261104.

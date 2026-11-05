@@ -438,7 +438,7 @@ The difference between the two is a subpopulation-versus-counterfactual
 distinction. {opt over()} describes the effect {it:as it is} in each observed 
 group; {opt by()} describes the effect that {it:would} obtain if the entire 
 sample were placed at each level. The two can differ due to nonlinearities, 
-distributional differences, and/or interactive effects. See Mize and Han (2026).
+distributional differences, and/or interactive effects. See Mize and Han (forthcoming).
 For most applications, {opt by()} is recommended. For a {it:continuous}
 moderator, {opt covariates(varname=(numlist))} does what {opt by()} does at the
 listed values; see {help mecompare##covariates:covariates()}.
@@ -924,7 +924,7 @@ in calculating marginal effects, especially for categorical outcome models.
 One common recommendation is to use a hybrid model specification such as the 
 correlated random effects (Mundlak) model, which estimates both within-person 
 ("fixed effects") estimates and between-person estimates, and has no issue 
-in calculating marginal effects (Mize and Han 2026).
+in calculating marginal effects (Mize and Han forthcoming).
 
 {pstd}
 {cmd:xtreg, cre} is not supported, but an identical hybrid correlated-random-effects
@@ -1167,10 +1167,10 @@ for Comparing Predictions and Marginal Effects Across Models.
 {pstd} Mize, T. D., & Han, B. (2025). Inequality and Total Effect Summary 
 Measures for Nominal and Ordinal Variables. {it:Sociological Science}. 12, 115-157.
 
-{pstd} Mize, T. D., & Han, B. (2026). Marginal effects: flexible methods for 
-interpretation across linear and nonlinear models. 
-In {it:Handbook on Data Modeling and Data Analysis}, 
-edited by David Weakliem. Edward Elgar Publishing.
+{pstd} Mize, Trenton D. and Bing Han. Forthcoming. Marginal effects: a flexible 
+method for substantively meaningful interpretations across linear and nonlinear 
+models. In {it:Understanding Data Modeling and Data Analysis}. 
+Edward Elgar Publishing.
 
 {pstd} Long, J. Scott and Jeremy Freese. 2014. 
 {it:Regression Models for Categorical Dependent Variables Using Stata.} 

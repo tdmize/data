@@ -333,7 +333,7 @@ in calculating marginal effects, especially for categorical outcome models.
 One common recommendation is to use the correlated random effects (Mundlak) 
 specification, which estimates both within-person ("fixed effects") estimates 
 and between-person estimates, and has no issue in calculating marginal effects 
-(Mize and Han 2026).
+(Mize and Han forthcoming).
 
 {pstd}
 {cmd:xtreg, cre} is not supported, but an identical correlated-random-effects

@@ -5,6 +5,16 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## mecompare.sthlp -- 04nov2026, help only
+
+The Mize and Han chapter is cited as forthcoming, under its final title and
+book: "Marginal effects: a flexible method for substantively meaningful
+interpretations across linear and nonlinear models," in *Understanding Data
+Modeling and Data Analysis* (Edward Elgar Publishing). The help had the working
+title, the book as *Handbook on Data Modeling and Data Analysis* with its
+editor, and 2026; the two citations in the text now read "forthcoming". No .ado
+moved; mecompare stays 1.9.0. Distribution-Date 20261104.
+
 ## v1.9.0 -- 20oct2026, rratios: ratios of the predictions under the marginal effects
 
 `rratios` reports, under each variable's marginal effects, the ratio of the same
