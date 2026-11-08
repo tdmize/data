@@ -772,3 +772,31 @@ were rerun in a fresh session after test models of their own failed to converge 
 run. pweight_nbreg and pweight_categorical (v1.6) now use cloglog for their refused-family check,
 since glm is accepted; menbreg_release (v1.7) gives its second Laplace test model the first
 one's covariates, as the old one did not converge on SE.
+
+## suest2_margins.ado 0.1.77 -- 08nov2026
+
+**The table printed by suest2's own margins route.** suest2 computes some margins itself
+instead of passing them to official `margins`: most `margins` calls on systems of multilevel
+models, of several panel models and of `ivregress`, and `dydx()` for a `logit`, `logistic`,
+`ologit`, `oprobit` or `mlogit` model named with `predict(model())`. That route printed its
+results with `ereturn display`. The table had a "Coefficient" column header, an "(empty)" row
+for the base level of a factor variable, and no margins title or number of observations. Found
+while writing the two-part model page, with `margins, dydx(ins_unins) predict(model(Any))`
+after a logit first part (`probe_twopart_page_v1_0`, 08nov2026). The values were right: they
+equal official `margins` on the stored model exactly (`probe_margdisplay_v1_0`).
+
+The route now prints the layout of `margins`: "Average marginal effects" or "Predictive
+margins" with the number of observations, a "dy/dx" or "Margin" column without empty rows, and
+the note that dy/dx for factor levels is the discrete change from the base level. The table is
+printed with `_coef_table`. What the route stores and returns (`r()`, and `e()` after `post`)
+is unchanged.
+
+Gate 83 (`test_suest2_margdisplay_gate83`, 16 / 0): on the 2004 MEPS expenditures, the tables
+for a factor variable, a continuous variable and both after `logit`, and after `ologit` with
+`outcome(3)`, have the new layout, and their values equal official `margins` on the stored
+model (difference 0). `post` still posts the results, and a glm named with `model()` is still
+printed by official `margins`. On a pair of `melogit` models (`webuse bangladesh`), `margins`
+and `margins, dydx(age)` print the new layout.
+
+The 36-suite regression passed 36 / 36 on Stata SE 19.5 (runner v2.9). suest2.ado stays
+1.1.4. Distribution-Date 20261109.

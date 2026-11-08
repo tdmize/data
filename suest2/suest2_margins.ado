@@ -1,4 +1,4 @@
-*! version 0.1.76  24sep2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.77  08nov2026  | history: CHANGELOG-suest2.md (repo)
 * Candidate 21. LIVE METADATA ON LINE 2, NOT HISTORY -- do not move it to
 * the changelog. run_suest2_v0175_full_regression.do:123,
 * test_suest2_v0175_marginsdefault_pa.do:191 and
@@ -1238,7 +1238,16 @@ program define suest2_margins_me_dydx, rclass
     matrix `Vpost' = `Vjoint'
     matrix `Jpost' = `Jjoint'
     quietly suest2_margins_me_post `bpost' `Vpost' `Jpost' `Nsys' `"`raw'"'
-    noisily ereturn display
+    // Display in the layout of margins; what is posted and returned is unchanged.
+    local s2ttl = cond(`isdydx', "Average marginal effects", "Predictive margins")
+    local s2ct = cond(`isdydx', "dy/dx", "Margin")
+    if `Nsys' < . noisily di _n as txt "`s2ttl'" _col(57) "Number of obs =" as res %7.0fc `Nsys'
+    else noisily di _n as txt "`s2ttl'"
+    noisily _coef_table, coeftitle(`s2ct') noemptycells
+    local s2cn : colnames e(b)
+    local s2cn : subinstr local s2cn "._predict" "", all
+    local s2cn : subinstr local s2cn "._at" "", all
+    if `isdydx' & strpos(`"`s2cn'"', ".") noisily di as txt "Note: dy/dx for factor levels is the discrete change from the base level."
 
     capture quietly estimates restore `systemsave'
     local rcsystem = _rc
