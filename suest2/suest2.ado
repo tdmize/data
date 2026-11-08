@@ -1,4 +1,4 @@
-*! version 1.1.3  29oct2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.1.4  07nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -386,6 +386,7 @@ program define suest2, sortpreserve eclass
 
         local family`i'
         local link`i'
+        local power`i' .
         if "`e(cmd2)'"=="melogit" {
             local family`i' bernoulli
             local link`i' logit
@@ -423,6 +424,7 @@ program define suest2, sortpreserve eclass
             local family`i'=subinstr(`"`family`i''"'," ","_",.)
             local link`i'=lower(trim(`"`e(linkt)'"'))
             local link`i'=subinstr(`"`link`i''"'," ","_",.)
+            local power`i' = e(power)
         }
         else if "`cmd`i''"=="cloglog" {
             local family`i' bernoulli
@@ -741,6 +743,7 @@ program define suest2, sortpreserve eclass
         ereturn local suest2_depvar`i' `"`depvar`i''"'
         ereturn local suest2_family`i' `"`family`i''"'
         ereturn local suest2_link`i' `"`link`i''"'
+        ereturn scalar suest2_power`i' = real("`power`i''")
         ereturn local suest2_wtype`i' `"`wtype`i''"'
         ereturn local suest2_wexp`i' `"`wexp`i''"'
         ereturn local suest2_offset`i' `"`offset`i''"'
@@ -779,7 +782,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.1.3"
+    ereturn local suest2_version "1.1.4"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'
@@ -1710,9 +1713,9 @@ program define suest2_pwestimate, eclass sortpreserve
             di as err "all models in a pweighted suest2 system must explicitly use {bf:[pweight=...]}"
             exit 322
         }
-        if !inlist("`e(cmd)'", "regress", "logit", "logistic", "probit", "poisson", "nbreg", "ologit", "oprobit", "mlogit") {
+        if !inlist("`e(cmd)'", "regress", "logit", "logistic", "probit", "poisson", "nbreg", "ologit", "oprobit", "mlogit") & "`e(cmd)'" != "glm" {
             di as err "pweight support is not yet implemented for {bf:`e(cmd)'} results"
-            di as err "the current pweight stage supports regress, binary logit/probit, poisson, nbreg,"
+            di as err "the current pweight stage supports regress, binary logit/probit, poisson, nbreg, glm,"
             di as err "ologit, oprobit, and mlogit"
             di as err "other model families remain later stages"
             exit 321

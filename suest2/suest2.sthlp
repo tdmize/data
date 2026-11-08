@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.3  29oct2026}{...}
+{* *! version 1.1.4  07nov2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -89,8 +89,8 @@ and {cmd:zinb} with either inflation link.
 {p 8 12 2}
 {cmd:glm}; {cmd:cloglog}; {cmd:tobit}; {cmd:intreg}; maximum-likelihood
 {cmd:heckman}; and parametric {cmd:streg}. Active-system {cmd:glm}
-prediction supports identity, log, logit, probit, cloglog, and loglog
-links.
+prediction supports identity, log, logit, probit, cloglog, loglog, power
+(including reciprocal), odds-power, and log-complement links.
 
 {p 8 12 2}
 {cmd:gologit2}, including proportional-odds, partial proportional-odds,
@@ -201,8 +201,8 @@ subpopulation specification. Replicate-weight VCEs are not supported.
 
 {pstd}
 Pweighted systems support {cmd:regress}, {cmd:logit}/{cmd:logistic},
-{cmd:probit}, {cmd:poisson}, {cmd:nbreg}, {cmd:ologit}, {cmd:oprobit}, and
-{cmd:mlogit}. These families may be combined. Evaluated pweights must agree on
+{cmd:probit}, {cmd:poisson}, {cmd:nbreg}, {cmd:glm}, {cmd:ologit}, {cmd:oprobit},
+and {cmd:mlogit}. These families may be combined. Evaluated pweights must agree on
 observations shared by constituent estimation samples; they may differ outside
 the overlap. Request system clustering with {cmd:cluster()} on {cmd:suest2}.
 
@@ -311,6 +311,7 @@ when applicable, {cmd:e(clustvar)} and {cmd:e(N_clust)}. It also stores:
 {synopt:{cmd:e(suest2_cmd#)}}constituent estimation command{p_end}
 {synopt:{cmd:e(suest2_family#)}}constituent response family, when defined{p_end}
 {synopt:{cmd:e(suest2_link#)}}constituent link, when defined{p_end}
+{synopt:{cmd:e(suest2_power#)}}power of a {cmd:glm} power or odds-power link{p_end}
 {synopt:{cmd:e(suest2_systempred#)}}whether active-system prediction is available{p_end}
 {synopt:{cmd:e(suest2_pweight)}}whether the pweight route was used{p_end}
 {synopt:{cmd:e(suest2_svy)}}whether the linearized survey route was used{p_end}

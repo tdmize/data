@@ -1,4 +1,4 @@
-*! version 0.1.93  01sep2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.94  07nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2_p
     version 16
     syntax newvarname [if] [in] [, MODEL(string) XB XB0 SUESTXB PR PCR PU0 N NU0 IRU0 PR0(string) PRRange(string asis) MU RATE MEAN MEDIAN SURV HAZARD DENSITY DISTRIBUTION ETA MARGINAL FIXEDonly CONDITIONAL(string) NOOFFset OUTcome(string) YStar(string asis) EXPECTed(string asis) XBSEL PSEL YCOND YEXPECTED MILLS NSHAZARD DEFAULT LEGACY *]
@@ -144,6 +144,17 @@ program define suest2_p
         }
         else if inlist("`glink'","log-log","log–log","log_log") {
             quietly generate `typlist' `varlist'=exp(-exp(-`glmeta')) `if' `in'
+        }
+        else if strpos("`glink'","power") | "`glink'"=="reciprocal" {
+            tempname gp
+            scalar `gp' = e(suest2_power`imodel')
+            if strpos("`glink'","odds") & `gp' == 0 quietly generate `typlist' `varlist'=invlogit(`glmeta') `if' `in'
+            else if strpos("`glink'","odds") quietly generate `typlist' `varlist'=(1+`gp'*`glmeta')^(1/`gp')/(1+(1+`gp'*`glmeta')^(1/`gp')) `if' `in'
+            else if `gp' == 0 quietly generate `typlist' `varlist'=exp(`glmeta') `if' `in'
+            else quietly generate `typlist' `varlist'=`glmeta'^(1/`gp') `if' `in'
+        }
+        else if strpos("`glink'","complement") {
+            quietly generate `typlist' `varlist'=1-exp(`glmeta') `if' `in'
         }
         else {
             di as err "active-system `cmd' prediction is not implemented for link {bf:`glink'}"

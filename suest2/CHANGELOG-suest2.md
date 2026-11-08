@@ -728,3 +728,47 @@ results identical to 1.1.2. The 36-suite regression passed 36 / 36. The banner a
 The correlated random effects section cites Mize and Han as forthcoming rather
 than 2026 (the chapter is not yet published). No `.ado` moved; suest2 stays
 1.1.3. Distribution-Date 20261104.
+
+## suest2.ado 1.1.4, suest2_p.ado 0.1.94 -- 07nov2026
+
+**Two-part models: every glm second part, and pweighted glm.** Found while recreating `twopm`
+(Belotti, Deb, Manning and Norton 2015) with suest2 and `margins`. The approach: fit the first
+part (logit or probit of whether the outcome is positive) and the second part (glm or regress
+among the positive outcomes) separately, combine them with suest2, and use
+`margins, expression(predict(model(first)) * predict(model(second)))`. On the 2004 MEPS
+expenditures and the womenwk wages, this reproduced `twopm ..., suest` to 1e-8 or better for
+predictions, discrete changes and `dydx()`, with clustering, iweights and `svy:` (probes
+`probe_twopart_v1_0` to `v1_3` and `probe_twopm_gaps_v1_0`, 07nov2026). Two things did not work,
+and both are fixed here.
+
+- **glm links.** The active-system glm prediction inverted only the identity, log, logit,
+  probit, cloglog and log-log links. Any other link, including gamma's default (reciprocal),
+  stopped `margins` with r(321) "active-system glm prediction is not implemented for link
+  reciprocal". It now also inverts the power links (`link(power #)`, the reciprocal, and inverse
+  Gaussian's default power -2), the odds-power link (`link(opower #)`), and the log-complement
+  link (`link(logc)`). suest2 keeps each glm model's `e(power)` as `e(suest2_power#)`
+  (suest2.ado lines 389, 427, 746), and suest2_p reads it (lines 148-158). The negative binomial
+  link is still not inverted.
+- **pweighted glm.** The pweight route refused glm with r(321) "pweight support is not yet
+  implemented for glm results". glm is now accepted (suest2.ado line 1716). As for the other
+  families, each model is refit with iweights on the union weight and combined by official
+  `suest`. The family check is a separate condition because `inlist()` takes at most ten string
+  arguments, and the list already had ten.
+
+Gate 82 (`test_suest2_twopart_gate82`): on the womenwk wages, each new link's prediction equals
+glm's own `predict, mu` (within 3.5e-16), and the age effect on expected wages equals
+`twopm ..., suest` for the reciprocal, power .5, inverse Gaussian and odds-power second parts,
+and official `suest` for the log-complement one, which `twopm` cannot fit (r(109)). On the MEPS
+expenditures with pweights, suest2's e(V) equals official `suest` of the iweighted models, and
+the age effect equals `twopm [iw], suest`. A pweighted glm fit with `vce(cluster)` and a
+pweighted cloglog are still refused. Final round 3 / 0 (v1.1); the three failures in v1.0 were
+the gate's own.
+
+Help: the glm links, glm among the pweight families, `e(suest2_power#)`. The banner and
+`e(suest2_version)` move to 1.1.4.
+
+The 36-suite regression passed 36 / 36 on Stata SE 19.5 (runner v2.9). Four multilevel suites
+were rerun in a fresh session after test models of their own failed to converge in the first
+run. pweight_nbreg and pweight_categorical (v1.6) now use cloglog for their refused-family check,
+since glm is accepted; menbreg_release (v1.7) gives its second Laplace test model the first
+one's covariates, as the old one did not converge on SE.
