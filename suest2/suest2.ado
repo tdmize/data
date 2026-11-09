@@ -1,4 +1,4 @@
-*! version 1.1.4  07nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.1.5  08nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -275,7 +275,7 @@ program define suest2, sortpreserve eclass
 
     local start 1
     local marginsdefault
-    local marginsok model(passthru) suestxb(passthru) default Pr xb mu rate fixedonly conditional(passthru) nooffset outcome(passthru)
+    local marginsok model(passthru) suestxb(passthru) default Pr xb mu rate fixedonly conditional(passthru) nooffset outcome(passthru) twopart(passthru) duan normal
     local marginsnotok
     local asbalanced
     local asobserved
@@ -387,6 +387,27 @@ program define suest2, sortpreserve eclass
         local family`i'
         local link`i'
         local power`i' .
+        local duan`i' .
+        local resvar`i' .
+        // Residual variance and smearing constant of a regress model, for predict(twopart())
+        if "`cmd`i''" == "regress" {
+            tempvar s2r s2e s2q
+            capture quietly predict double `s2r' if e(sample), residuals
+            if !_rc {
+                quietly generate double `s2e' = exp(`s2r')
+                quietly generate double `s2q' = `s2r'^2
+                local s2w
+                if "`wtype`i''" != "" local s2w "[aw`wexp`i'']"
+                quietly summarize `s2q' `s2w' if e(sample), meanonly
+                local resvar`i' = r(mean)
+                quietly count if e(sample) & missing(`s2e')
+                if !r(N) {
+                    quietly summarize `s2e' `s2w' if e(sample), meanonly
+                    local duan`i' = r(mean)
+                }
+                drop `s2r' `s2e' `s2q'
+            }
+        }
         if "`e(cmd2)'"=="melogit" {
             local family`i' bernoulli
             local link`i' logit
@@ -744,6 +765,8 @@ program define suest2, sortpreserve eclass
         ereturn local suest2_family`i' `"`family`i''"'
         ereturn local suest2_link`i' `"`link`i''"'
         ereturn scalar suest2_power`i' = real("`power`i''")
+        ereturn scalar suest2_duan`i' = `duan`i''
+        ereturn scalar suest2_resvar`i' = `resvar`i''
         ereturn local suest2_wtype`i' `"`wtype`i''"'
         ereturn local suest2_wexp`i' `"`wexp`i''"'
         ereturn local suest2_offset`i' `"`offset`i''"'
@@ -782,7 +805,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.1.4"
+    ereturn local suest2_version "1.1.5"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'

@@ -1,11 +1,85 @@
-*! version 0.1.94  07nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.95  09nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2_p
     version 16
-    syntax newvarname [if] [in] [, MODEL(string) XB XB0 SUESTXB PR PCR PU0 N NU0 IRU0 PR0(string) PRRange(string asis) MU RATE MEAN MEDIAN SURV HAZARD DENSITY DISTRIBUTION ETA MARGINAL FIXEDonly CONDITIONAL(string) NOOFFset OUTcome(string) YStar(string asis) EXPECTed(string asis) XBSEL PSEL YCOND YEXPECTED MILLS NSHAZARD DEFAULT LEGACY *]
+    syntax newvarname [if] [in] [, MODEL(string) XB XB0 SUESTXB PR PCR PU0 N NU0 IRU0 PR0(string) PRRange(string asis) MU RATE MEAN MEDIAN SURV HAZARD DENSITY DISTRIBUTION ETA MARGINAL FIXEDonly CONDITIONAL(string) NOOFFset OUTcome(string) YStar(string asis) EXPECTed(string asis) XBSEL PSEL YCOND YEXPECTED MILLS NSHAZARD DEFAULT LEGACY TWOPART(string) DUAN NORMal *]
 
     if "`e(cmd)'" != "suest2" {
         di as err "suest2 estimation results not found"
         exit 301
+    }
+
+    // Two-part prediction: the first model's probability times the second model's mean
+    if `"`twopart'"' != "" {
+        local badopt 0
+        foreach opt in model xb xb0 suestxb pr pcr pu0 n nu0 iru0 mu rate mean median surv hazard density distribution eta marginal fixedonly conditional outcome ystar expected prrange xbsel psel ycond yexpected mills nshazard default legacy {
+            if `"``opt''"' != "" local badopt 1
+        }
+        if trim(`"`pr0'"') != "" | trim(`"`options'"') != "" local badopt 1
+        if `badopt' {
+            di as err "{bf:twopart()} may be combined only with {bf:duan}, {bf:normal}, or {bf:nooffset}"
+            exit 198
+        }
+        if "`duan'" != "" & "`normal'" != "" {
+            di as err "specify {bf:duan} or {bf:normal}, not both"
+            exit 198
+        }
+        if `: word count `twopart'' != 2 {
+            di as err "{bf:twopart()} takes two models: the first part, then the second part"
+            exit 198
+        }
+        local tpi
+        foreach tpm of local twopart {
+            local tpk 0
+            forvalues i = 1/`=e(suest2_nmodels)' {
+                local tpn : word `i' of `e(names)'
+                if `"`tpm'"' == `"`tpn'"' local tpk `i'
+            }
+            if !`tpk' {
+                di as err "model {bf:`tpm'} was not included in suest2"
+                di as err "available models: `e(names)'"
+                exit 198
+            }
+            local tpi `tpi' `tpk'
+        }
+        local tp1 : word 1 of `tpi'
+        local tp2 : word 2 of `tpi'
+        local tpm1 : word 1 of `twopart'
+        local tpm2 : word 2 of `twopart'
+        if !inlist(`"`e(suest2_cmd`tp1')'"', "logit", "logistic", "probit") {
+            di as err "the first part of {bf:twopart()}, {bf:`tpm1'}, must be a {bf:logit} or {bf:probit} model"
+            exit 198
+        }
+        if !inlist(`"`e(suest2_cmd`tp2')'"', "glm", "regress") {
+            di as err "the second part of {bf:twopart()}, {bf:`tpm2'}, must be a {bf:glm} or {bf:regress} model"
+            exit 198
+        }
+        if "`duan'`normal'" != "" & `"`e(suest2_cmd`tp2')'"' != "regress" {
+            di as err "{bf:duan} and {bf:normal} need a {bf:regress} model of the log of the outcome as the second part"
+            exit 198
+        }
+        if "`duan'" != "" & missing(e(suest2_duan`tp2')) {
+            di as err "the smearing constant of {bf:`tpm2'} could not be computed; {bf:duan} needs a regression of the log of the outcome"
+            exit 198
+        }
+        if "`normal'" != "" & missing(e(suest2_resvar`tp2')) {
+            di as err "the residual variance of {bf:`tpm2'} could not be computed"
+            exit 198
+        }
+        tempvar tpa tpb
+        quietly suest2_p double `tpa' `if' `in', model(`tp1') `nooffset'
+        if "`duan'`normal'" == "" quietly suest2_p double `tpb' `if' `in', model(`tp2') `nooffset'
+        else {
+            quietly suest2_p double `tpb' `if' `in', model(`tp2') xb `nooffset'
+            if "`duan'" != "" quietly replace `tpb' = exp(`tpb') * e(suest2_duan`tp2') `if' `in'
+            else quietly replace `tpb' = exp(`tpb' + e(suest2_resvar`tp2') / 2) `if' `in'
+        }
+        quietly generate `typlist' `varlist' = `tpa' * `tpb' `if' `in'
+        label variable `varlist' "Two-part prediction"
+        exit
+    }
+    if "`duan'`normal'" != "" {
+        di as err "{bf:duan} and {bf:normal} go with {bf:twopart()}"
+        exit 198
     }
 
     local names `"`e(names)'"'

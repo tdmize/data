@@ -800,3 +800,45 @@ and `margins, dydx(age)` print the new layout.
 
 The 36-suite regression passed 36 / 36 on Stata SE 19.5 (runner v2.9). suest2.ado stays
 1.1.4. Distribution-Date 20261109.
+
+## suest2.ado 1.1.5, suest2_p.ado 0.1.95, suest2_margins.ado 0.1.78 -- 09nov2026
+
+**Two-part models in one prediction: `twopart()`.** With the two parts of a two-part model
+fit as separate models and combined by suest2 (1.1.4), the expected outcome took
+`margins, expression(predict(model(first)) * predict(model(second)))`. It is now a prediction
+of its own: `predict(twopart(first second))` is the first model's probability (`logit`,
+`logistic` or `probit`) times the second model's mean (`glm` or `regress`). With a `regress`
+model of the log of the outcome as the second part, `duan` uses Duan's smearing estimate,
+exp(xb) times the mean of the exponentiated residuals, and `normal` the normal-theory
+retransformation, exp(xb + residual variance / 2), as `twopm`'s `predict` does. It works in
+`predict` and in `margins`, alone or beside other predictions, and mecompare's new `twopart`
+option uses it (mecompare 1.10.0).
+
+- suest2.ado: when the system is combined, each `regress` model's smearing constant and
+  residual variance (divisor N, as `twopm`'s `e(sigma2)`) are computed with the model's own
+  weights (as aweights) and stored as `e(suest2_duan#)` and `e(suest2_resvar#)`. Both are
+  missing for other models; the smearing constant is also missing when exp() of a residual
+  overflows (a regression of the outcome itself rather than its log). `twopart()`, `duan`
+  and `normal` join the predictions `margins` accepts.
+- suest2_p.ado: `twopart()` must name two models of the system, the first a `logit`,
+  `logistic` or `probit` model and the second a `glm` or `regress` model; `duan` and
+  `normal` need a `regress` second part, and no other prediction option may be combined
+  with `twopart()`. `duan` or `normal` without `twopart()` is refused. Each refusal is r(198).
+- suest2_margins.ado: the two models named in `twopart()` count as selected models, as a
+  model named in `model()` does.
+
+Gate 84 (`test_suest2_twopart_gate84`): on the womenwk wages, `margins` with `twopart()`
+equals `margins` after `twopm ..., suest` for logit + gamma glm, probit + glm, probit +
+regress, and probit + regress of log wages with `duan` and with `normal`: the average
+prediction, predictions at four ages, by marital status, and `dydx()` of every covariate
+(b within 5e-14 and V within 1e-10 for the first three; b within 5e-8 and V within 1e-8 with
+`duan` and `normal`). The two constants equal `twopm`'s `e(duan)` and `e(sigma2)`, and with
+pweights and with `svy:` they are the weighted means. Two `twopart()` predictions in one
+`margins` call equal the matching `expression()`s, and so do their difference and its
+variance. The refusals are r(198). Rounds: 46 / 0 (v1.1; v1.0 found that the first build's
+option check, one long line, stopped with r(920)), 4 / 0 (v1.2, `duan` and `normal` alone).
+
+Help: a paragraph with two calls on `twopart()`, the two stored results, and a "Two-part
+models" example.
+
+The 36-suite regression passed 36 / 36 on Stata SE 19.5 (runner v2.9).

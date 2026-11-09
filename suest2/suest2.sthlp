@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.4  07nov2026}{...}
+{* *! version 1.1.5  08nov2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -251,6 +251,18 @@ Options {cmd:at()}, {cmd:dydx()}, {cmd:over()}, {cmd:post}, and other standard
 requested prediction. Inference uses the complete joint {cmd:suest2}
 covariance matrix, including the cross-model covariance.
 
+{pstd}
+For a two-part model, fit the two parts as separate models: a {cmd:logit} or
+{cmd:probit} model of whether the outcome is positive, and a {cmd:glm} or
+{cmd:regress} model of the outcome where it is positive. {cmd:twopart(}{it:first}
+{it:second}{cmd:)} predicts the first model's probability times the second
+model's mean. With a {cmd:regress} model of the log of the outcome, add
+{cmd:duan} for Duan's smearing estimate or {cmd:normal} for the normal-theory
+retransformation:
+
+{phang2}{cmd:. margins, dydx(x) predict(twopart(Any Amount))}{p_end}
+{phang2}{cmd:. margins, dydx(x) predict(twopart(Any LnAmount) duan)}{p_end}
+
 
 {marker options}{...}
 {title:Options for suest2}
@@ -312,6 +324,8 @@ when applicable, {cmd:e(clustvar)} and {cmd:e(N_clust)}. It also stores:
 {synopt:{cmd:e(suest2_family#)}}constituent response family, when defined{p_end}
 {synopt:{cmd:e(suest2_link#)}}constituent link, when defined{p_end}
 {synopt:{cmd:e(suest2_power#)}}power of a {cmd:glm} power or odds-power link{p_end}
+{synopt:{cmd:e(suest2_duan#)}}smearing constant of a {cmd:regress} model, the mean of the exponentiated residuals{p_end}
+{synopt:{cmd:e(suest2_resvar#)}}residual variance of a {cmd:regress} model, the mean squared residual{p_end}
 {synopt:{cmd:e(suest2_systempred#)}}whether active-system prediction is available{p_end}
 {synopt:{cmd:e(suest2_pweight)}}whether the pweight route was used{p_end}
 {synopt:{cmd:e(suest2_svy)}}whether the linearized survey route was used{p_end}
@@ -398,6 +412,17 @@ recipe extends to any supported panel or multilevel family, e.g.
 {phang2}{stata "estimates store iv2":estimates store iv2}{p_end}
 {phang2}{stata "suest2 iv1 iv2":suest2 iv1 iv2}{p_end}
 {phang2}{stata "margins, dydx(pcturban)":margins, dydx(pcturban)}{p_end}
+
+{dlgtab:Two-part models}
+
+{phang2}{stata "use https://tdmize.github.io/data/data/meps, clear":use https://tdmize.github.io/data/data/meps, clear}{p_end}
+{phang2}{stata "generate byte any = exp_tot > 0":generate byte any = exp_tot > 0}{p_end}
+{phang2}{stata "logit any c.age i.female i.ins_unins, vce(robust)":logit any c.age i.female i.ins_unins, vce(robust)}{p_end}
+{phang2}{stata "estimates store Any":estimates store Any}{p_end}
+{phang2}{stata "glm exp_tot c.age i.female i.ins_unins if any, family(gamma) link(log) vce(robust)":glm exp_tot c.age i.female i.ins_unins if any, family(gamma) link(log) vce(robust)}{p_end}
+{phang2}{stata "estimates store Amount":estimates store Amount}{p_end}
+{phang2}{stata "suest2 Any Amount":suest2 Any Amount}{p_end}
+{phang2}{stata "margins, dydx(ins_unins) predict(twopart(Any Amount))":margins, dydx(ins_unins) predict(twopart(Any Amount))}{p_end}
 
 
 {marker companions}{...}

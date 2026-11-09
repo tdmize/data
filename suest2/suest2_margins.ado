@@ -1,4 +1,4 @@
-*! version 0.1.77  08nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.78  08nov2026  | history: CHANGELOG-suest2.md (repo)
 * Candidate 21. LIVE METADATA ON LINE 2, NOT HISTORY -- do not move it to
 * the changelog. run_suest2_v0175_full_regression.do:123,
 * test_suest2_v0175_marginsdefault_pa.do:191 and
@@ -33,6 +33,21 @@ program define suest2_margins, rclass
         }
         local model = trim(substr(`"`rest'"', 1, `q' - 1))
         local selected `"`selected' `model'"'
+        local scan = substr(`"`rest'"', `q' + 1, .)
+    }
+    // The two models named in twopart() are selected too
+    local scan `"`raw'"'
+    while 1 {
+        local p = strpos(lower(`"`scan'"'), "twopart(")
+        if !`p' continue, break
+        local rest = substr(`"`scan'"', `p' + 8, .)
+        local q = strpos(`"`rest'"', ")")
+        if !`q' {
+            di as err "invalid twopart() specification in margins prediction"
+            exit 198
+        }
+        local tpsel = substr(`"`rest'"', 1, `q' - 1)
+        local selected `"`selected' `tpsel'"'
         local scan = substr(`"`rest'"', `q' + 1, .)
     }
     local selected : list uniq selected
