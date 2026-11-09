@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-10-20 Trenton D Mize -- matches mecompare v1.9.0}{...}
+{* 2026-11-08 Trenton D Mize -- matches mecompare v1.10.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -28,6 +28,7 @@ the models.{p_end}
 {synopt:{opt groupn:ames(name1 name2 ...)}}labels for the groups{p_end}
 {synopt:{opt groupm:e}}outcome difference between the two groups{p_end}
 {synopt:{opt groupsd}}each group's own SD for {opt amount(sd)}{p_end}
+{synopt:{opt twop:art}[{cmd:(}{it:type}{cmd:)}]}two-part models, listed in {opt models( )} in pairs{p_end}
 
 {syntab:Amount of change}
 {synopt:{opt amount(list)}}change for continuous variables; default is {bf:one}{p_end}
@@ -248,6 +249,20 @@ the results are identical to naming them in {opt mod:els( )}.
 o Otherwise the single model in {help ereturn:e()} is used, and it is 
 labelled {cmd:m1} in the table and in {opt store()} names. It does not 
 need to have been stored. 
+{p_end}
+
+{marker twopart}
+
+{p2colset 5 18 19 0}
+{p2col:{opt twop:art}[{cmd:(}{it:type}{cmd:)}]} compares two-part models. A
+two-part model is two stored models: a {cmd:logit} or {cmd:probit} model of
+whether the outcome is positive, and a {cmd:glm} or {cmd:regress} model of the
+outcome where it is positive. {opt mod:els( )} lists each first part, then its
+second part, and each pair is one model in the table, labeled by its two names
+(e.g. {cmd:Any+Amount}). The effects are on the expected outcome, the first
+part's probability times the second part's mean. With a {cmd:regress} model of
+the log of the outcome as each second part, {opt twopart(duan)} uses Duan's
+smearing estimate and {opt twopart(normal)} the normal-theory retransformation.
 {p_end}
 
 {marker groups}
@@ -1131,6 +1146,31 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 {phang} {stata "metest 2 - 3, add":metest 2 - 3, add} {p_end}
 
 {phang} {stata "metest 3 - 4, add":metest 3 - 4, add} {p_end}
+
+{pstd}{it:Two two-part models: whether the outcome is positive, then its amount where it is positive}
+{p_end}
+
+{phang} {stata "use https://tdmize.github.io/data/data/meps, clear":use https://tdmize.github.io/data/data/meps, clear} {p_end}
+
+{phang} {stata "generate byte any = exp_tot > 0":generate byte any = exp_tot > 0} {p_end}
+
+{phang} {stata "logit any c.age i.female i.ins_unins, vce(robust)":logit any c.age i.female i.ins_unins, vce(robust)} {p_end}
+
+{phang} {stata "estimates store Any":estimates store Any} {p_end}
+
+{phang} {stata "glm exp_tot c.age i.female i.ins_unins if any, family(gamma) link(log) vce(robust)":glm exp_tot c.age i.female i.ins_unins if any, family(gamma) link(log) vce(robust)} {p_end}
+
+{phang} {stata "estimates store Amount":estimates store Amount} {p_end}
+
+{phang} {stata "logit any c.age i.female i.ins_unins c.pcs12, vce(robust)":logit any c.age i.female i.ins_unins c.pcs12, vce(robust)} {p_end}
+
+{phang} {stata "estimates store Any2":estimates store Any2} {p_end}
+
+{phang} {stata "glm exp_tot c.age i.female i.ins_unins c.pcs12 if any, family(gamma) link(log) vce(robust)":glm exp_tot c.age i.female i.ins_unins c.pcs12 if any, family(gamma) link(log) vce(robust)} {p_end}
+
+{phang} {stata "estimates store Amount2":estimates store Amount2} {p_end}
+
+{phang} {stata "mecompare ins_unins, models(Any Amount Any2 Amount2) twopart":mecompare ins_unins, models(Any Amount Any2 Amount2) twopart} {p_end}
 
 {title:Comments}
 

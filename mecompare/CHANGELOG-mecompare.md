@@ -5,6 +5,55 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.10.0 -- 09nov2026, twopart: two-part models
+
+`twopart` compares two-part models. A two-part model is two stored models: a `logit` or
+`probit` model of whether the outcome is positive, and a `glm` or `regress` model of the
+outcome where it is positive. `models()` lists each first part and then its second part, as
+in `mecompare x, models(Any1 Amount1 Any Amount) twopart`, and each pair is one model in the
+table, labeled `Any1+Amount1` (or by `mod1name()` and `mod2name()`); its e(b) names use
+`Any1_Amount1`. The marginal effects are on the expected outcome, the first part's
+probability times the second part's mean, from suest2's `predict(twopart())` (suest2
+1.1.5). With a `regress` model of the log of the outcome as each second part,
+`twopart(duan)` uses Duan's smearing estimate and `twopart(normal)` the normal-theory
+retransformation. The Predicting line reads "Two-part mean of exp_tot", or "Two-part mean of
+exp(lnexp), duan". The amounts, `over()`, `rratios` and `metest` work as for other models.
+`twopart` may be typed bare, as `twopart()`, or shortened to `twop`; only an option of its
+own is read that way, so a model or variable whose name starts with "twop" is left alone.
+
+Refused, r(198): an odd number of models; a first part that is not `logit`, `logistic` or
+`probit`, or a second part that is not `glm` or `regress`; `duan` or `normal` without a
+`regress` second part; a second part fit on observations its first part does not count as
+positive; `twopart` with `groups`, `predict()`, `engine(gsem)` or `expression()` in
+`marginsopt()`; `mi estimate` results. No sample-size note prints with `twopart`, since a
+second part uses fewer observations by design.
+
+Two notes are fixed:
+
+- The sample-size note said that each model keeps its own estimation sample, so the effects
+  are the ones each stored model implies. mecompare does not do that: every model's effects
+  are averaged over the same observations, those in any model's sample (on the 2004 MEPS, a
+  glm fit on 15,946 observations gave -2,484 averaged over 19,386, against -2,728 over its
+  own sample). The note now says so: "Sample size varies across the models: N_Any=19386 ;
+  N_Amount=15946. The marginal effects of every model are averaged over the same 19386
+  observations, those in any model's sample, so a model's effects can differ from the ones
+  it gives on its own." The `engine(gsem)` note is unchanged.
+- The note recommending `vce(robust)` printed for models fit with `vce(cluster)`, whose
+  clustered standard errors mecompare reproduces. It now prints only when a model was fit
+  with neither.
+
+Gate 85 (`test_mecompare_twopart_gate85`): on the 2004 MEPS expenditures, mecompare's
+two-part effects, Differences and `metest` equal `margins` with `predict(twopart())` on the
+same suest2 system (within 1e-10; variances within 1e-9) for a factor variable, two and three
+two-part models, a continuous variable's centered unit change, `twopart(duan)` and
+`twopart(normal)`, `over()` and `rratios`; `amount(rate)`, a difference over 1/1000 of the
+range, is within 4e-7 of `dydx()`. The labels, the Predicting line, the spellings, the
+refusals and both notes print as described. Rounds: 51 / 1 (v1.0; the failure was the gate's
+tolerance for `amount(rate)`), 3 / 0 (v1.1), 12 / 0 (v1.2, the option spellings and names
+that start with "twop").
+
+Help: the syntax line, the `twopart` entry, and an example with two two-part models.
+
 ## mecompare.sthlp -- 04nov2026, help only
 
 The Mize and Han chapter is cited as forthcoming, under its final title and
