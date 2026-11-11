@@ -1,4 +1,4 @@
-*! metest v0.3.2 Trenton Mize 2026-09-23  | history: CHANGELOG-mecompare.md (repo)
+*! metest v0.4.0 Trenton Mize 2026-11-11  | history: CHANGELOG-mecompare.md (repo)
 * Tests and combines estimates by their number in the table, or by name.
 * A number is the n-th non-omitted column of e(b) -- the ME # after mecompare,
 * but well defined after any e-class command. Expressions without "=" go to
@@ -26,6 +26,7 @@ program define metest, rclass
 	gettoken token 0 : 0, parse(",= ") bind
 	while `"`token'"' != "" & `"`token'"' != "," {
 		local expression `"`expression'`token'"'
+		local exprlist `"`exprlist' `token'"'
 		gettoken token 0 : 0, parse(",= ") bind
 		}
 *	bind returns a parenthesised group WITH its spaces, so (1 - 2) would
@@ -40,7 +41,7 @@ program define metest, rclass
 			STATS(string asis) STATistics(string asis) ALLstats ///
 			Details NOTABle ///
 			clear add save ///
-			ROWName(string) label(string) ///
+			ROWNames(string asis) label(string asis) PWCompare MCOMPare(string) pwrow ///
 			DECimals(integer 3) WIDth(integer 9) title(string) ///
 			LABWidth(integer 0) TWIDth(integer 0) Level(cilevel) ///
 			]
@@ -56,11 +57,14 @@ program define metest, rclass
 	if "`labwidth'" == "" local labwidth 0
 	if `labwidth' > 0     local twidth = `labwidth'
 
-	if "`label'" == ""  local label `"`rowname'"'		// synonyms
+	if `"`label'"' == ""  local label `"`rownames'"'		// synonyms
+*	one quoted label loses its quotes; a pwcompare list keeps them
+	local nlw : word count `label'
+	if `nlw' == 1 & "`pwcompare'" == ""  local label : word 1 of `label'
 	if "`save'" == "save"  local add "add"				// synonyms
 	if "`details'" == "details"  local quietly ""
 	else                         local quietly "quietly"
-	if "`notable'" == "notable"  local quietly ""
+	if "`notable'" == "notable" & "`pwrow'" == ""  local quietly ""
 	if "`stats'" != "" & "`statistics'" == ""  local statistics `"`stats'"'
 *labwidth() is the documented name; twidth() is kept as a synonym. 32 is the
 *	maximum: Stata REJECTS a matrix row name longer than 32 characters, so a
@@ -70,6 +74,28 @@ program define metest, rclass
 		exit 198
 		}
 	if `labwidth' > 0     local twidth = `labwidth'
+
+*pwcompare and mcompare(): checked before anything runs
+	if `"`mcompare'"' != "" & "`pwcompare'" == "" {
+		display as error "{opt mcompare()} requires {opt pwcompare}."
+		exit 198
+		}
+	if "`pwcompare'" != "" & trim(`"`expression'"') == "" {
+		display as error "{opt pwcompare} needs a list of the estimates to " /*
+		*/ "compare, e.g. {cmd:metest 1 2 3, pwcompare} or " /*
+		*/ "{cmd:metest 1/3, pwcompare}."
+		exit 198
+		}
+	local mcmeth ""
+	if `"`mcompare'"' != "" {
+		local mcm = lower(trim(`"`mcompare'"'))
+		if strlen("`mcm'") >= 3 & strpos("bonferroni", "`mcm'") == 1  local mcmeth "bonferroni"
+		if strlen("`mcm'") >= 3 & strpos("sidak", "`mcm'") == 1       local mcmeth "sidak"
+		if "`mcmeth'" == "" {
+			display as error "{opt mcompare()} takes {bf:bonferroni} or {bf:sidak}."
+			exit 198
+			}
+		}
 
 	local matrix  _metest			// estimate rows (nlcom)
 	local matrixt _metest_test		// equality-test rows (test)
@@ -152,6 +178,125 @@ program define metest, rclass
 		if (!`r(omit)')  local menames `menames' `var'
 		}
 	local nme : word count `menames'
+
+*-----------------------------------------------------------------------------
+* pwcompare: each later estimate in the list minus each earlier one
+*-----------------------------------------------------------------------------
+	if "`pwcompare'" != "" {
+		tempname pwT pwcv
+		local pwme = cond(`ismec', "ME ", "")
+		local pwn ""
+		foreach t of local exprlist {
+			if regexm(`"`t'"', "^[0-9]+/[0-9]+$") {
+				numlist "`t'"
+				local t `r(numlist)'
+				}
+			foreach u of local t {
+				local k = 0
+				capture confirm integer number `u'
+				if _rc == 0 {
+					if `u' >= 1 & `u' <= `nme'  local k = `u'
+					}
+				else {
+					local nm = subinstr(subinstr(`"`u'"', "_b[", "", 1), "]", "", 1)
+					local k : list posof "`nm'" in menames
+					}
+				if `k' == 0 {
+					display as error "{bf:`u'} is neither a `whatnum' number " /*
+					*/ "nor a coefficient name in `whatsrc'. With " /*
+					*/ "{opt pwcompare}, list the estimates to compare, e.g. " /*
+					*/ "{cmd:metest 1 2 3, pwcompare} or {cmd:metest 1/3, pwcompare}."
+					exit 198
+					}
+				local dup : list posof "`k'" in pwn
+				if `dup' > 0 {
+					display as error "{bf:`u'} is listed twice."
+					exit 198
+					}
+				local pwn `pwn' `k'
+				}
+			}
+		local pwk : word count `pwn'
+		if `pwk' < 2 {
+			display as error "{opt pwcompare} needs at least two estimates to compare."
+			exit 198
+			}
+		if `"`label'"' != "" {
+			local nlab : word count `label'
+			if `nlab' != `pwk' {
+				local lw = cond(`nlab' == 1, "label", "labels")
+				display as error "{opt rownames()} has `nlab' `lw' for " /*
+				*/ "`pwk' estimates; with {opt pwcompare} give one label per estimate."
+				exit 198
+				}
+			if strpos(`"`label'"', ":") > 0 {
+				display as error "With {opt pwcompare}, the labels in " /*
+				*/ "{opt rownames()} cannot contain a colon."
+				exit 198
+				}
+			}
+		forvalues i = 1/`pwk' {
+			local n`i' : word `i' of `pwn'
+			if `"`label'"' == ""  local l`i' "`pwme'`n`i''"
+			else  local l`i' : word `i' of `label'
+			}
+		local pwm = `pwk'*(`pwk' - 1)/2
+		local pwlv = `level'/100
+		if "`mcmeth'" == "bonferroni"  scalar `pwcv' = invnormal(1 - (1 - `pwlv')/(2*`pwm'))
+		if "`mcmeth'" == "sidak"  scalar `pwcv' = invnormal(1 - (1 - `pwlv'^(1/`pwm'))/2)
+		local pwst ""
+		if `"`statistics'"' != ""  local pwst `"statistics(`statistics')"'
+		local pwadd "`add'"
+		forvalues i = 1/`=`pwk' - 1' {
+			forvalues j = `=`i' + 1'/`pwk' {
+				local pa `"`l`j''"'
+				local pb `"`l`i''"'
+				local na = ustrlen(`"`pa'"')
+				local nb = ustrlen(`"`pb'"')
+*				a row label holds 32 characters: 14 a side around " vs ", a shorter label leaving its room to the other
+				if `na' + `nb' > 28 {
+					local wa = max(14, 28 - `nb')
+					local wb = 28 - min(`na', `wa')
+					local pa = trim(usubstr(`"`pa'"', 1, `wa'))
+					local pb = trim(usubstr(`"`pb'"', 1, `wb'))
+					}
+				metest `n`j'' - `n`i'', `pwadd' notable pwrow /*
+				*/ rownames("`pa' vs `pb'") level(`level') `pwst' `allstats' `details'
+				local pwadd "add"
+				if "`mcmeth'" != "" {
+					local r = rowsof(`matrix')
+					local cols : colnames `matrix'
+					local pc : list posof "pvalue" in cols
+					local lc : list posof "ll" in cols
+					local uc : list posof "ul" in cols
+					if `pc' > 0 & "`mcmeth'" == "bonferroni"  matrix `matrix'[`r',`pc'] = min(1, `pwm'*r(pvalue))
+					if `pc' > 0 & "`mcmeth'" == "sidak"  matrix `matrix'[`r',`pc'] = 1 - (1 - r(pvalue))^`pwm'
+					if `lc' > 0  matrix `matrix'[`r',`lc'] = r(estimate) - `pwcv'*r(se)
+					if `uc' > 0  matrix `matrix'[`r',`uc'] = r(estimate) + `pwcv'*r(se)
+					}
+				}
+			}
+		local r1 = rowsof(`matrix') - `pwm' + 1
+		matrix `pwT' = `matrix'[`r1'...,1...]
+		if "`notable'" == "" {
+			_metest_show `matrix', decimals(`decimals') width(`width') /*
+			*/ twidth(`twidth') title(`"`title'"')
+			local ttitle `"`title'"'
+			if `"`title'"' == ""  local ttitle "Tests of equality"
+			_metest_show `matrixt', decimals(`decimals') width(`width') /*
+			*/ twidth(`twidth') title(`"`ttitle'"')
+			if "`mcmeth'" != "" {
+				di ""
+				local mcml = cond("`mcmeth'" == "bonferroni", "Bonferroni", "Sidak")
+				if `pwm' > 1  di as text "NOTE: p-values (and CIs) are `mcml'-adjusted for the `pwm' comparisons."
+				else  di as text "NOTE: there is one comparison, so nothing was adjusted."
+				}
+			}
+		capture error 0
+		return matrix table = `pwT'
+		exit
+		}
+
 
 *-----------------------------------------------------------------------------
 * Decode the expression
@@ -431,6 +576,9 @@ program define metest, rclass
 	if _rc == 0  local nrows = `nrows' + rowsof(`matrixt')
 	local n = `nrows' + 1
 	if `"`label'"' == ""  local label "`n'"
+*	a label longer than 32 characters after any heading is cut to 32
+	local lp = ustrpos(`"`label'"', ":")
+	if ustrlen(usubstr(`"`label'"', `lp' + 1, .)) > 32  local label = trim(usubstr(`"`label'"', 1, `lp' + 32))
 *	Stata parses matrix row names, and a label built from factor-variable
 *	names (1.collgrad) is rejected once other tokens are present. Try the
 *	descriptive label, then a sanitised form, then the row number.

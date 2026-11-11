@@ -5,6 +5,31 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## metest 0.4.0 -- 11nov2026, pwcompare and mcompare(); rownames()
+
+`metest 1 2 3, pwcompare` compares the listed estimates pairwise in one table: each
+later estimate in the list minus each earlier one, in the order `margins, pwcompare`
+uses, labeled `ME 2 vs ME 1`, `ME 3 vs ME 1`, `ME 3 vs ME 2` (`2 vs 1` after
+commands other than mecompare). The list takes ME numbers, ranges (`1/3`) and
+coefficient names. Each row is `metest j - i`, run in turn, so a call without `add`
+starts a new table and one with `add` adds to it; r(table) holds the rows.
+`mcompare(bonferroni|sidak)` adjusts the p-values and, when shown, the confidence
+intervals for the number of comparisons in the call, as mecompare's option does, with a
+note under the table. Refused, r(198): `pwcompare` without a list or with one estimate,
+a term that is not an estimate, an estimate listed twice, `mcompare()` without
+`pwcompare` or with another method, a `rownames()` list of the wrong length, and a
+label with a colon.
+
+`rowname()` is now `rownames()`; `rowname()` still works, as an abbreviation. With
+`pwcompare` it takes one label per estimate (`rownames("age 35" "age 40" "age 45")`
+gives `age 40 vs age 35`, ...); labels of up to 14 characters are shown in full and
+longer ones are shortened so the row label fits 32 characters. Any row label longer
+than 32 characters (after a heading) is cut to 32. Owner's request and decisions
+(11nov2026). Gate 87 (`test_metest_pwcompare_gate87`).
+
+Help: a second syntax line, the pairwise-comparison options, the rownames() entry,
+r(table), and one example.
+
 ## v1.10.0 -- 09nov2026, twopart: two-part models
 
 `twopart` compares two-part models. A two-part model is two stored models: a `logit` or

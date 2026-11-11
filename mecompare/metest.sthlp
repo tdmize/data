@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-10-20 Trenton D Mize -- matches metest v0.3.2}{...}
+{* 2026-11-11 Trenton D Mize -- matches metest v0.4.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -13,6 +13,9 @@ calculated by {help mecompare}{p_end}
 {p 4 12 2}
 {cmd:metest} [{it:exp}] [{cmd:,} {it:options}]
 
+{p 4 12 2}
+{cmd:metest} {it:list}{cmd:,} {opt pwc:ompare} [{it:options}]
+
 {synoptset 20 tabbed}{...}
 {synopthdr}
 {synoptline}
@@ -21,12 +24,16 @@ calculated by {help mecompare}{p_end}
 {synopt:{opt all:stats}}all six statistics{p_end}
 {synopt:{opt l:evel(#)}}confidence level for {opt ll} and {opt ul}{p_end}
 
+{syntab:Pairwise comparisons}
+{synopt:{opt pwc:ompare}}compare the listed marginal effects pairwise{p_end}
+{synopt:{opt mcomp:are(method)}}adjust p-values for multiple comparisons{p_end}
+
 {syntab:Accumulating results}
 {synopt:{opt add}}add the result to the saved table{p_end}
 {synopt:{opt clear}}clear the saved table first{p_end}
 
 {syntab:Display}
-{synopt:{opt rown:ame(string)}}label for the row{p_end}
+{synopt:{opt rown:ames(string)}}label for the row; with {opt pwcompare}, one per effect{p_end}
 {synopt:{opt dec:imals(#)}}decimal places; default is 3{p_end}
 {synopt:{opt wid:th(#)}}width of the statistics columns; default is 9{p_end}
 {synopt:{opt labw:idth(#)}}width of the label column; at most 32{p_end}
@@ -39,7 +46,9 @@ calculated by {help mecompare}{p_end}
 {pstd}
 where {it:exp} refers to the marginal effects either by the {it:ME #} shown in
 the {cmd:mecompare} table or by their coefficient names, combined with
-{cmd:+}, {cmd:-}, {cmd:*}, {cmd:/}, parentheses, or {cmd:=}.
+{cmd:+}, {cmd:-}, {cmd:*}, {cmd:/}, parentheses, or {cmd:=}; and {it:list}
+lists the marginal effects to compare pairwise, by {it:ME #} ({cmd:1 2 3}),
+as a range ({cmd:1/3}), or by name.
 
 {title:Description}
 
@@ -74,8 +83,8 @@ redisplays what has accumulated. A loop can therefore build a table quietly
 and show it once at the end:{p_end}
 
 {phang2}{cmd:. metest, clear}{p_end}
-{phang2}{cmd:. qui metest 1, add rowname(race:White)}{p_end}
-{phang2}{cmd:. qui metest 2, add rowname(race:Black)}{p_end}
+{phang2}{cmd:. qui metest 1, add rownames(race:White)}{p_end}
+{phang2}{cmd:. qui metest 2, add rownames(race:Black)}{p_end}
 {phang2}{cmd:. metest, title("Marginal effects by race")}{p_end}
 
 {pstd}
@@ -103,6 +112,19 @@ synonym for the option itself.{p_end}
 
 {p2col:{opt l:evel(#)}}confidence level for {opt ll} and {opt ul}.{p_end}
 
+{dlgtab:Pairwise comparisons}
+
+{p2col:{opt pwc:ompare}}compares the listed marginal effects pairwise: each
+later effect in the list minus each earlier one, in the order
+{help margins:margins, pwcompare} uses. List the effects by {it:ME #}, as a
+range, or by name: {cmd:metest 1 2 3, pwcompare} or
+{cmd:metest 1/3, pwcompare}. The rows are labeled {cmd:ME 2 vs ME 1} and so
+on, or from {opt rownames()}.{p_end}
+
+{p2col:{opt mcomp:are(method)}}adjusts the p-values (and confidence
+intervals, when shown) of the {opt pwcompare} rows for multiple comparisons;
+{it:method} is {opt bonferroni} or {opt sidak}.{p_end}
+
 {dlgtab:Accumulating results}
 
 {p2col:{opt add}}adds the result as another row of the saved table rather
@@ -114,15 +136,20 @@ follow a comma; {cmd:metest clear} is not accepted.{p_end}
 
 {dlgtab:Display}
 
-{p2col:{opt rown:ame(string)}}labels the row. A {cmd::} in the label puts what
+{p2col:{opt rown:ames(string)}}labels the row. A {cmd::} in the label puts what
 comes before it on a row of its own, with the rest indented underneath, which
 is how several rows are grouped under one heading:
-{cmd:rowname(race:Black - White)}. By default the row is labeled with the test
+{cmd:rownames(race:Black - White)}. By default the row is labeled with the test
 that was run -- the expression with coefficient names substituted for the ME
 numbers -- and whatever every term has in common becomes that heading: the
 variable when they come from one variable ({cmd:married:m1 - m2}), otherwise
 the model ({cmd:m1:married - age}). When they share neither, the expression
-itself is used, e.g. {cmd:(1-2)-(4-5)}. {opt label()} is a synonym.{p_end}
+itself is used, e.g. {cmd:(1-2)-(4-5)}. A label longer than 32 characters
+(after any heading) is shortened to 32. With {opt pwcompare}, give one label
+per listed effect, as in {cmd:rownames("age 35" "age 40" "age 45")}; e.g., one
+row will read {cmd:age 40 vs age 35}. Labels of up to 14 characters are shown in
+full, and longer ones are shortened so the row fits 32 characters.
+{opt label()} is a synonym.{p_end}
 
 {p2col:{opt dec:imals(#)}}decimal places; the default is 3.{p_end}
 
@@ -144,7 +171,7 @@ Estimates accumulate in the matrix {cmd:_metest} and equality tests in
 {cmd:_metest_test}. The two are displayed as separate tables because they
 report different statistics. Each row is named for the quantity it reports --
 by default the expression with coefficient names substituted for the ME
-numbers, or whatever {opt rowname()} was given. When no usable name can be
+numbers, or whatever {opt rownames()} was given. When no usable name can be
 formed from the expression, the row falls back to a counter that runs
 continuously across both matrices, so no two rows share a name within a
 session. Note that {cmd:metest} does not print a row-number column: the
@@ -163,7 +190,8 @@ redisplays them without changing either.
 {cmd:r(se)}, {cmd:r(zvalue)}, {cmd:r(pvalue)}, {cmd:r(ll)}, and {cmd:r(ul)};
 after an equality test it returns {cmd:r(chi2)} (or {cmd:r(F)}), {cmd:r(df)},
 and {cmd:r(pvalue)}. {cmd:r(label)} holds the row label used and
-{cmd:r(expression)} the expression.
+{cmd:r(expression)} the expression. After {opt pwcompare}, {cmd:r(table)}
+holds the rows of the comparisons.
 
 {title:Examples}
 
@@ -217,7 +245,13 @@ its own:{p_end}
 
 {pstd}All six statistics, and a label of your own:{p_end}
 {phang2}{stata metest 1 - 2, stat(all): metest 1 - 2, stat(all)}{p_end}
-{phang2}{stata metest 1 - 2, rowname("Age effect, m1 vs m2"): metest 1 - 2, rowname("Age effect, m1 vs m2")}{p_end}
+{phang2}{stata metest 1 - 2, rownames("Age effect, m1 vs m2"): metest 1 - 2, rownames("Age effect, m1 vs m2")}{p_end}
+
+{pstd}Pairwise comparisons -- whether the effect of marriage differs
+across three ages:{p_end}
+{phang2}{stata mecompare i.married, models(m1) covariates(age=(35 40 45)): mecompare i.married, models(m1) covariates(age=(35 40 45))}{p_end}
+{phang2}{stata metest 1 2 3, pwcompare: metest 1 2 3, pwcompare}{p_end}
+{phang2}{stata metest 1/3, pwcompare rownames("age 35" "age 40" "age 45") mcompare(bonferroni): metest 1/3, pwcompare rownames("age 35" "age 40" "age 45") mcompare(bonferroni)}{p_end}
 
 {marker other}
 {title:Use after other commands}
