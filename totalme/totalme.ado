@@ -1,6 +1,6 @@
 // Total ME for nominal/ordinal outcome variables
 capture program drop totalme
-*! totalme v1.8.3 Bing Han & Trenton Mize 2026-10-05  | history: CHANGELOG-totalme.md (repo)
+*! totalme v1.8.4 Bing Han & Trenton Mize 2026-11-12  | history: CHANGELOG-totalme.md (repo)
 
 program define totalme, rclass
 	
@@ -1386,6 +1386,12 @@ if `numcontvars' != 0 {
 				
 				local mod_samp_spec1 "#1.`tmsamp'"
 				local mod_samp_spec2 "#2.`tmsamp'"
+*A multilevel model's margins (one model at a time, over its own sample) carry no group level
+				local tmcn : colfullnames e(b)
+				if !strpos("`tmcn'", ".`tmsamp'") {
+					local mod_samp_spec1 ""
+					local mod_samp_spec2 ""
+					}
 			}
 			else {
 				`quietly' `margins' `byvar' `if' `in', `mrgspec' `mimarginsspec' ///
@@ -1704,6 +1710,12 @@ if `numnomvars' != 0 {
 							over(`tmsamp' `overvar') post	
 				local mod_samp_spec1 "1.`tmsamp'#"
 				local mod_samp_spec2 "2.`tmsamp'#"
+*A multilevel model's margins (one model at a time, over its own sample) carry no group level
+				local tmcn : colfullnames e(b)
+				if !strpos("`tmcn'", ".`tmsamp'") {
+					local mod_samp_spec1 ""
+					local mod_samp_spec2 ""
+					}
 			}
 			else {
 				`quietly' `margins' `byvarspec'`nomvar' `if' `in', `mimarginsspec' `overvarspec' ///

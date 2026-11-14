@@ -1,6 +1,10 @@
-*! version 0.1.95  09nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.96  12nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2_p
     version 16
+    if "`e(cmd)'" == "suest2_cox" {
+        suest2_cox_p `0'
+        exit
+    }
     syntax newvarname [if] [in] [, MODEL(string) XB XB0 SUESTXB PR PCR PU0 N NU0 IRU0 PR0(string) PRRange(string asis) MU RATE MEAN MEDIAN SURV HAZARD DENSITY DISTRIBUTION ETA MARGINAL FIXEDonly CONDITIONAL(string) NOOFFset OUTcome(string) YStar(string asis) EXPECTed(string asis) XBSEL PSEL YCOND YEXPECTED MILLS NSHAZARD DEFAULT LEGACY TWOPART(string) DUAN NORMal *]
 
     if "`e(cmd)'" != "suest2" {
@@ -554,21 +558,54 @@ program define suest2_p
         exit
     }
 
-    // Parametric survival models estimated by streg.
-    if "`cmd'"=="streg" {
+    // Cox models: the probability of the event by e(suest2_time); ln H0(time) is the block's _cons
+    if "`cmd'"=="stcox" {
         local badopt 0
-        foreach opt in pcr pu0 n nu0 iru0 pr mu rate distribution eta marginal fixedonly conditional nooffset outcome ystar expected prrange xbsel psel ycond yexpected mills nshazard {
+        foreach opt in pcr pu0 n nu0 iru0 mu rate mean median surv hazard density distribution eta marginal fixedonly conditional nooffset outcome ystar expected prrange xbsel psel ycond yexpected mills nshazard xb0 {
             if `"``opt''"'!="" local badopt 1
         }
         if trim(`"`pr0'"')!="" local badopt 1
         if `badopt' {
-            di as err "streg active-system prediction supports the native default, xb, mean, median, surv, hazard, or density"
+            di as err "stcox active-system prediction supports pr, the probability of the event by time(), or xb"
             exit 198
         }
-        local nstat=("`xb'"!="")+("`mean'"!="")+("`median'"!="")+("`surv'"!="")+("`hazard'"!="")+("`density'"!="")
+        local nstat=("`xb'"!="")+("`pr'"!="")
+        if `nstat'>1 {
+            di as err "specify only one of pr or xb"
+            exit 198
+        }
+        tempvar coxeta
+        quietly _predict double `coxeta' `if' `in', xb equation(#`eqstart')
+        if "`xb'"!="" {
+            quietly generate `typlist' `varlist'=`coxeta' `if' `in'
+            label variable `varlist' "Linear prediction plus ln H0(t)"
+        }
+        else {
+            quietly generate `typlist' `varlist'=1-exp(-exp(`coxeta')) `if' `in'
+            label variable `varlist' "Pr(event by t=`=strofreal(e(suest2_time), "%10.0g")')"
+        }
+        exit
+    }
+
+    // Parametric survival models estimated by streg.
+    if "`cmd'"=="streg" {
+        local badopt 0
+        foreach opt in pcr pu0 n nu0 iru0 mu rate distribution eta marginal fixedonly conditional nooffset outcome ystar expected prrange xbsel psel ycond yexpected mills nshazard {
+            if `"``opt''"'!="" local badopt 1
+        }
+        if trim(`"`pr0'"')!="" local badopt 1
+        if `badopt' {
+            di as err "streg active-system prediction supports the native default, xb, mean, median, surv, hazard, density, or pr"
+            exit 198
+        }
+        local nstat=("`xb'"!="")+("`mean'"!="")+("`median'"!="")+("`surv'"!="")+("`hazard'"!="")+("`density'"!="")+("`pr'"!="")
         if `nstat'>1 {
             di as err "specify only one streg prediction statistic"
             exit 198
+        }
+        if "`pr'"!="" {
+            suest2_p_stregpr `typlist' `varlist' `if' `in', imodel(`imodel') eqstart(`eqstart')
+            exit
         }
         local pass
         if "`xb'"!="" local pass "xb"
@@ -1500,6 +1537,108 @@ program define suest2_p
 
     di as err "prediction is not implemented for {bf:`cmd'}"
     exit 321
+end
+
+
+// Scores of the working Cox estimate, for official suest: stub*, a new varlist, or one equation()
+program define suest2_cox_p
+    version 16
+    syntax anything [if] [in] [, SCores EQuation(string) *]
+    if "`scores'" == "" {
+        di as err "this {cmd:suest2} working estimate provides only scores"
+        exit 198
+    }
+    local vars `"`e(suest2_coxif)'"'
+    local k : word count `vars'
+    local iff `"`if'"'
+    local inn `"`in'"'
+    local out ""
+    if strpos(`"`anything'"', "*") {
+        local spec = subinstr(subinstr(`"`anything'"', "(", " ", .), ")", " ", .)
+        foreach w of local spec {
+            if strpos("`w'", "*") {
+                local stub = subinstr("`w'", "*", "", .)
+                forvalues j = 1/`k' {
+                    local out `out' `stub'`j'
+                }
+            }
+        }
+    }
+    else {
+        local 0 `"`anything'"'
+        syntax newvarlist
+        local out `varlist'
+    }
+    if `"`equation'"' != "" {
+        local j = real(regexr(`"`equation'"', "^#|^x", ""))
+        local vars : word `j' of `vars'
+        local k 1
+    }
+    if `: word count `out'' != `k' {
+        di as err "the {cmd:suest2} working estimate has `k' score variables"
+        exit 198
+    }
+    forvalues j = 1/`k' {
+        local nv : word `j' of `out'
+        local sv : word `j' of `vars'
+        quietly generate double `nv' = `sv' `iff' `inn'
+    }
+end
+
+
+// streg: the probability of the event by e(suest2_time), from the block's own equations
+program define suest2_p_stregpr
+    version 16
+    syntax newvarname [if] [in], IMODEL(integer) EQSTART(integer)
+    local t = e(suest2_time)
+    if missing(`t') {
+        di as err "{bf:pr} after {cmd:streg} needs the time; run {cmd:suest2} with {bf:time(#)}"
+        exit 198
+    }
+    local dist = lower(`"`e(suest2_distribution`imodel')'"')
+    local aft = (`"`e(suest2_frm2`imodel')'"' == "time")
+    local anc `"`e(suest2_anc`imodel')'"'
+    tempvar xb
+    quietly _predict double `xb' `if' `in', xb equation(#`eqstart')
+    local j 0
+    foreach a of local anc {
+        local ++j
+        tempvar v`a'
+        quietly _predict double `v`a'' `if' `in', xb equation(#`=`eqstart'+`j'')
+    }
+    local need ""
+    if "`dist'" == "weibull"  local need ln_p
+    else if "`dist'" == "gompertz"  local need gamma
+    else if inlist("`dist'", "lognormal", "lnormal")  local need lnsigma
+    else if inlist("`dist'", "loglogistic", "llogistic")  local need lngamma
+    else if inlist("`dist'", "gamma", "ggamma")  local need lnsigma kappa
+    else if !inlist("`dist'", "exponential", "ereg", "exp") {
+        di as err "{bf:pr} is not implemented for {cmd:streg} distribution `dist'"
+        exit 321
+    }
+    foreach a of local need {
+        if !`: list a in anc' {
+            di as err "{cmd:suest2} could not find ancillary parameter `a' of model `imodel'"
+            exit 498
+        }
+    }
+    if "`dist'" == "weibull" {
+        if `aft'  local s "exp(-(exp(-`xb')*`t')^exp(`vln_p'))"
+        else      local s "exp(-exp(`xb')*`t'^exp(`vln_p'))"
+    }
+    else if "`dist'" == "gompertz"  local s "exp(-exp(`xb')*(exp(`vgamma'*`t')-1)/`vgamma')"
+    else if inlist("`dist'", "lognormal", "lnormal")  local s "1-normal((ln(`t')-`xb')/exp(`vlnsigma'))"
+    else if inlist("`dist'", "loglogistic", "llogistic")  local s "1/(1+(exp(-`xb')*`t')^(1/exp(`vlngamma')))"
+    else if inlist("`dist'", "gamma", "ggamma") {
+        local u "exp(`vkappa'*(ln(`t')-`xb')/exp(`vlnsigma'))/`vkappa'^2"
+        local s "cond(`vkappa'>0, 1-gammap(1/`vkappa'^2, `u'), gammap(1/`vkappa'^2, `u'))"
+    }
+    else {
+        if `aft'  local s "exp(-exp(-`xb')*`t')"
+        else      local s "exp(-exp(`xb')*`t')"
+    }
+    quietly generate `typlist' `varlist' = 1 - (`s') `if' `in'
+    label variable `varlist' "Pr(event by t=`=strofreal(`t', "%10.0g")')"
 end
 
 

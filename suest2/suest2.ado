@@ -1,4 +1,4 @@
-*! version 1.1.5  08nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.2.0  12nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -27,12 +27,38 @@ program define suest2, sortpreserve eclass
         local 0 = regexr(`"`0'"', ",[ ]*$", "")
     }
 
+    // time(#): when stcox and streg models predict the probability of the event
+    local s2time .
+    if regexm(`"`0'"', "^(.*[ ,])time\(([^)]*)\)(.*)$") {
+        local s2time = real(trim(regexs(2)))
+        local 0 = regexs(1) + regexs(3)
+        local 0 = regexr(`"`0'"', ",[ ]*$", "")
+        if missing(`s2time') | `s2time' <= 0 {
+            di as err "{bf:time()} must be a positive number"
+            exit 198
+        }
+    }
+
     // gologit2 cannot compute scores when an equation name has a character a Stata name cannot have
     suest2_g2scan `0'
+
+    // Cox models need time(#)
+    quietly suest2_coxscan `0'
+    local s2coxnames `"`r(names)'"'
+    local s2coxall `"`r(all)'"'
+    if `"`s2coxnames'"' != "" & missing(`s2time') {
+        local s2c1 : word 1 of `s2coxnames'
+        di as err "model {bf:`s2c1'} is a Cox model; give the time at which to evaluate the probability of the event with {bf:time(#)}"
+        exit 198
+    }
 
     // MI-pooled constituent results require a re-estimation within each imputation
     quietly suest2_miscan `0'
     if r(has_mi) {
+        if `"`s2coxnames'"' != "" {
+            di as err "Cox models (stcox) cannot be combined with models estimated with {cmd:mi estimate}"
+            exit 322
+        }
         suest2_miestimate `0'
         exit
     }
@@ -77,6 +103,11 @@ program define suest2, sortpreserve eclass
         }
     }
 
+    if `"`s2coxnames'"' != "" & "`route'" != "" {
+        di as err "Cox models (stcox) can be combined only with single-level models such as {cmd:logit} or {cmd:streg}, not with panel or multilevel models"
+        exit 322
+    }
+
     local survey_path 0
     local pweight_path 0
     local routedisplay
@@ -104,6 +135,10 @@ program define suest2, sortpreserve eclass
         local survey_path = r(has_svy) | r(requested_svy)
         local pweight_path = r(has_pweight) & !`survey_path'
         local pwdisplay `"`r(displayopts)'"'
+        if `"`s2coxnames'"' != "" & (`survey_path' | `pweight_path') {
+            di as err "Cox models (stcox) cannot be combined with survey or weighted models"
+            exit 322
+        }
         if `survey_path' {
             quietly suest2_svycheck `0'
             local survey_subpop `"`r(subpop)'"'
@@ -131,6 +166,34 @@ program define suest2, sortpreserve eclass
             // `s2opt' cannot contain it. s2warn carries the decision.
             local s2nowarn = !`s2warn'
 
+            // Each Cox model goes to suest as a working estimate stored as <name>__t; the stored model is not touched
+            local s2cox ""
+            if `"`s2coxnames'"' != "" {
+                if regexm(lower(`"`s2opt'"'), "(^|[ ,])cl[a-z]*\(|vce\([ ]*cl") {
+                    di as err "Cox models (stcox) cannot be combined with clustered standard errors"
+                    exit 198
+                }
+                local s2names `"`s2coxall'"'
+                foreach s2cn of local s2coxnames {
+                    quietly estimates restore `s2cn'
+                    local s2cv ""
+                    forvalues s2j = 1/`=colsof(e(b)) + 1' {
+                        tempvar s2cxv
+                        quietly generate double `s2cxv' = .
+                        local s2cv `s2cv' `s2cxv'
+                    }
+                    local s2sub = substr(strtoname("`s2cn'__t"), 1, 32)
+                    capture noisily suest2_coxprep `s2cn', time(`s2time') vars(`s2cv') sub(`s2sub')
+                    if _rc {
+                        local s2crc = _rc
+                        if `"`s2cox'"' != ""  suest2_coxfinish 1 `s2cox'
+                        exit `s2crc'
+                    }
+                    local s2cox `"`s2cox' `s2cn' `s2sub'"'
+                    local s2names : subinstr local s2names "`s2cn'" "`s2sub'", word
+                }
+            }
+
             quietly suest2_vcescan `s2names'
             local s2need  = r(needconv)
             local s2nonrb = r(nonrobust)
@@ -142,6 +205,7 @@ program define suest2, sortpreserve eclass
                 di as err "{bf:suest2} cannot combine these results: `s2why'"
                 if `"`s2bad'"' != "system" ///
                     di as err "first affected model: {bf:`s2bad'}"
+                if `"`s2cox'"' != ""  suest2_coxfinish 1 `s2cox'
                 exit 322
             }
 
@@ -183,9 +247,15 @@ program define suest2, sortpreserve eclass
                 local s2addcl ""
                 if `"`s2cvar'"' != "" & !regexm(`"`s2opt'"', "cluster[ ]*\(") ///
                     local s2addcl `"cluster(`s2cvar')"'
-                if trim(`"`s2opt'`s2addcl'"') == ""  capture noisily suest `s2names'
-                else capture noisily suest `s2names', `s2opt' `s2addcl'
+                local s2qn noisily
+                if `"`s2cox'"' != ""  local s2qn quietly
+                if trim(`"`s2opt'`s2addcl'"') == ""  capture `s2qn' suest `s2names'
+                else capture `s2qn' suest `s2names', `s2opt' `s2addcl'
                 local s2rc = _rc
+                if `s2rc' & `"`s2cox'"' != "" {
+                    if trim(`"`s2opt'`s2addcl'"') == ""  capture noisily suest `s2names'
+                    else capture noisily suest `s2names', `s2opt' `s2addcl'
+                }
 
                 // The restore loop below calls estimates restore on each
                 // constituent, which REPLACES the active results.  suest's
@@ -222,6 +292,10 @@ program define suest2, sortpreserve eclass
                     }
                     capture quietly estimates drop `s2joint'
                 }
+                if `"`s2cox'"' != "" {
+                    if `s2rc'  di as err "official {cmd:suest} could not combine the models, r(`s2rc')"
+                    suest2_coxfinish `s2rc' `s2cox'
+                }
                 if `s2rc' exit `s2rc'
             }
             else {
@@ -230,8 +304,22 @@ program define suest2, sortpreserve eclass
                 // stripped names and options instead.  Passing `0' here
                 // broke the commonest case of all -- two plain OIM
                 // models needing no conversion -- with a bare r(198).
-                if trim(`"`s2opt'"') == ""  suest `s2names'
-                else                        suest `s2names', `s2opt'
+                if `"`s2cox'"' == "" {
+                    if trim(`"`s2opt'"') == ""  suest `s2names'
+                    else                        suest `s2names', `s2opt'
+                }
+                else {
+                    if trim(`"`s2opt'"') == ""  capture quietly suest `s2names'
+                    else                        capture quietly suest `s2names', `s2opt'
+                    local s2rc = _rc
+                    if `s2rc' {
+                        if trim(`"`s2opt'"') == ""  capture noisily suest `s2names'
+                        else                        capture noisily suest `s2names', `s2opt'
+                        di as err "official {cmd:suest} could not combine the models, r(`s2rc')"
+                    }
+                    suest2_coxfinish `s2rc' `s2cox'
+                    if `s2rc' exit `s2rc'
+                }
             }
 
             if `s2nonrb' & !`s2nowarn' {
@@ -318,6 +406,7 @@ program define suest2, sortpreserve eclass
         local held `"`held' `hold'"'
 
         local korig`i' = colsof(e(b))
+        if "`e(cmd2)'" == "stcox"  local korig`i' = `korig`i'' + 1
         local kblock`i' = `korig`i''
         local cmd`i' `"`e(cmd)'"'
         local isxtlogitfe`i' = ("`e(cmd)'"=="clogit" & "`e(cmd2)'"=="xtlogit" & "`e(model)'"=="fe")
@@ -339,6 +428,7 @@ program define suest2, sortpreserve eclass
         if `meologit_path' & "`e(cmd2)'"=="meologit" local cmd`i' "meologit"
         if `meoprobit_path' & "`e(cmd2)'"=="meoprobit" local cmd`i' "meoprobit"
         if "`e(cmd2)'"=="streg" local cmd`i' "streg"
+        if "`e(cmd2)'"=="stcox" local cmd`i' "stcox"
         local predict`i' `"`e(predict)'"'
         local depvar`i' `"`e(depvar)'"'
         local marginsdefault`i' `"`e(marginsdefault)'"'
@@ -462,6 +552,10 @@ program define suest2, sortpreserve eclass
         else if "`cmd`i''"=="heckman" {
             local family`i' selection_normal
             local link`i' identity_probit
+        }
+        else if "`cmd`i''"=="stcox" {
+            local family`i' survival
+            local link`i' cox
         }
         else if "`cmd`i''"=="streg" {
             local family`i' survival
@@ -597,12 +691,26 @@ program define suest2, sortpreserve eclass
         foreach eq of local ocoleq`i' {
             if `"`eq'"' == `"`maineq`i''"' local kmain`i' = `kmain`i'' + 1
         }
+        if "`cmd`i''" == "stcox"  local kmain`i' = `korig`i''
+        // streg ancillary parameters in order; each is its own system equation after the main one
+        local anc`i' ""
+        if "`cmd`i''" == "streg" {
+            local s2anm : colnames e(b)
+            local s2an : word count `s2anm'
+            forvalues s2a = 1/`s2an' {
+                local s2ae : word `s2a' of `ocoleq`i''
+                local s2am : word `s2a' of `s2anm'
+                if "`s2ae'" == "/"  local anc`i' `anc`i'' `s2am'
+                else if "`s2am'" == "_cons" & "`s2ae'" != "`maineq`i''"  local anc`i' `anc`i'' `s2ae'
+            }
+        }
 
         local systempred`i' 0
         foreach supported in regress anova xtreg mixed ivregress logit logistic probit poisson nbreg ologit oprobit mlogit gologit2 glm cloglog tobit intreg heckman streg fracreg xtlogit xtprobit xtpoisson xtnbreg xtcloglog xtmlogit betareg truncreg hetprobit zip zinb biprobit ivprobit ivtobit {
             if "`e(cmd)'" == "`supported'" | "`cmd`i''" == "`supported'" local systempred`i' 1
         }
         if inlist("`cmd`i''","xtologit","xtoprobit") local systempred`i' 1
+        if "`cmd`i''" == "stcox" local systempred`i' 1
         if inlist("`e(cmd2)'","melogit","meprobit","mecloglog","mepoisson","menbreg","meologit","meoprobit","mestreg") local systempred`i' 1
         if inlist("`cmd`i''","melogit","meprobit","mecloglog","mepoisson","menbreg","meologit","meoprobit","megaussian","megamma") | ///
             "`cmd`i''"=="mestreg" local systempred`i' 1
@@ -643,6 +751,7 @@ program define suest2, sortpreserve eclass
         // prediction used by native bare margins rather than substituting a
         // fixed-only response definition.
         local md `"`e(marginsdefault)'"'
+        if "`cmd`i''" == "stcox"  local md ""
         local marginsdefault`i' `"`md'"'
         local mdparsed`i' 1
         if trim(`"`md'"') == "" {
@@ -790,9 +899,11 @@ program define suest2, sortpreserve eclass
         ereturn local suest2_xtstripes`i' `"`xtstripes`i''"'
         ereturn local suest2_distribution`i' `"`distribution`i''"'
         ereturn local suest2_frm2`i' `"`frm2`i''"'
+        ereturn local suest2_anc`i' `"`anc`i''"'
     }
 
     ereturn scalar suest2_nmodels = `nmodels'
+    ereturn scalar suest2_time = `s2time'
     ereturn scalar suest2_nresponses = `nmodels'
     ereturn scalar suest2_nsyseq_total = `nsyseqtotal'
     ereturn scalar suest2_allsystem = `allsystem'
@@ -805,7 +916,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.1.5"
+    ereturn local suest2_version "1.2.0"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'
@@ -878,6 +989,11 @@ program define suest2, sortpreserve eclass
     else if `pweight_path' {
         if trim(`"`pwdisplay'"') == "" suest2_display
         else suest2_display, `pwdisplay'
+    }
+    else if `"`s2cox'"' != "" {
+        local s2lev ""
+        if regexm(`"`s2opt'"', "(^|[ ,])l[a-z]*\(([0-9.]+)\)")  local s2lev = "level(" + regexs(2) + ")"
+        suest2_display, `s2lev'
     }
 end
 
@@ -12148,6 +12264,177 @@ program define suest2_xtfeestimate, sortpreserve eclass
     }
 end
 
+// Cox models in the namelist
+program define suest2_coxscan, rclass
+    version 16
+    syntax [anything] [, *]
+    est_expand `"`anything'"', min(1) default(.)
+    local names `"`r(names)'"'
+    local names : list uniq names
+    local cox ""
+    foreach name of local names {
+        if "`name'" == "." continue
+        capture quietly estimates restore `name'
+        if !_rc & "`e(cmd2)'" == "stcox"  local cox `cox' `name'
+    }
+    return local names `"`cox'"'
+    return local all `"`names'"'
+end
+
+// Check a stored Cox model, put its scores and its influence on ln H0(time) in vars(), and store as
+// sub() an estimate official suest can combine: one equation per parameter
+program define suest2_coxprep
+    version 16
+    syntax name(name=nm), Time(real) VARs(string) SUB(name)
+    capture quietly estimates restore `sub'
+    if !_rc & "`e(cmd)'" != "suest2_cox" {
+        di as err "an estimate named {bf:`sub'} already exists; drop or rename it to combine Cox model {bf:`nm'}"
+        exit 110
+    }
+    quietly estimates restore `nm'
+    tempvar s
+    quietly generate byte `s' = e(sample)
+    local id : char _dta[st_id]
+    local why ""
+    if !inlist("`e(ties)'", "breslow", "none", "")  local why "`e(ties)' ties"
+    if "`e(wtype)'" != ""                local why "weights"
+    if `"`e(strata)'"' != ""             local why "strata()"
+    if `"`e(tvc)'"' != ""                local why "tvc()"
+    if `"`e(shared)'"' != ""             local why "shared()"
+    if `"`e(offset)'"' != ""             local why "offset()"
+    // vce(robust) after stset, id() clusters on the id; with one record per subject that is robust
+    if `"`e(clustvar)'"' != "" & `"`e(clustvar)'"' != "`id'"  local why "vce(cluster)"
+    if !inlist("`e(vce)'", "oim", "robust", "cluster")  local why "vce(`e(vce)')"
+    if `"`e(prefix)'"' != ""             local why "the `e(prefix)' prefix"
+    quietly count if `s' & _t0 > 0
+    if r(N)  local why "delayed entry"
+    if "`id'" != "" {
+        tempvar c
+        quietly bysort `id': egen long `c' = total(`s')
+        quietly count if `s' & `c' > 1
+        if r(N)  local why "more than one record per subject"
+    }
+    if "`why'" != "" {
+        di as err "Cox model {bf:`nm'} uses `why'; {cmd:suest2} supports {cmd:stcox} with Breslow ties, one record per subject, no delayed entry, and no weights, strata(), tvc(), shared(), offset(), or vce(cluster)"
+        exit 459
+    }
+    quietly summarize _t if `s', meanonly
+    if `time' > r(max) {
+        di as err "{bf:time(`time')} is later than the last analysis time of model {bf:`nm'}, `r(max)'"
+        exit 198
+    }
+    local cn : colnames e(b)
+    local xv ""
+    foreach c of local cn {
+        capture fvrevar `c'
+        if !_rc & `: word count `r(varlist)'' == 1  local xv `xv' `r(varlist)'
+        else {
+            tempvar z
+            quietly generate byte `z' = 0
+            local xv `xv' `z'
+        }
+    }
+    local rob = "`e(vce)'" != "oim"
+    tempname H b Vb R chk
+    mata: suest2_coxif_m("`xv'", "`s'", `time', "`vars'", `rob', "`H'", "`b'", "`Vb'", "`R'", "`chk'")
+    if scalar(`H') <= 0 {
+        di as err "model {bf:`nm'} has no events at or before {bf:time(`time')}"
+        exit 198
+    }
+    if !(scalar(`chk') < 1e-6) {
+        di as err "{cmd:suest2} could not reproduce the covariance matrix of Cox model {bf:`nm'}"
+        exit 498
+    }
+    local p = colsof(e(b))
+    local st ""
+    forvalues j = 1/`=`p' + 1' {
+        local st `st' x`j':_cons
+    }
+    foreach m in `b' `Vb' `R' {
+        matrix colnames `m' = `st'
+    }
+    matrix rownames `Vb' = `st'
+    matrix rownames `R' = `st'
+    local vce oim
+    if `rob'  local vce robust
+    local n = e(N)
+    if "`vce'" == "robust"  suest2_coxaux, bmat(`b') vmat(`R') vmb(`Vb') es(`s') n(`n') ifvars(`vars') vce(robust)
+    else                    suest2_coxaux, bmat(`b') vmat(`Vb') es(`s') n(`n') ifvars(`vars') vce(oim)
+    capture quietly estimates drop `sub'
+    quietly estimates store `sub'
+end
+
+program define suest2_coxaux, eclass
+    version 16
+    syntax, BMAT(name) VMAT(name) ES(varname) N(integer) IFVars(string) VCE(string) [VMB(name)]
+    local k = colsof(`bmat')
+    ereturn post `bmat' `vmat', esample(`es') obs(`n')
+    ereturn scalar k_eq = `k'
+    if "`vmb'" != ""  ereturn matrix V_modelbased = `vmb'
+    ereturn local vce `vce'
+    if "`vce'" == "robust"  ereturn local vcetype Robust
+    ereturn local suest2_coxif `ifvars'
+    ereturn local depvar _t
+    ereturn local predict suest2_p
+    ereturn local cmd suest2_cox
+end
+
+// Drop the working estimates; after a successful suest, give each Cox block its model's own names
+program define suest2_coxfinish
+    version 16
+    gettoken rc 0 : 0
+    local n 0
+    while trim(`"`0'"') != "" {
+        gettoken nm 0 : 0
+        gettoken sub 0 : 0
+        local ++n
+        local nm`n' `nm'
+        local sub`n' `sub'
+        capture quietly estimates drop `sub'
+    }
+    if `rc'  exit
+    tempname joint
+    quietly estimates store `joint'
+    forvalues j = 1/`n' {
+        quietly estimates restore `nm`j''
+        local cn`j' : colnames e(b)
+    }
+    quietly estimates restore `joint'
+    quietly estimates drop `joint'
+    forvalues j = 1/`n' {
+        suest2_coxname `nm`j'' `sub`j'' `"`cn`j''"'
+    }
+end
+
+program define suest2_coxname, eclass
+    version 16
+    args nm sub cn
+    local names `"`e(names)'"'
+    local i : list posof "`sub'" in names
+    local olds ""
+    if `i'  local olds `"`e(eqnames`i')'"'
+    forvalues j = 1/`: word count `cn' _cons' {
+        local olds `olds' x`j'
+    }
+    local eq = substr(strtoname("`nm'__t"), 1, 32)
+    tempname b V
+    matrix `b' = e(b)
+    matrix `V' = e(V)
+    local ok 0
+    if `i'  mata: st_local("ok", strofreal(suest2_coxname_m("`b'", "`V'", "`olds'", "`sub'", "`eq'", "`cn' _cons")))
+    if !`ok' {
+        local ceq : coleq e(b)
+        local ceq : list uniq ceq
+        di as err "{cmd:suest2} could not find the coefficients of Cox model {bf:`nm'} in the combined results"
+        di as err "combined equations: `ceq'"
+        exit 498
+    }
+    ereturn repost b = `b' V = `V', rename
+    local names : subinstr local names "`sub'" "`nm'", word
+    ereturn local names `"`names'"'
+    ereturn local eqnames`i' `"`eq'"'
+end
+
 mata:
 void suest2_xtpa_qscore_mata(string scalar yvar, string scalar xbvar,
     string scalar svar, string scalar ivar, string scalar tvar,
@@ -12413,4 +12700,98 @@ void suest2_iv2sls_vce_mata(
 }
 
 
+end
+
+mata:
+// Cox model in e(), Breslow ties: score residuals and each observation's influence on ln H0(T)
+// into outv; H0(T), (b, ln H0(T)), bread blockdiag(V, 1), robust covariance of (b, ln H0(T)), and
+// the relative difference between the recomputed and the stored e(V) (robust part if rob)
+void suest2_coxif_m(string scalar xv, string scalar tu, real scalar T, string scalar outv,
+    real scalar rob, string scalar Hname, string scalar bname, string scalar Vbname,
+    string scalar Rname, string scalar chkname)
+{
+    real colvector t, d, r, S0, dj, dH, ut, ev, mart, k, phi
+    real matrix X, S1, xbar, U, info, V, F, R, z
+    real rowvector h, b
+    real scalar n, p, nj, j, H
+
+    t = st_data(., "_t", tu)
+    d = st_data(., "_d", tu)
+    X = st_data(., xv, tu)
+    z = selectindex(diagonal(st_matrix("e(V)")) :== 0)
+    if (length(z)) X[., z'] = J(rows(X), length(z), 0)
+    n = rows(X)
+    p = cols(X)
+    b = st_matrix("e(b)")
+    r = exp(X*b')
+    ut = uniqrows(select(t, d:==1))
+    nj = rows(ut)
+    S0 = J(nj, 1, .)
+    S1 = J(nj, p, .)
+    dj = J(nj, 1, .)
+    info = J(p, p, 0)
+    for (j = 1; j <= nj; j++) {
+        ev = (t :>= ut[j]):*r
+        S0[j] = sum(ev)
+        S1[j, .] = colsum(ev:*X)
+        dj[j] = sum((t:==ut[j]):*d)
+        info = info + dj[j]*(cross(X, ev, X)/S0[j] - S1[j, .]'*S1[j, .]/S0[j]^2)
+    }
+    V = invsym(info)
+    dH = dj:/S0
+    xbar = S1:/S0
+    U = J(n, p, 0)
+    mart = J(n, 1, 0)
+    for (j = 1; j <= nj; j++) {
+        ev = (t:==ut[j]):*d - (t:>=ut[j]):*r*dH[j]
+        U = U + ev:*(X :- xbar[j, .])
+        if (ut[j] <= T) mart = mart + ev/S0[j]
+    }
+    k = (ut :<= T)
+    H = sum(select(dH, k))
+    st_numscalar(Hname, H)
+    if (H <= 0) return
+    h = colsum(select(xbar:*dH, k))
+    phi = (mart - U*V*h')/H
+    F = (U*V, phi)
+    R = n/(n - 1)*cross(F, F)
+    if (rob) st_numscalar(chkname, mreldif(R[|1, 1 \ p, p|], st_matrix("e(V)")))
+    else     st_numscalar(chkname, mreldif(V, st_matrix("e(V)")))
+    st_matrix(bname, (b, ln(H)))
+    st_matrix(Vbname, blockdiag(V, 1))
+    st_matrix(Rname, R)
+    st_store(., tokens(outv), tu, (U, phi))
+}
+
+// Rename the working estimate's columns to eq:cns in b and V: equations named sub_* (several
+// models), else those named in olds (one model); 0 if neither gives the expected count
+real scalar suest2_coxname_m(string scalar bn, string scalar Vn, string scalar olds, string scalar sub,
+    string scalar eq, string scalar cns)
+{
+    string matrix s
+    string rowvector o, c
+    real colvector hit, idx
+    real scalar j, n
+
+    s = st_matrixcolstripe(bn)
+    o = tokens(olds)
+    c = tokens(cns)
+    n = strlen(sub) + 1
+    hit = ((substr(s[., 1], 1, n) :== sub + "_") :| (substr(s[., 1], 1, n + 1) :== "/" + sub + "_") :|
+        ((s[., 1] :== "/") :& (substr(s[., 2], 1, n) :== sub + "_")))
+    if (sum(hit) != cols(c)) {
+        hit = J(rows(s), 1, 0)
+        for (j = 1; j <= cols(o); j++) {
+            hit = hit :| (s[., 1] :== o[j]) :| (s[., 1] :== "/" + o[j]) :| ((s[., 1] :== "/") :& (s[., 2] :== o[j]))
+        }
+    }
+    if (sum(hit) != cols(c)) return(0)
+    idx = selectindex(hit)
+    s[idx, 1] = J(rows(idx), 1, eq)
+    s[idx, 2] = c'
+    st_matrixcolstripe(bn, s)
+    st_matrixcolstripe(Vn, s)
+    st_matrixrowstripe(Vn, s)
+    return(1)
+}
 end

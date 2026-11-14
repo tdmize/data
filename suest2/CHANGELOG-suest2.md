@@ -842,3 +842,96 @@ Help: a paragraph with two calls on `twopart()`, the two stored results, and a "
 models" example.
 
 The 36-suite regression passed 36 / 36 on Stata SE 19.5 (runner v2.9).
+
+## suest2_margins.ado 0.1.79 -- 12nov2026
+
+**The sample margins averages over.** suest2 computes some margins one model at a time
+instead of passing them to official `margins`: most `margins` calls on systems of multilevel
+models, of several panel models and of `ivregress`, and `dydx()` for a `logit`, `logistic`,
+`ologit`, `oprobit` or `mlogit` model named with `predict(model())`. That route averaged each
+model over its own estimation sample, while official `margins` averages every model over the
+suest2 sample, the observations in any model's sample. So the same effect depended on how it
+was asked for: after a logit of entering college (2,244 women in nlsw88) and a logit of
+graduating among those who entered (967), `margins, dydx(south) predict(model(Grad))` gave
+.1133, averaged over the 967, and `margins, at(south = (0 1)) predict(model(Grad))` gave
+.1148, averaged over the 2,244. The route now averages over the suest2 sample, as official
+`margins` does, and reports the number of observations it averaged over (it reported the
+suest2 N). A model whose sample is the suest2 sample gives the same results as before. To
+average over one model's sample, add an `if` qualifier.
+
+With `over()`, the route keeps each model's own sample, as before. Margins drops an
+`over()` variable that takes one value in a model's sample, so with `groups` each
+model returns only its own group, and mecompare and meinequality read it that way;
+averaging over the combined sample broke `groups` with multilevel models in both. An
+`xtreg, cre` model is still averaged over its own sample: its predictions use panel
+means computed over that sample, and margins cannot predict other observations (r(322)).
+
+**`if`, `in` and weights.** The same route refused `if`, `in` and weights with r(101), as in
+`margins if entered == 1, dydx(south) predict(model(Grad))`. It now accepts them.
+
+Gate 88 (`test_suest2_ownsample_gate88`, 16 / 0): on nlsw88, `dydx()` with `predict(model())`
+equals `margins` on the stored model averaged over the suest2 sample (difference 0) and
+official `margins` with `at()` (standard errors within 7e-13), with one prediction, two, and
+`post`, for `logit`, for `ologit` with `outcome(3)`, for `melogit` with random intercepts for
+industry, and in `mecompare` on the `melogit` pair. With `if entered == 1` it equals the model
+alone over its 967 observations. A model whose sample is the suest2 sample gives the same
+result as before. When a covariate is missing in one model, both models are averaged over the
+1,878 observations both can predict, the number official `margins` reports.
+
+Gate 90 (`test_suest2_overown_gate90`): on nlsw88, with a `melogit` model of everyone and
+one of married women, `margins` with `over(race)` after suest2 equals each model alone, and
+without `over()` the married women's model is averaged over everyone; `groups` in mecompare,
+meinequality and totalme with `melogit` models of unmarried and married women equals each
+model alone. Rounds: 12 / 1 (v1.0; the failure was totalme's, fixed in totalme 1.8.4),
+6 / 0 (v1.1).
+
+Help: a paragraph in the margins section on the sample every prediction is averaged over,
+with an `if` example, and one on `over()` and `xtreg, cre`.
+
+## suest2.ado 1.2.0, suest2_p.ado 0.1.96 -- 12nov2026
+
+**Cox models, and the probability of the event by a chosen time: `time(#)`.** A Cox model
+(`stcox`) can now join a suest2 system when `time(#)` gives the time t. Its block holds the
+coefficients and, as `_cons`, the log of the Breslow baseline cumulative hazard at t, so
+`predict(pr)` is the probability that the event has happened by t,
+1 - exp(-exp(xb + ln H0(t))), and `margins` gives effects on that probability with standard
+errors that include the uncertainty in the baseline. Cox models stack with each other and with
+the ordinary single-level models (`logit`, `streg`, ...). With `time()`, `predict(pr)` after
+`streg` is the same probability for every distribution (exponential, Weibull, Gompertz,
+lognormal, loglogistic, generalized gamma; PH and AFT).
+
+- suest2.ado: each Cox model's block is built from each observation's influence on the
+  coefficients and on ln H0(t) (score residuals times the inverse information, Breslow ties)
+  and enters official `suest` as a working estimate stored as `<name>__t`, dropped afterwards;
+  the stored model is not changed. The coefficients' covariance in the system equals
+  `stcox, vce(robust)`, and a fit without `vce(robust)` gives the same system. Supported:
+  Breslow ties, one record per subject, and no delayed entry, `strata()`, `tvc()`, `shared()`,
+  `offset()` or clustering (`vce(robust)` after `stset, id()` is accepted: with one record per
+  subject it is the same covariance); other Cox models are refused with r(459). `time()` is
+  required with a Cox model, must be positive, and may be neither later than the last analysis
+  time nor earlier than the first event (r(198)). Cox models are refused with `mi estimate`,
+  panel and multilevel models, and survey or weighted models (r(322)), and with suest2's
+  `cluster()` (r(198)); an existing estimate named `<name>__t` that is not a working estimate
+  is refused with r(110). New stored results: `e(suest2_time)`, and `e(suest2_anc#)`, a `streg`
+  model's ancillary parameters.
+- suest2_p.ado: `pr` after a Cox model (its default prediction) and after `streg`; `xb` after a
+  Cox model includes ln H0(t). `pr` after `streg` without `time()` is refused with r(198).
+
+Gate 86 (`test_suest2_survprob_gate86`), on the cancer data against R (survival, flexsurv) and
+Stata's own results: one Cox model at t = 10 and 20 -- coefficients equal `stcox`, their
+covariance `stcox, vce(robust)` (2e-13), ln H0(t) equals R's (1e-13), and the average
+probability and the effects of drug and age equal R's (estimates within 3e-13, standard errors
+within 1e-9 relative, with official suest's n/(n-1)); two Cox models, Cox with `logit`, and Cox
+with Weibull -- each block equals its own robust covariance, and the effects in each model and
+their cross-model differences equal R's (estimates within 4e-11, standard errors within 1.2e-6
+relative); `predict(pr)` after `streg`, eight specifications at two times, equals 1 minus
+`predict, surv` at that time (4e-16), and `margins` equals Stata's own `margins` of the formula;
+the refusals; the help example. Rounds: 102 / 23 (v1.0: no Cox model reached official `suest`,
+whose `predict` cannot call a program inside suest2.ado, and the stored model was left
+replaced), 29 / 7 (v1.1: systems of two or more models), 36 / 0 (v1.2).
+
+Help: a "Cox models" paragraph under the supported estimators, the `time(#)` option,
+`e(suest2_time)`, and a "Cox models" example.
+
+The 36-suite regression passed 36 / 36 on Stata SE 19.5 (runner v2.9), and so did every gate
+of the rev83 battery (v2.29, 83 gates; gate 86 as v1_4, 172 / 0). Distribution-Date 20261114.

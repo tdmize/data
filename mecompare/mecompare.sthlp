@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-11-08 Trenton D Mize -- matches mecompare v1.10.0}{...}
+{* 2026-11-12 Trenton D Mize -- matches mecompare v1.11.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -28,6 +28,7 @@ the models.{p_end}
 {synopt:{opt groupn:ames(name1 name2 ...)}}labels for the groups{p_end}
 {synopt:{opt groupm:e}}outcome difference between the two groups{p_end}
 {synopt:{opt groupsd}}each group's own SD for {opt amount(sd)}{p_end}
+{synopt:{opt own:sample}}average each model over its own sample{p_end}
 {synopt:{opt twop:art}[{cmd:(}{it:type}{cmd:)}]}two-part models, listed in {opt models( )} in pairs{p_end}
 
 {syntab:Amount of change}
@@ -294,6 +295,16 @@ Pr(category). Requires the {opt groups} option and exactly two models.
 is calculated using that group's own standard deviation rather than the 
 pooled SD used by default. Not recommended for most applications: effects 
 can differ only because the groups' SDs differ.
+{p_end}
+
+{marker ownsample}
+{p2col:{opt own:sample}} averages each model's marginal effects over its own
+estimation sample. By default every model is averaged over the same
+observations, those in any model's sample, so the models are compared for the
+same people. With {opt ownsample} each model's effects are the ones it gives on
+its own, as for models of the stages of a process, such as entering college and
+then graduating among those who entered; differences across the models can then
+also reflect their different observations.
 {p_end}
 
 
@@ -1064,6 +1075,21 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 {phang}	{stata est store mnonsouth: est store mnonsouth} {p_end}
 
 {phang} {stata mecompare age hours collgrad, models(msouth mnonsouth) groups groupnames(South NonSouth): mecompare age hours collgrad, models(msouth mnonsouth) groups groupnames(South NonSouth)} {p_end}
+
+{pstd}{it:Comparing models whose samples overlap, each averaged over its own sample:}
+{p_end}
+
+{phang} {stata generate byte entered = grade > 12 if grade < .: generate byte entered = grade > 12 if grade < .} {p_end}
+
+{phang} {stata logit entered i.south i.race c.age, vce(robust): logit entered i.south i.race c.age, vce(robust)} {p_end}
+
+{phang}	{stata est store Enter: est store Enter} {p_end}
+
+{phang} {stata logit collgrad i.south i.race c.age if entered == 1, vce(robust): logit collgrad i.south i.race c.age if entered == 1, vce(robust)} {p_end}
+
+{phang}	{stata est store Grad: est store Grad} {p_end}
+
+{phang} {stata mecompare south, models(Enter Grad) ownsample: mecompare south, models(Enter Grad) ownsample} {p_end}
 
 {pstd}{it:Cross-family comparison (same number of predictions):}
 {p_end}

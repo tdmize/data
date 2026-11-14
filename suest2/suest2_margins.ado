@@ -1,4 +1,4 @@
-*! version 0.1.78  08nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.79  12nov2026  | history: CHANGELOG-suest2.md (repo)
 * Candidate 21. LIVE METADATA ON LINE 2, NOT HISTORY -- do not move it to
 * the changelog. run_suest2_v0175_full_regression.do:123,
 * test_suest2_v0175_marginsdefault_pa.do:191 and
@@ -488,7 +488,7 @@ program define suest2_margins_me_dydx, rclass
     // and post are removed explicitly; every other margins option is retained
     // verbatim in local options by *. This avoids hand-parsing nested model().
     local 0 `"`raw'"'
-    capture syntax [anything(name=before)] [, PREDICT(string asis) POST *]
+    capture syntax [anything(name=before)] [if] [in] [fweight aweight pweight iweight] [, PREDICT(string asis) POST *]
     local rcsyntax = _rc
     if `rcsyntax' {
         capture quietly estimates restore `systemsave'
@@ -607,7 +607,31 @@ program define suest2_margins_me_dydx, rclass
         di as err "mixed-model dydx() supports validated native response definitions; mestreg and Gaussian nonlinear xt bridges also support xb"
         exit 198
     }
-    local nativebefore `"`before'"'
+    local s2wt
+    if "`weight'" != "" local s2wt "[`weight'`exp']"
+    local nativebefore `"`before' `if' `in' `s2wt'"'
+    // Average over the suest2 sample less observations a selected model cannot predict, as official margins does;
+    // with over() each model keeps its own sample, so groups reads one group per model
+    tempvar s2uif s2use s2xb
+    local s2off = strpos(lower(`"`options'"'), "noesample") | strpos(lower(`"`options'"'), "unconditional")
+    if ustrregexm(lower(`"`options'"'), "(^|[ ,])over *[(]") local s2off 1
+    if !`s2off' {
+        mark `s2uif' `if' `in'
+        quietly gen byte `s2use' = `s2uif' & e(sample)
+        foreach i of numlist `indices' {
+            capture quietly estimates restore `systemsave'
+            local s2h `"`e(suest2_hold`i')'"'
+            capture quietly estimates restore `s2h'
+            if _rc continue
+            capture drop `s2xb'
+            capture quietly predict double `s2xb' if `s2use', xb
+            if _rc capture quietly predict double `s2xb' if `s2use'
+            if !_rc quietly replace `s2use' = 0 if missing(`s2xb')
+        }
+        capture quietly estimates restore `systemsave'
+        quietly count if `s2use'
+        local Nsys = r(N)
+    }
     // s2rest is the option list with every predict() removed.  Passing
     // `options' here is what leaked a second predict(model()) into the
     // native call.
@@ -679,6 +703,11 @@ program define suest2_margins_me_dydx, rclass
             }
             di as err "unable to restore constituent model {bf:`name'} for margins"
             exit `rcrest'
+        }
+        local s2own 1
+        if !`s2off' {
+            quietly count if (e(sample) & `s2uif') != `s2use'
+            local s2own = r(N) == 0
         }
 
         // Use the predict() specification that names THIS model when the
@@ -1047,7 +1076,8 @@ program define suest2_margins_me_dydx, rclass
                 local s2useopts = itrim(trim(`"`s2useopts'"'))
             }
         }
-        if trim(`"`nativebefore'"')=="" {
+        if !`s2own' capture quietly margins `before' if `s2use' `s2wt', `s2useopts' `nativepred' noesample
+        else if trim(`"`nativebefore'"')=="" {
             if trim(`"`s2useopts' `nativepred'"')=="" capture quietly margins
             else capture quietly margins, `s2useopts' `nativepred'
         }
@@ -1128,7 +1158,8 @@ program define suest2_margins_me_dydx, rclass
                         "returned `q' columns; refusing rather than mislabel"
                     exit 498
                 }
-                if trim(`"`nativebefore'"')=="" {
+                if !`s2own' capture quietly margins `before' if `s2use' `s2wt', `s2atrest' `nativepred' noesample
+                else if trim(`"`nativebefore'"')=="" {
                     if trim(`"`s2atrest' `nativepred'"')=="" capture quietly margins
                     else capture quietly margins, `s2atrest' `nativepred'
                 }

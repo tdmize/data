@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.10.0 Trenton Mize 2026-11-09  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.11.0 Trenton Mize 2026-11-12  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -120,7 +120,7 @@ program define mecompare, eclass
 		STORE(name) BY(string) OVER(string) PWCompare MCOMPare(string) MEINEQuality(string) ///
 		PREDict(string) ENGine(string) ///
 		TOTALme(string) MARGINSopt(string asis) ATMeans cochange(string) ///
-		LABWidth(numlist integer) STATWidth(numlist integer) RRatios TWOPart(string)]  
+		LABWidth(numlist integer) STATWidth(numlist integer) RRatios TWOPart(string) OWNsample]  
 	if `mecgrpon' == 1  local groups "groups"
 *twopart: models() lists each two-part model's first part, then its second part
 	if `"`twopart'"' != "" {
@@ -608,6 +608,8 @@ if "`engine'" == "suest2" {
 		exit 199
 		}
 	}
+*ownsample: the options it cannot be combined with
+if "`ownsample'" != ""  _mec_ownchk, n(`nummods') g(`groups') t(`twopart') o(`over') e(`engine') c(`covariates') m(`marginsopt')
 
 * the stored system is named for the ENGINE that built it
 local mecsys "mec_suest2"
@@ -1252,6 +1254,13 @@ tempvar mec_sample
 *Under mi, e(sample) is unset; if/in alone defines the analysis sample
 if `ismi' == 1  qui gen `mec_sample' = 1 if `mectouse'
 else            qui gen `mec_sample' = 1 if e(sample) & `touse'
+*Drop the observations a model cannot predict, as margins does; under ownsample, mark each one's pattern of samples
+tempvar mecpat
+local mecmsv ""
+forvalues j = 1/`nummods' {
+	local mecmsv "`mecmsv' `mod`j'samp'"
+	}
+if "`engine'`groups'`twopart'" == "suest2"  _mec_predok, samp(`mec_sample') sys(`mecsys') names(`mecmodlist') msamp(`mecmsv') pat(`mecpat') own(`ownsample') mi(`ismi') svy(`issvy')
 *Levels and category counts are read from the estimation sample (all data if it is empty)
 local meclevif "if `mec_sample' == 1"
 qui count if `mec_sample' == 1
@@ -1280,11 +1289,16 @@ if "`groups'" == "" & "`twopart'" == "" {
 	*/ "those from the specified models as {cmd:mecompare} uses listwise " /*
 	*/ "deletion across the models resulting in N_mecompare = `N1'"
 	}
+	else if "`ownsample'" != "" {
+	di in red "Sample size varies across the models: `mecnlist'. With ownsample, " /*
+	*/ "each model's marginal effects are averaged over its own estimation sample."
+	}
 	else {
 	di in red "Sample size varies across the models: `mecnlist'. " /*
 	*/ "The marginal effects of every model are averaged over the same " /*
 	*/ "`mecNall' observations, those in any model's sample, so a model's " /*
-	*/ "effects can differ from the ones it gives on its own."
+	*/ "effects can differ from the ones it gives on its own. " /*
+	*/ "Add ownsample to average each model over its own sample."
 	}
 	}
 }
@@ -2171,6 +2185,7 @@ if `numcats' >= 3 {
 		forvalues mm = 1/`nummods' {
 			local psamp`mm' "`mec_sample' == 1"
 			if "`groups'" != ""  local psamp`mm' "`mec_sample' == 1 & `mecgsamp' == `mm'"
+			if "`ownsample'" != ""  local psamp`mm' "`mec_sample' == 1 & `mod`mm'samp' == 1"
 			}
 		*Shares = aweighted mean of a level indicator; same weight as the SDs
 		forvalues mm = 1/`nummods' {
@@ -2261,6 +2276,9 @@ if "`groups'" != "" {
 else if "`over'" != "" {
 	local overspec "over(`byvars')"
 	}
+else if "`ownsample'" != "" {
+	local overspec "over(`mecpat')"
+	}
 else {
 	local overspec " "
 	}
@@ -2347,6 +2365,9 @@ if "`twopart'" != "" {
 
 *rratios: probabilities give risk ratios; other predictions a ratio
 local rrlab = cond(ustrregexm(`"`plab1'"', "Pr\(|probab", 1), "Risk ratio", "Ratio")
+
+*ownsample: each model's margins over its own sample, posted under the names margins gives without over()
+if "`ownsample'" != ""  _mec_ownpost, pat(`mecpat') ncat(`mod1cats') names(`mecmodlist') w(`sdwspec') samp(`mec_sample')
 
 qui est 	store mec_margins	// For use with post-estimation metest
 
@@ -4100,6 +4121,181 @@ if "`mecsstreg'`mecsmest'" != "" {
 	*/ "survival probabilities at chosen times, which {cmd:mecompare} does not " /*
 	*/ "compute. See {help mecompare##survival}."
 	}
+end
+
+capture program drop _mec_ownchk
+program define _mec_ownchk
+*ownsample: refuses the options it cannot be combined with
+	version 16.0
+	syntax , n(integer) [g(string) t(string) o(string) e(string) c(string) m(string)]
+	if `n' == 1 {
+		di as err "{opt ownsample} averages each model over its own estimation sample, " /*
+		*/ "so it needs two or more models in {opt models( )}."
+		exit 198
+		}
+	local mecw ""
+	local mecm = lower(`"`m'"')
+	if "`g'" != ""  local mecw "{opt groups}, under which each model is already averaged over its own sample"
+	else if "`t'" != ""  local mecw "{opt twopart}"
+	else if `"`o'"' != ""  local mecw "{opt over()}"
+	else if "`e'" == "gsem"  local mecw "{opt engine(gsem)}"
+	else if `: list posof "atmeans" in c' | ustrregexm(`"`c'"', "[(] *(mean|median|p[0-9]+|min|max) *[)]") {
+		local mecw "{opt atmeans}, or a statistic such as {bf:(mean)} in {opt covariates()}"
+		}
+	else if strpos(`"`mecm'"', "uncond")  local mecw "{opt vce(unconditional)} in {opt marginsopt()}"
+	if "`mecw'" != "" {
+		di as err "{opt ownsample} cannot be combined with `mecw'."
+		exit 198
+		}
+end
+
+capture program drop _mec_predok
+program define _mec_predok
+*Drops the observations a model cannot predict, as margins does; under ownsample refuses them and
+*	marks each observation's pattern of samples: the sum of 2^(j-1) over the models j whose sample it is in
+	version 16.0
+	syntax , samp(varname) sys(name) pat(name) /*
+		*/ [names(string) msamp(string) own(string) mi(integer 0) svy(integer 0)]
+	if "`own'" != "" {
+		local mecw ""
+		if `mi'  local mecw "{cmd:mi estimate} results"
+		else if `svy'  local mecw "{cmd:svy} results"
+		if "`mecw'" != "" {
+			di as err "{opt ownsample} cannot be combined with `mecw'."
+			exit 198
+			}
+		}
+	if `mi'  exit
+	tempvar mecxb
+	local mecbad ""
+	local n : word count `names'
+	forvalues j = 1/`n' {
+		qui est restore `sys'
+		local h `"`e(suest2_hold`j')'"'
+		capture qui est restore `h'
+		if _rc  continue
+		capture drop `mecxb'
+		capture qui predict double `mecxb' if `samp' == 1, xb
+		if _rc  capture qui predict double `mecxb' if `samp' == 1
+		if _rc  continue
+		qui count if `samp' == 1 & missing(`mecxb')
+		if r(N) > 0 {
+			local mecnm : word `j' of `names'
+			if "`mecbad'" != ""  local mecbad "`mecbad'; "
+			local mecbad "`mecbad'{bf:`mecnm'}, `r(N)' observations"
+			qui replace `samp' = . if `samp' == 1 & missing(`mecxb')
+			}
+		}
+	qui est restore `sys'
+	if "`own'" == ""  exit
+	if "`mecbad'" != "" {
+		di as err "{opt ownsample} needs every model to predict every observation in any " /*
+		*/ "model's sample. Some cannot, because of missing values on their variables: `mecbad'."
+		exit 459
+		}
+	qui gen long `pat' = 0 if `samp' == 1
+	local j = 0
+	foreach v of local msamp {
+		local ++j
+		qui replace `pat' = `pat' + 2^(`j' - 1) if `samp' == 1 & `v' == 1
+		}
+end
+
+capture program drop _mec_ownpost
+program define _mec_ownpost, eclass
+*ownsample: model j's margin is the sum over patterns p of W_p / W_j times its margin within p, where W_p is
+*	the observations of pattern p (weighted as margins weights them; suest2's model-by-model route posts no
+*	e(sample), so mecompare's sample) and W_j those of model j's sample;
+*	b = T b, V = T V T', posted under the names margins gives without over()
+	version 16.0
+	syntax , pat(varname) ncat(integer) names(string) samp(varname) [w(string)]
+	local n : word count `names'
+	tempname b V T b2 V2
+	tempvar es
+	matrix `b' = e(b)
+	matrix `V' = e(V)
+	local K = colsof(`b')
+	local cn : colfullnames `b'
+	local dfr = e(df_r)
+	qui gen byte `es' = `samp' == 1 & !missing(`pat')
+	forvalues j = 1/`n' {
+		local W`j' = 0
+		}
+	qui levelsof `pat' if `es', local(pl)
+	foreach p of local pl {
+		qui summarize `es' if `es' & `pat' == `p' `w'
+		local W_`p' = r(sum_w)
+		forvalues j = 1/`n' {
+			if mod(floor(`p' / 2^(`j' - 1)), 2)  local W`j' = `W`j'' + `W_`p''
+			}
+		}
+	local tn ""
+	local tkeys ""
+	local nt = 0
+	forvalues c = 1/`K' {
+		local nm : word `c' of `cn'
+		local eq ""
+		local tl "`nm'"
+		if strpos("`nm'", ":") {
+			local eq = substr("`nm'", 1, strpos("`nm'", ":") - 1)
+			local tl = substr("`nm'", strpos("`nm'", ":") + 1, .)
+			}
+		local tl : subinstr local tl "#" " ", all
+		local out ""
+		local key "`eq':"
+		local p ""
+		local k = 0
+		foreach tok of local tl {
+			if regexm("`tok'", "^([0-9]+)[a-z]*[.](.+)$") {
+				local lv = regexs(1)
+				local vn = regexs(2)
+				if "`vn'" == "`pat'" {
+					local p `lv'
+					continue
+					}
+				if "`vn'" == "_predict"  local k = `lv'
+				local key "`key'#`lv'.`vn'"
+				}
+			else  local key "`key'#`tok'"
+			if "`out'" == ""  local out "`tok'"
+			else              local out "`out'#`tok'"
+			}
+		local j : list posof "`eq'" in names
+		if `j' == 0 & `k' > 0  local j = floor((`k' - 1) / `ncat') + 1
+		if "`eq'" != "" & "`eq'" != "_"  local out "`eq':`out'"
+		if `j' == 0 {
+			di as err "{cmd:mecompare} could not read the margins results under {opt ownsample} (column `nm')."
+			exit 498
+			}
+		local t : list posof "`key'" in tkeys
+		if `t' == 0 {
+			local tkeys "`tkeys' `key'"
+			local tn "`tn' `out'"
+			local ++nt
+			local t = `nt'
+			}
+		local tc`c' = `t'
+*		no pattern level: the model's sample is one pattern (margins drops a constant over() variable)
+		local wc`c' = "`p'" == ""
+		if "`p'" != "" {
+			if mod(floor(`p' / 2^(`j' - 1)), 2)  local wc`c' = `W_`p'' / `W`j''
+			}
+		}
+	matrix `T' = J(`nt', `K', 0)
+	forvalues c = 1/`K' {
+		matrix `T'[`tc`c'', `c'] = `wc`c''
+		}
+	matrix `b2' = `b' * `T''
+	matrix `V2' = `T' * `V' * `T''
+	matrix `V2' = (`V2' + `V2'') / 2
+	matrix colnames `b2' = `tn'
+	matrix colnames `V2' = `tn'
+	matrix rownames `V2' = `tn'
+	qui count if `es'
+	local N = r(N)
+	ereturn post `b2' `V2', esample(`es') obs(`N')
+	ereturn local cmd "margins"
+	if !missing(`dfr')  ereturn scalar df_r = `dfr'
 end
 
 capture program drop _mec_post

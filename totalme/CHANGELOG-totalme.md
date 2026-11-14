@@ -1,5 +1,16 @@
 # CHANGELOG -- totalme
 
+## v1.8.4 -- 12nov2026, groups with multilevel models
+
+`groups` stopped with r(498) ("could not compute wgt_base_all") with multilevel
+models, such as melogit. suest2 computes a multilevel model's margins one model
+at a time, over that model's own sample; there the group variable takes one
+value, so margins leaves it out of the result names, and totalme looked for the
+group in every name. totalme now uses the group only when the names carry it, as
+meinequality and mecompare do. Nothing else moves. Found 12nov2026 by gate 90
+(`test_suest2_overown_gate90_v1_0`); 1.8.3 has the same defect. Gate 90 round 2
+(`test_suest2_overown_gate90_v1_1`): 6 / 0.
+
 ## v1.8.3 -- 05oct2026, the standard-error note for every panel model
 
 The note for multilevel and panel models (1.7.8) printed for xtlogit, xtprobit

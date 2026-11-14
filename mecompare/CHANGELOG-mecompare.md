@@ -5,6 +5,55 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.11.0 -- 12nov2026, ownsample: each model averaged over its own sample
+
+`ownsample` averages each model's marginal effects over its own estimation sample, for
+models whose samples partly overlap, such as models of the stages of a process (entering
+college, then graduating among those who entered). By default every model is still
+averaged over the same observations, those in any model's sample. mecompare makes one
+margins call over() each observation's pattern of samples (which models' samples it is
+in), weights each pattern by its share of a model's sample, and posts the result under the
+names margins gives without over(), so the Differences, their standard errors and
+`metest` keep the cross-model covariance. On nlsw88, with a logit of entering college
+(2,244 women) and a logit of graduating among the 967 who entered (both on south, race,
+age and wage), the effect of living in
+the South on graduating is 0.1133 with `ownsample`, as the graduation logit gives it on its
+own, against 0.1148 averaged over all 2,244. The amounts of change (a standard deviation,
+a range) are computed over every model's observations, as under `groups`; the level shares
+used by `meinequality()` and `totalme()` over each model's own.
+
+The sample-size note with `ownsample` reads "Sample size varies across the models:
+N_Enter=2244 ; N_Grad=967. With ownsample, each model's marginal effects are averaged
+over its own estimation sample." The default note adds "Add ownsample to average each
+model over its own sample."
+
+Refused, r(198): one model; `ownsample` with `groups`, `twopart`, `over()`,
+`engine(gsem)`, `atmeans` or a statistic such as (mean) in `covariates()`,
+`vce(unconditional)` in `marginsopt()`, or `mi estimate` or `svy` results. Refused,
+r(459): a model that cannot predict some observations in another model's sample because
+of missing values on its variables; the message names the model and the count.
+
+**Observations a model cannot predict.** When a model has a missing value on one of its
+variables for an observation in another model's sample, margins averages every model over
+the observations all of them can predict. The sample-size note, e(N) and e(sample) still
+counted every observation in any model's sample (on nlsw88, 2,246, where margins used
+1,878). Without `groups` or `twopart`, mecompare now drops those observations from its own
+sample as margins does, so the note, e(N) and e(sample) count the observations used, and
+the standard deviations and level shares are computed over them.
+
+Gate 89 (`test_mecompare_ownsample_gate89`): on nlsw88, with `ownsample` each model's
+effects equal the model's own `margins` over its own sample, and the Difference equals the
+difference of the two, for the two stage logits, three models with `amount(sd)` (the
+standard deviation over every model's observations), pweights, `by(race)`,
+`meinequality()`, and `melogit` with `melogit` or `meprobit`; without `ownsample` the
+results are unchanged. With a covariate missing in one model, e(N), e(sample) and the
+standard deviation count the 1,878 observations margins uses, and `ownsample` is refused
+with r(459). The other refusals are as described. Rounds: 25 / 6 (v1.0), 42 / 2 and 46 / 0
+(v1.1, on the second and third builds). Gate 90 (`test_suest2_overown_gate90`): `groups`
+and `ownsample` with two `melogit` models give each model alone.
+
+Help: the syntax line, the `ownsample` entry, and an example.
+
 ## metest 0.4.0 -- 11nov2026, pwcompare and mcompare(); rownames()
 
 `metest 1 2 3, pwcompare` compares the listed estimates pairwise in one table: each

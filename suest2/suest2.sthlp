@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.5  08nov2026}{...}
+{* *! version 1.2.0  12nov2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -105,6 +105,18 @@ either unweighted conventional estimates, or linearized
 {p 8 12 2}
 {cmd:betareg} with links: logit, probit, cloglog, loglog. {cmd:truncreg}.
 {cmd:hetprobit}. {cmd:biprobit}. {cmd:ivprobit}. {cmd:ivtobit}.
+
+
+{dlgtab:Cox models}
+
+{p 8 12 2}
+{cmd:stcox} with Breslow ties (the default), one record per subject, and no
+delayed entry, weights, {cmd:strata()}, {cmd:tvc()}, {cmd:shared()}, or
+{cmd:vce(cluster)}, alone or with the ordinary single-level models above.
+Specify {cmd:time(}{it:#}{cmd:)}: the Cox model's block holds its coefficients
+and, as {cmd:_cons}, the log of the baseline cumulative hazard at that time,
+and {cmd:predict(pr)} is the probability of the event by that time. With
+{cmd:time()}, {cmd:predict(pr)} after {cmd:streg} is the same probability.
 
 
 {dlgtab:Panel models}
@@ -263,6 +275,18 @@ retransformation:
 {phang2}{cmd:. margins, dydx(x) predict(twopart(Any Amount))}{p_end}
 {phang2}{cmd:. margins, dydx(x) predict(twopart(Any LnAmount) duan)}{p_end}
 
+{pstd}
+Every prediction is averaged over the {cmd:suest2} estimation sample, the
+observations in any model's sample. To average over one model's sample instead,
+add an {cmd:if} qualifier:
+
+{phang2}{cmd:. margins if any, dydx(x) predict(model(Amount))}{p_end}
+
+{pstd}
+With {cmd:over()}, multilevel and some other models are averaged over each
+model's own sample within each group. An {cmd:xtreg, cre} model is always averaged
+over its own sample, because its predictions use panel means computed only there.
+
 
 {marker options}{...}
 {title:Options for suest2}
@@ -287,6 +311,7 @@ requested directly on {cmd:suest2}:
 {synopt:{opt regressml}}use the official {cmd:suest} ML-regression convention when supported{p_end}
 {synopt:{opt svy}}pass through the official {cmd:suest} survey option when supported{p_end}
 {synopt:{opt nowarn}}suppress the note printed when a model was not fit with {cmd:vce(robust)}{p_end}
+{synopt:{opt time(#)}}time at which {cmd:stcox} and {cmd:streg} models give the probability of the event, {cmd:predict(pr)}; required with {cmd:stcox}{p_end}
 {synoptline}
 
 {pstd}
@@ -316,6 +341,7 @@ when applicable, {cmd:e(clustvar)} and {cmd:e(N_clust)}. It also stores:
 {synoptline}
 {synopt:{cmd:e(suest2_version)}}installed {cmd:suest2} version{p_end}
 {synopt:{cmd:e(suest2_nmodels)}}number of constituent models{p_end}
+{synopt:{cmd:e(suest2_time)}}the time given in {cmd:time()}, or missing{p_end}
 {synopt:{cmd:e(suest2_model#)}}user-facing name of constituent model #{p_end}
 {synopt:{cmd:e(suest2_hold#)}}private stored-estimate name for model #{p_end}
 {synopt:{cmd:e(suest2_start#)}}first column of model # in {cmd:e(b)}{p_end}
@@ -423,6 +449,17 @@ recipe extends to any supported panel or multilevel family, e.g.
 {phang2}{stata "estimates store Amount":estimates store Amount}{p_end}
 {phang2}{stata "suest2 Any Amount":suest2 Any Amount}{p_end}
 {phang2}{stata "margins, dydx(ins_unins) predict(twopart(Any Amount))":margins, dydx(ins_unins) predict(twopart(Any Amount))}{p_end}
+
+{dlgtab:Cox models}
+
+{phang2}{stata "sysuse cancer, clear":sysuse cancer, clear}{p_end}
+{phang2}{stata "stset studytime, failure(died)":stset studytime, failure(died)}{p_end}
+{phang2}{stata "stcox age i.drug, vce(robust)":stcox age i.drug, vce(robust)}{p_end}
+{phang2}{stata "estimates store cox1":estimates store cox1}{p_end}
+{phang2}{stata "streg age i.drug, distribution(weibull) vce(robust)":streg age i.drug, distribution(weibull) vce(robust)}{p_end}
+{phang2}{stata "estimates store wei1":estimates store wei1}{p_end}
+{phang2}{stata "suest2 cox1 wei1, time(10)":suest2 cox1 wei1, time(10)}{p_end}
+{phang2}{stata "margins, predict(model(cox1) pr) predict(model(wei1) pr) at(drug=(1 2 3))":margins, predict(model(cox1) pr) predict(model(wei1) pr) at(drug=(1 2 3))}{p_end}
 
 
 {marker companions}{...}
