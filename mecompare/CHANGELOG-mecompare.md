@@ -5,6 +5,54 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.12.0 -- 14nov2026, time(#): effects on the probability of the event by a chosen time
+
+`time(#)` gives the marginal effects of `stcox` and `streg` models as changes in the
+probability that the event has happened by time #, one minus the survival probability (Jones
+and Metzger 2019 and Metzger and Jones 2022 recommend interpreting duration models through
+these probabilities). Cox models (`stcox`) are now accepted, with `time()` only. Every model
+goes through suest2 (1.2.1), a single model too, and the rows of each `stcox` and `streg`
+model come from `margins, predict(model(name) pr)`; the other models keep their default
+prediction, so a logit of the same event can sit beside a Cox model. The prediction label is
+"Pr(event by t=#)". With one model the standard errors are suest2's robust ones and the column
+is labelled Robust SE (a `svy` model keeps Linearized SE). On the cancer data, with Cox and
+Weibull models of age and drug, the effect of the second drug on the probability of death by
+month 10 is -0.419 (Cox) and -0.439 (Weibull), as R's survival and flexsurv packages give them.
+
+`time()` works with `groups` and `groupme`, `ownsample`, `over()`, `rratios`, `svy`
+results (for `streg`) and `mi estimate` results. The conditions on a Cox model are suest2's:
+Breslow ties, one record per subject, no delayed entry, and no weights, `strata()`, `tvc()`,
+`shared()`, `offset()` or clustering. Refused, r(198), each message naming the model: a Cox
+model without `time()`; `time()` with `predict()`, `expression()` in `marginsopt()`, `twopart`
+or `engine(gsem)`; with a `mestreg` model; with a multilevel, panel or `ivregress` model; with a
+weighted model fit without `svy` (the message points to the `svy` prefix); a Cox model with
+weights or `svy`; and `time()` with no `stcox` or `streg` model.
+
+The survival note: with `time()` it says the rows are changes in the probability that the
+event has happened by the time; without it, after `streg` or `mestreg`, its last sentence now
+points to `time(#)` in place of "which mecompare does not compute".
+
+**groupme uses the table's predictions.** Its margins call carried no `predict()`, so with
+`predict()` the group difference was on the model's default prediction while the table was on
+the one requested (with `predict(xb)` after `ologit` it differenced two outcomes of the first
+model). It now uses the same predictions as the table, from `predict()` or `time()`.
+
+`_mec_canonical` 1.8.0 (suest2 package) admits `stcox` for mecompare only; meinequality and
+totalme still refuse it.
+
+Gate 91 (`test_mecompare_time_gate91`): one Cox model at t = 10 and 20, two and three models,
+and Cox with logit and with Weibull equal R's values (estimates within 4e-11, standard errors
+within 6e-10 relative); `groups`, `groupme`, `ownsample` and `over()` equal each model alone or
+suest2 and margins by hand; `svy` rows equal Stata's own `svy` margins (2.5e-11); with `mi
+estimate`, the rows for `streg`, Cox and logit models, and for `svy` models within `mi`, equal
+Rubin's rules over each imputation's own suest2 and margins (within 2.1e-13 relative); the refusals and
+notes as described; the help example. Rounds: 142 / 0 (v1_1, build v02); 147 / 0 (v1_2, parts A
+to K, build v03); v1_3 and v1_4 for the mi part and the help example (10 / 0 to its stop, then
+21 / 0; the stops were instrument defects). 170 checks in the battery copy, v1_5.
+
+Help: the syntax table, the `time()` entry, the supported estimators, a Survival models
+paragraph, and a Cox and Weibull example.
+
 ## v1.11.0 -- 12nov2026, ownsample: each model averaged over its own sample
 
 `ownsample` averages each model's marginal effects over its own estimation sample, for

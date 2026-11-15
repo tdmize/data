@@ -935,3 +935,25 @@ Help: a "Cox models" paragraph under the supported estimators, the `time(#)` opt
 
 The 36-suite regression passed 36 / 36 on Stata SE 19.5 (runner v2.9), and so did every gate
 of the rev83 battery (v2.29, 83 gates; gate 86 as v1_4, 172 / 0). Distribution-Date 20261114.
+
+## suest2.ado 1.2.1, _mec_canonical.ado 1.8.0 -- 14nov2026
+
+**`time()` with `mi estimate` results.** suest2 refits each model within every imputation and
+combines the imputations by Rubin's rules; the time given in `time(#)` did not reach those
+refits, so `predict(pr)` after `streg` had no time, and Cox models were refused with `mi
+estimate` (r(322)). The time now reaches every imputation's suest2 call and is posted as
+`e(suest2_time)` on the pooled result, and Cox models can be combined with `mi estimate`
+results.
+
+_mec_canonical.ado: `stcox` is a supported model when the caller passes the new option `cox`,
+as mecompare 1.12.0 does (it then requires `time()`); meinequality and totalme do not pass it and
+still refuse `stcox`. Ordinary stripe, so r(spec) is 0.
+
+Gate 91 (`test_mecompare_time_gate91`, with mecompare 1.12.0): with `mi estimate` results, the
+rows for `streg`, Cox and logit models, and for `svy` models within `mi`, equal Rubin's rules
+over each imputation's own suest2 and margins (within 2.1e-13 relative).
+
+Help: the Cox models paragraph adds "including mi estimate results".
+
+The 36-suite regression passed 36 / 36 on Stata 19.5 (runner v2.9), and so did every gate of the
+rev84 battery (v2.30, 84 gates; gate 68 as v1_5, 506 / 0). Distribution-Date 20261115.

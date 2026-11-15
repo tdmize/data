@@ -112,7 +112,8 @@ either unweighted conventional estimates, or linearized
 {p 8 12 2}
 {cmd:stcox} with Breslow ties (the default), one record per subject, and no
 delayed entry, weights, {cmd:strata()}, {cmd:tvc()}, {cmd:shared()}, or
-{cmd:vce(cluster)}, alone or with the ordinary single-level models above.
+{cmd:vce(cluster)}, alone or with the ordinary single-level models above,
+including {cmd:mi estimate} results.
 Specify {cmd:time(}{it:#}{cmd:)}: the Cox model's block holds its coefficients
 and, as {cmd:_cons}, the log of the baseline cumulative hazard at that time,
 and {cmd:predict(pr)} is the probability of the event by that time. With

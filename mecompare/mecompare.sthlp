@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-11-12 Trenton D Mize -- matches mecompare v1.11.0}{...}
+{* 2026-11-14 Trenton D Mize -- matches mecompare v1.12.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -55,6 +55,7 @@ the models.{p_end}
 
 {syntab:Prediction}
 {synopt:{opt pred:ict(pred)}}the prediction {cmd:margins} should compute{p_end}
+{synopt:{opt time(#)}}effects on the probability of the event by time {it:#}, for {cmd:stcox} and {cmd:streg}{p_end}
 {synopt:{opt marginsopt(string)}}options passed to {cmd:margins} as typed{p_end}
 
 {syntab:Reporting}
@@ -149,7 +150,8 @@ shown in the {cmdab:mecomp:are} table. See
 
 {p 8 12 2}
 {cmd:glm}; {cmd:cloglog}; {cmd:tobit}; {cmd:intreg}; maximum-likelihood
-{cmd:heckman}; and parametric {cmd:streg}, all parametric distributions.
+{cmd:heckman}; parametric {cmd:streg}, all parametric distributions; and
+{cmd:stcox}, with {opt time()}.
 
 {p 8 12 2}
 {cmd:gologit2}, all forms.
@@ -557,6 +559,12 @@ see {help mecompare##predictopt:specifying the prediction} below.
 {p_end}
 
 {p2colset 5 18 19 0}
+{p2col:{opt time(#)}}for {cmd:stcox} and {cmd:streg} models, the marginal effects
+are changes in the probability that the event has happened by time {it:#}. Required
+with {cmd:stcox}. See {help mecompare##survival:Survival models}.
+{p_end}
+
+{p2colset 5 18 19 0}
 {p2col:{opt marginsopt(string)}} passes {it:string} to {cmd:margins} exactly 
 as typed. Options {cmdab:mecomp:are} sets itself ({cmd:at()}, {cmd:over()}, 
 {cmd:predict()}, {cmd:post}, {cmd:atmeans}, and the derivative and contrast 
@@ -729,8 +737,19 @@ Predicted survival times are model-based extrapolations: when spells are
 censored they can run well past the observed follow-up, and the mean and
 the median differ. Jones and Metzger (2019) and Metzger and Jones (2022)
 recommend interpreting duration models through survival (or transition)
-probabilities at chosen times instead; {cmdab:mecomp:are} does not compute
-those.
+probabilities at chosen times instead.
+{p_end}
+
+{pstd}
+With {opt time(#)}, the marginal effects of {cmd:streg} and Cox ({cmd:stcox})
+models are changes in the probability that the event has happened by time
+{it:#}, one minus the survival probability. Other models in {opt models( )},
+such as a {cmd:logit} of the same event, keep their default prediction. A Cox
+model needs {opt time()}, and it must be fit with Breslow ties (the default),
+one record per subject, no delayed entry, and no weights, {cmd:svy},
+{cmd:strata()}, or {cmd:tvc()}. {opt time()} cannot be combined with
+{opt predict()}, {cmd:mestreg}, or multilevel, panel, or {cmd:ivregress}
+models; fit weighted models with the {cmd:svy} prefix.
 {p_end}
 
 {marker svy_mi}
@@ -1197,6 +1216,23 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 {phang} {stata "estimates store Amount2":estimates store Amount2} {p_end}
 
 {phang} {stata "mecompare ins_unins, models(Any Amount Any2 Amount2) twopart":mecompare ins_unins, models(Any Amount Any2 Amount2) twopart} {p_end}
+
+{pstd}{it:A Cox model and a Weibull model: effects on the probability of death by month 10}
+{p_end}
+
+{phang} {stata "sysuse cancer, clear":sysuse cancer, clear} {p_end}
+
+{phang} {stata "stset studytime, failure(died)":stset studytime, failure(died)} {p_end}
+
+{phang} {stata "stcox age i.drug, vce(robust)":stcox age i.drug, vce(robust)} {p_end}
+
+{phang} {stata "estimates store cox1":estimates store cox1} {p_end}
+
+{phang} {stata "streg age i.drug, distribution(weibull) vce(robust)":streg age i.drug, distribution(weibull) vce(robust)} {p_end}
+
+{phang} {stata "estimates store wei1":estimates store wei1} {p_end}
+
+{phang} {stata "mecompare drug age, models(cox1 wei1) time(10)":mecompare drug age, models(cox1 wei1) time(10)} {p_end}
 
 {title:Comments}
 

@@ -1,4 +1,4 @@
-*! version 1.2.0  12nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.2.1  14nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -55,11 +55,13 @@ program define suest2, sortpreserve eclass
     // MI-pooled constituent results require a re-estimation within each imputation
     quietly suest2_miscan `0'
     if r(has_mi) {
-        if `"`s2coxnames'"' != "" {
-            di as err "Cox models (stcox) cannot be combined with models estimated with {cmd:mi estimate}"
-            exit 322
+        // each imputation's suest2 call needs the time
+        if !missing(`s2time') {
+            if !strpos(`"`0'"', ",")  local 0 `"`0',"'
+            local 0 `"`0' time(`s2time')"'
         }
         suest2_miestimate `0'
+        if !missing(`s2time')  ereturn scalar suest2_time = `s2time'
         exit
     }
 
@@ -916,7 +918,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.2.0"
+    ereturn local suest2_version "1.2.1"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'

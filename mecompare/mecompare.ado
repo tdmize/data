@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.11.0 Trenton Mize 2026-11-12  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.12.0 Trenton Mize 2026-11-14  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -120,7 +120,7 @@ program define mecompare, eclass
 		STORE(name) BY(string) OVER(string) PWCompare MCOMPare(string) MEINEQuality(string) ///
 		PREDict(string) ENGine(string) ///
 		TOTALme(string) MARGINSopt(string asis) ATMeans cochange(string) ///
-		LABWidth(numlist integer) STATWidth(numlist integer) RRatios TWOPart(string) OWNsample]  
+		LABWidth(numlist integer) STATWidth(numlist integer) RRatios TWOPart(string) OWNsample TIME(numlist max=1 >0)]  
 	if `mecgrpon' == 1  local groups "groups"
 *twopart: models() lists each two-part model's first part, then its second part
 	if `"`twopart'"' != "" {
@@ -217,7 +217,7 @@ if "`atmeans'" != "" {
 *covariates( ) and start( ) hold one value per variable
 local mecsupp "regress, logit, logistic, probit, mlogit, ologit, oprobit, "
 local mecsupp "`mecsupp'gologit2, poisson, nbreg, glm, cloglog, tobit, "
-local mecsupp "`mecsupp'intreg, streg, heckman (ml), ivregress (2sls); "
+local mecsupp "`mecsupp'intreg, streg, stcox, heckman (ml), ivregress (2sls); "
 local mecsupp "`mecsupp'mixed, melogit, meprobit, mecloglog, mepoisson, "
 local mecsupp "`mecsupp'menbreg, meologit, meoprobit, mestreg, meglm "
 local mecsupp "`mecsupp'(gaussian-identity and gamma-log); fracreg "
@@ -483,6 +483,8 @@ forvalues j = 1/`nummods' {
 if "`mod1name'" != ""  local mod1lab "`mod1name'"
 if "`mod2name'" != "" & `nummods' >= 2  local mod2lab "`mod2name'"
 if `nummods' == 1  local mod2lab ""
+*time(): what it cannot be combined with; a Cox model needs it
+_mec_timechk "`time'" `"`predict'`mecexpr'"' "`twopart'`engine'" `models'
 
 *v0.2.3: groupnames( ) labels the groups (else labeled by model name)
 if "`groupnames'" != "" & "`groups'" == "" {
@@ -697,7 +699,7 @@ if trim("`cmd1'") == ""  local cmd1 "`e(cmd)'"
 local s2raw "`e(cmd)'"
 if "`cmd1'" != "" & "`cmd1'" != "mi estimate"  local s2raw "`cmd1'"
 _mec_canonical, cmd("`s2raw'") cmd2("`e(cmd2)'") model("`e(model)'") /*
-	*/ distrib("`e(distrib)'") method("`e(method)'") estimator("`e(estimator)'")
+	*/ distrib("`e(distrib)'") method("`e(method)'") estimator("`e(estimator)'") cox
 local cmd1 "`r(canon)'"
 local okmod = r(ok)
 local s2only1 = r(suest2only)
@@ -820,7 +822,7 @@ if "`e(prefix)'" == "svy" {
 local s2raw "`e(cmd)'"
 if "`cmd`i''" != "" & "`cmd`i''" != "mi estimate"  local s2raw "`cmd`i''"
 _mec_canonical, cmd("`s2raw'") cmd2("`e(cmd2)'") model("`e(model)'") /*
-	*/ distrib("`e(distrib)'") method("`e(method)'") estimator("`e(estimator)'")
+	*/ distrib("`e(distrib)'") method("`e(method)'") estimator("`e(estimator)'") cox
 if "`r(canon)'" != ""  local cmd`i' "`r(canon)'"
 local okmod = r(ok)
 local s2only`i' = r(suest2only)
@@ -1229,9 +1231,9 @@ else {
 	if "`commands'" != "" {
 		di ""
 		di as text "suest2 model is: "
-		di as result "    suest2 `mecmodlist', nowarn"
+		di as result "    suest2 `mecmodlist', nowarn`mectopt'"
 		}
-	`cmdqui' suest2 `mecmodlist', nowarn
+	`cmdqui' suest2 `mecmodlist', nowarn`mectopt'
 	}
 
 capture estimates drop `mecalt'
@@ -2316,10 +2318,12 @@ if "`twopart'" != "" {
 		local predspec "`predspec' predict(twopart(`tpa`j'' `tpb`j'') `mectpo')"
 		}
 	}
+*time(): one model also goes through suest2; stcox and streg rows on the probability of the event by the time
+if "`time'" != ""  _mec_timepred `time' `nummods' "`cmdqui'" "`commands'" "`mectst'" `mod1' `mecmodlist'
 
 *predict() and mimarginsspec are alternatives; user's when given, predict(default) otherwise
 if `ismi' == 1 {
-	if `"`predict'`mecexpr'"' != "" {
+	if `"`predict'`mecexpr'`time'"' != "" {
 		local mimarginsspec "errorok esampvaryok"
 		}
 	else {
@@ -2361,6 +2365,9 @@ if "`twopart'" != "" {
 		if "`twopart'" == "default"  local plab`j' "Two-part mean of `dv`j'name'"
 		else                         local plab`j' "Two-part mean of exp(`dv`j'name'), `twopart'"
 		}
+	}
+forvalues j = 1/`nummods' {
+	if "`mectl`j''" != ""  local plab`j' "`mectl`j''"
 	}
 
 *rratios: probabilities give risk ratios; other predictions a ratio
@@ -3931,12 +3938,12 @@ local mecsl ""
 forvalues j = 1/`nummods' {
 	local mecsl `"`mecsl' "`mod`j''" "`cmd`j''""'
 	}
-_mec_survnote `"`predict'"' `"`mecexpr'"' `nummods' `mecsl'
+_mec_survnote `"`predict'"' `"`mecexpr'"' "`time'" `nummods' `mecsl'
 
 *One difference per outcome; under groupme each model averages over its own group
 if "`groupme'" != "" {
 	qui est restore `mecsys'
-	`cmdqui' `marginscmd' `if' `in', `mimarginsspec' /*
+	`cmdqui' `marginscmd' `if' `in', `mimarginsspec' `predspec' /*
 		*/ over(`mecgsamp') post
 	di ""
 	di as text "Average conditional difference in the outcome " /*
@@ -4084,10 +4091,11 @@ end
 
 capture program drop _mec_survnote
 program define _mec_survnote
-*The note saying which survival-time quantity the streg and mestreg rows are on
+*The note saying which quantity the survival-model rows are on
 	version 16.0
 	gettoken predict 0 : 0
 	gettoken mecexpr 0 : 0
+	gettoken time 0 : 0
 	gettoken nummods 0 : 0
 	forvalues j = 1/`nummods' {
 		gettoken mod`j' 0 : 0
@@ -4095,9 +4103,21 @@ program define _mec_survnote
 		}
 local mecsstreg ""
 local mecsmest ""
+local mecscox ""
 forvalues j = 1/`nummods' {
 	if "`cmd`j''" == "streg"    local mecsstreg "`mecsstreg' `mod`j''"
 	if "`cmd`j''" == "mestreg"  local mecsmest "`mecsmest' `mod`j''"
+	if "`cmd`j''" == "stcox"    local mecscox "`mecscox' `mod`j''"
+	}
+if "`time'" != "" {
+	local mecsurv "the {cmd:stcox} and {cmd:streg} rows are"
+	if "`mecsstreg'" == ""  local mecsurv "the {cmd:stcox} rows are"
+	if "`mecscox'" == ""    local mecsurv "the {cmd:streg} rows are"
+	if `nummods' == 1       local mecsurv "the marginal effects are"
+	di ""
+	di as text "NOTE: `mecsurv' changes in the probability that the event has happened by " /*
+	*/ "time `time'. See {help mecompare##survival}."
+	exit
 	}
 if "`mecsstreg'`mecsmest'" != "" {
 	local mecsext " Predicted survival times extrapolate beyond the observed follow-up when spells are censored."
@@ -4118,9 +4138,129 @@ if "`mecsstreg'`mecsmest'" != "" {
 	di ""
 	di as text "NOTE: `mecsurv'.`mecsext' Jones and Metzger (2019) and " /*
 	*/ "Metzger and Jones (2022) recommend interpreting duration models through " /*
-	*/ "survival probabilities at chosen times, which {cmd:mecompare} does not " /*
-	*/ "compute. See {help mecompare##survival}."
+	*/ "survival probabilities at chosen times. For {cmd:streg} and {cmd:stcox} models, " /*
+	*/ "{opt time(#)} gives the probability that the event has happened by a chosen time, " /*
+	*/ "one minus the survival probability. See {help mecompare##survival}."
 	}
+end
+
+capture program drop _mec_timechk
+program define _mec_timechk
+*time(): refuses what it cannot be combined with; a Cox model needs it; mectst flags the stcox and streg models
+	version 16.0
+	gettoken time 0 : 0
+	gettoken pe 0 : 0
+	gettoken te 0 : 0
+	local te = lower("`te'")
+	if "`time'" != "" & (`"`pe'"' != "" | !inlist("`te'", "", "suest2")) {
+		di as err "{opt time()} sets the prediction, so it cannot be combined with {opt predict()}, " /*
+		*/ "{opt expression()} in {opt marginsopt()}, {opt twopart}, or {opt engine(gsem)}."
+		exit 198
+		}
+	tempname h
+	_estimates hold `h', copy restore nullok
+	local nst = 0
+	local cox = 0
+	local tst ""
+	local snm ""
+	local pnm ""
+	foreach m of local 0 {
+		capture qui est restore `m'
+		if _rc  continue
+		local nm "{bf:`m'}"
+		if substr("`m'", 1, 2) == "__"  local nm "The model in memory"
+		local c "`e(cmd)'"
+		if "`c'" == "mi estimate"  local c "`e(cmd_mi)'"
+		if ustrregexm(`"`e(cmdline_mi)'"', ":[ ]*(stcox|streg|mestreg)[ ,]")  local c = ustrregexs(1)
+		local c2 "`e(cmd2)'"
+		local st = inlist("stcox", "`c'", "`c2'") + 2*inlist("streg", "`c'", "`c2'")
+		if `st' == 1 & "`time'" == "" {
+			di as err "`nm' is a Cox model ({cmd:stcox}); give {opt time(#)}. The marginal effects " /*
+			*/ "are then changes in the probability that the event has happened by that time."
+			exit 198
+			}
+		if "`time'" == ""  continue
+		local tst "`tst' `=`st' > 0'"
+		if `st'  local ++nst
+		if `st' == 1  local cox = 1
+		if inlist("mestreg", "`c'", "`c2'") {
+			di as err "`nm' is a {cmd:mestreg} model. {opt time()} gives the probability of the event " /*
+			*/ "by a chosen time for {cmd:stcox} and {cmd:streg} models, not for {cmd:mestreg}."
+			exit 198
+			}
+		if inlist(substr("`c'", 1, 2), "xt", "me") | inlist(substr("`c2'", 1, 2), "xt", "me") | "`c'" == "mixed" {
+			di as err "`nm' is a multilevel or panel model; {opt time()} cannot be combined with those."
+			exit 198
+			}
+		if "`c'" == "ivregress" {
+			di as err "`nm' is an {cmd:ivregress} model; {opt time()} cannot be combined with {cmd:ivregress}."
+			exit 198
+			}
+		local sv = "`e(prefix)'" == "svy" | ustrregexm(`"`e(cmdline_mi)'"', ":[ ]*svy[ ,:]")
+		if `sv' & "`snm'" == ""  local snm "`nm'"
+		if !`sv' & "`e(wtype)'" != "" & "`pnm'" == ""  local pnm "`nm'"
+		}
+	if "`time'" == ""  exit
+	if `nst' == 0 {
+		di as err "{opt time()} gives the probability of the event by a chosen time for {cmd:stcox} " /*
+		*/ "and {cmd:streg} models, and none of the models is one."
+		exit 198
+		}
+	if `cox' & "`pnm'`snm'" != "" {
+		local nm = cond("`pnm'" != "", "`pnm'", "`snm'")
+		local why = cond("`pnm'" != "", "weighted", "a {cmd:svy} result")
+		di as err "`nm' is `why', and Cox models ({cmd:stcox}) cannot be combined with weights or {cmd:svy}."
+		exit 198
+		}
+	if "`pnm'" != "" {
+		di as err "`pnm' is weighted. With {opt time()}, fit weighted models with the {cmd:svy} prefix."
+		exit 198
+		}
+	c_local mectopt " time(`time')"
+	c_local mectst "`tst'"
+end
+
+capture program drop _mec_timepred
+program define _mec_timepred, eclass
+*time(): one model also goes through suest2; stcox and streg rows on pr, the other models on their margins default
+	version 16.0
+	gettoken time 0 : 0
+	gettoken n 0 : 0
+	gettoken q 0 : 0
+	gettoken cm 0 : 0
+	gettoken tst 0 : 0
+	gettoken m1 0 : 0
+	local names `"`0'"'
+	if `n' == 1 {
+		local names "`m1'"
+		if "`e(prefix)'" != "svy"  c_local mecvct "Robust"
+		if "`cm'" != "" {
+			di ""
+			di as text "suest2 model is: "
+			di as result "    suest2 `m1', nowarn time(`time')"
+			}
+		`q' suest2 `m1', nowarn time(`time')
+		}
+	local md `"`e(marginsdefault)'"'
+	local ps ""
+	local j = 0
+	foreach m of local names {
+		local ++j
+		local tok "predict(model(`m'))"
+		if `: word `j' of `tst'' {
+			local tok "predict(model(`m') pr)"
+			c_local mectl`j' "Pr(event by t=`time')"
+			}
+		else {
+			local r `"`md'"'
+			while `"`r'"' != "" {
+				gettoken t r : r, bind
+				if strpos(`"`t'"', "model(`m')") | strpos(`"`t'"', "model(`m' ")  local tok `"`t'"'
+				}
+			}
+		local ps `"`ps' `tok'"'
+		}
+	c_local predspec `"`ps'"'
 end
 
 capture program drop _mec_ownchk

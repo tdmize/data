@@ -1,4 +1,4 @@
-*! _mec_canonical v1.7.0 Trenton Mize 2026-08-27  | history: CHANGELOG-suest2.md (repo)
+*! _mec_canonical v1.8.0 Trenton Mize 2026-11-14  | history: CHANGELOG-suest2.md (repo)
 
 capture program drop _mec_canonical
 program define _mec_canonical, rclass
@@ -18,7 +18,7 @@ program define _mec_canonical, rclass
 	*	and r(ok), whether mecompare supports it.
 	version 16.0
 	syntax, CMD(string) [CMD2(string) MODel(string) ENGine(string) /*
-		*/ DISTrib(string) METHod(string) ESTimator(string)]
+		*/ DISTrib(string) METHod(string) ESTimator(string) COX]
 	local cmd  = lower(trim("`cmd'"))
 	local cmd2 = lower(trim("`cmd2'"))
 	local mod  = lower(trim("`model'"))
@@ -236,6 +236,11 @@ program define _mec_canonical, rclass
 		local ok = 1
 		local suest2only = 1
 		local spec = 1
+		}
+	*v1.8.0: stcox when the caller passes cox (mecompare, which then requires time()); ordinary stripe
+	if "`canon'" == "stcox" & "`cox'" != "" {
+		local ok = 1
+		local suest2only = 1
 		}
 
 	*v0.2.92: tranche H -- xtlogit re and xtprobit re. B2c refused them on a
