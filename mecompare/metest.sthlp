@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-11-11 Trenton D Mize -- matches metest v0.4.0}{...}
+{* 2026-11-15 Trenton D Mize -- matches metest v0.5.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -14,7 +14,7 @@ calculated by {help mecompare}{p_end}
 {cmd:metest} [{it:exp}] [{cmd:,} {it:options}]
 
 {p 4 12 2}
-{cmd:metest} {it:list}{cmd:,} {opt pwc:ompare} [{it:options}]
+{cmd:metest} {it:list}{cmd:,} {c -(}{opt pwc:ompare}{c |}{opt seq:uential}{c |}{opt ref:erence}{c )-} [{it:options}]
 
 {synoptset 20 tabbed}{...}
 {synopthdr}
@@ -26,6 +26,9 @@ calculated by {help mecompare}{p_end}
 
 {syntab:Pairwise comparisons}
 {synopt:{opt pwc:ompare}}compare the listed marginal effects pairwise{p_end}
+{synopt:{opt seq:uential}}compare each listed effect with the one before it{p_end}
+{synopt:{opt ref:erence}}compare each listed effect with the first{p_end}
+{synopt:{opt rev:erse}}reverse the direction of the comparisons{p_end}
 {synopt:{opt mcomp:are(method)}}adjust p-values for multiple comparisons{p_end}
 
 {syntab:Accumulating results}
@@ -33,7 +36,7 @@ calculated by {help mecompare}{p_end}
 {synopt:{opt clear}}clear the saved table first{p_end}
 
 {syntab:Display}
-{synopt:{opt rown:ames(string)}}label for the row; with {opt pwcompare}, one per effect{p_end}
+{synopt:{opt rown:ames(string)}}label for the row; with {it:list}, one per effect{p_end}
 {synopt:{opt dec:imals(#)}}decimal places; default is 3{p_end}
 {synopt:{opt wid:th(#)}}width of the statistics columns; default is 9{p_end}
 {synopt:{opt labw:idth(#)}}width of the label column; at most 32{p_end}
@@ -47,7 +50,7 @@ calculated by {help mecompare}{p_end}
 where {it:exp} refers to the marginal effects either by the {it:ME #} shown in
 the {cmd:mecompare} table or by their coefficient names, combined with
 {cmd:+}, {cmd:-}, {cmd:*}, {cmd:/}, parentheses, or {cmd:=}; and {it:list}
-lists the marginal effects to compare pairwise, by {it:ME #} ({cmd:1 2 3}),
+lists the marginal effects to compare, by {it:ME #} ({cmd:1 2 3}),
 as a range ({cmd:1/3}), or by name.
 
 {title:Description}
@@ -121,8 +124,22 @@ range, or by name: {cmd:metest 1 2 3, pwcompare} or
 {cmd:metest 1/3, pwcompare}. The rows are labeled {cmd:ME 2 vs ME 1} and so
 on, or from {opt rownames()}.{p_end}
 
+{p2col:{opt seq:uential}}compares each listed marginal effect with the one
+before it: {cmd:metest 1 2 3, sequential} reports {cmd:ME 2 vs ME 1} and
+{cmd:ME 3 vs ME 2}.{p_end}
+
+{p2col:{opt ref:erence}}compares each listed marginal effect with the first
+one listed: {cmd:metest 1 2 3, reference} reports {cmd:ME 2 vs ME 1} and
+{cmd:ME 3 vs ME 1}. List another effect first to make it the reference, e.g.,
+{cmd:metest 3 1 2, reference}.{p_end}
+
+{p2col:{opt rev:erse}}reverses the direction of the comparisons of
+{opt pwcompare}, {opt sequential}, or {opt reference}: each earlier effect
+minus the later one, e.g., {cmd:ME 1 vs ME 2}.{p_end}
+
 {p2col:{opt mcomp:are(method)}}adjusts the p-values (and confidence
-intervals, when shown) of the {opt pwcompare} rows for multiple comparisons;
+intervals, when shown) of the {opt pwcompare}, {opt sequential}, or
+{opt reference} rows for multiple comparisons;
 {it:method} is {opt bonferroni} or {opt sidak}.{p_end}
 
 {dlgtab:Accumulating results}
@@ -145,8 +162,9 @@ numbers -- and whatever every term has in common becomes that heading: the
 variable when they come from one variable ({cmd:married:m1 - m2}), otherwise
 the model ({cmd:m1:married - age}). When they share neither, the expression
 itself is used, e.g. {cmd:(1-2)-(4-5)}. A label longer than 32 characters
-(after any heading) is shortened to 32. With {opt pwcompare}, give one label
-per listed effect, as in {cmd:rownames("age 35" "age 40" "age 45")}; e.g., one
+(after any heading) is shortened to 32. With {opt pwcompare},
+{opt sequential}, or {opt reference}, give one label per listed effect, as in
+{cmd:rownames("age 35" "age 40" "age 45")}; e.g., one
 row will read {cmd:age 40 vs age 35}. Labels of up to 14 characters are shown in
 full, and longer ones are shortened so the row fits 32 characters.
 {opt label()} is a synonym.{p_end}
@@ -190,8 +208,8 @@ redisplays them without changing either.
 {cmd:r(se)}, {cmd:r(zvalue)}, {cmd:r(pvalue)}, {cmd:r(ll)}, and {cmd:r(ul)};
 after an equality test it returns {cmd:r(chi2)} (or {cmd:r(F)}), {cmd:r(df)},
 and {cmd:r(pvalue)}. {cmd:r(label)} holds the row label used and
-{cmd:r(expression)} the expression. After {opt pwcompare}, {cmd:r(table)}
-holds the rows of the comparisons.
+{cmd:r(expression)} the expression. After {opt pwcompare}, {opt sequential},
+or {opt reference}, {cmd:r(table)} holds the rows of the comparisons.
 
 {title:Examples}
 
@@ -252,6 +270,8 @@ across three ages:{p_end}
 {phang2}{stata mecompare i.married, models(m1) covariates(age=(35 40 45)): mecompare i.married, models(m1) covariates(age=(35 40 45))}{p_end}
 {phang2}{stata metest 1 2 3, pwcompare: metest 1 2 3, pwcompare}{p_end}
 {phang2}{stata metest 1/3, pwcompare rownames("age 35" "age 40" "age 45") mcompare(bonferroni): metest 1/3, pwcompare rownames("age 35" "age 40" "age 45") mcompare(bonferroni)}{p_end}
+{phang2}{stata metest 1 2 3, sequential: metest 1 2 3, sequential}{p_end}
+{phang2}{stata metest 2 1 3, reference: metest 2 1 3, reference}{p_end}
 
 {marker other}
 {title:Use after other commands}

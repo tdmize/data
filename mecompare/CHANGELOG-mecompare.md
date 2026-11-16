@@ -5,6 +5,31 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.12.1 -- 15nov2026, time(#) with weighted models
+
+`time()` no longer refuses models fit with weights but without `svy`; weighted `streg` models now
+go through suest2 1.2.2 like the other weighted models. On simulated data (gate 92), with a
+pweighted Weibull model alone and beside a pweighted logit, the rows equal each model alone, with
+`time(5)` and with the default prediction. A Cox model with weights or `svy` is still refused. The
+help's survival paragraph no longer says to fit weighted models with the `svy` prefix.
+
+## metest 0.5.0 -- 15nov2026, sequential, reference and reverse
+
+`metest 1 2 3, sequential` compares each listed estimate with the one before it (`ME 2 vs ME 1`,
+`ME 3 vs ME 2`), as `margins ar.` does; `metest 1 2 3, reference` compares each with the first
+one listed (`ME 2 vs ME 1`, `ME 3 vs ME 1`), as `margins r.` does. `reverse` turns the rows of
+`pwcompare`, `sequential` or `reference` around, earlier minus later (`ME 1 vs ME 2`), so
+`sequential reverse` is `margins a.`. Together they give the comparisons of marginaleffects'
+`hypotheses()`: pairwise, revpairwise, sequential, revsequential, reference and revreference.
+The list, `rownames()`, `mcompare()` (adjusting for the number of rows in the call), `add` and
+r(table) work as they do with `pwcompare`. Refused, r(198): more than one of `pwcompare`,
+`sequential` and `reference`, and `reverse` without one of them; `mcompare()` now requires one
+of the three. Owner's request and decisions (15nov2026). Gate 93 (`test_metest_sequential_gate93`): 139 / 0,
+including each comparison set against Stata's own `margins r.`, `a.`, `ar.` and `margins, pwcompare`.
+
+Help: the second syntax line, the `sequential`, `reference` and `reverse` entries, and two
+examples.
+
 ## v1.12.0 -- 14nov2026, time(#): effects on the probability of the event by a chosen time
 
 `time(#)` gives the marginal effects of `stcox` and `streg` models as changes in the

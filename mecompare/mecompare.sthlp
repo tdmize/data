@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-11-14 Trenton D Mize -- matches mecompare v1.12.0}{...}
+{* 2026-11-15 Trenton D Mize -- matches mecompare v1.12.1}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -749,7 +749,7 @@ model needs {opt time()}, and it must be fit with Breslow ties (the default),
 one record per subject, no delayed entry, and no weights, {cmd:svy},
 {cmd:strata()}, or {cmd:tvc()}. {opt time()} cannot be combined with
 {opt predict()}, {cmd:mestreg}, or multilevel, panel, or {cmd:ivregress}
-models; fit weighted models with the {cmd:svy} prefix.
+models.
 {p_end}
 
 {marker svy_mi}

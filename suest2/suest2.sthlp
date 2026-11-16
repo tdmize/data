@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  12nov2026}{...}
+{* *! version 1.2.2  15nov2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -215,7 +215,8 @@ subpopulation specification. Replicate-weight VCEs are not supported.
 {pstd}
 Pweighted systems support {cmd:regress}, {cmd:logit}/{cmd:logistic},
 {cmd:probit}, {cmd:poisson}, {cmd:nbreg}, {cmd:glm}, {cmd:ologit}, {cmd:oprobit},
-and {cmd:mlogit}. These families may be combined. Evaluated pweights must agree on
+{cmd:mlogit}, and {cmd:streg}, whose weight is set by {help stset}. These
+families may be combined. Evaluated pweights must agree on
 observations shared by constituent estimation samples; they may differ outside
 the overlap. Request system clustering with {cmd:cluster()} on {cmd:suest2}.
 
@@ -464,7 +465,7 @@ recipe extends to any supported panel or multilevel family, e.g.
 
 
 {marker companions}{...}
-{title:Companion Comamnds}
+{title:Companion Commands}
 
 {pstd} The {help mecompare} command is a companion command to {cmd:suest2} 
 that automates calculation of marginal effects within and across models. 

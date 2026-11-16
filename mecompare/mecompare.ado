@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.12.0 Trenton Mize 2026-11-14  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.12.1 Trenton Mize 2026-11-15  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -4210,10 +4210,6 @@ program define _mec_timechk
 		local nm = cond("`pnm'" != "", "`pnm'", "`snm'")
 		local why = cond("`pnm'" != "", "weighted", "a {cmd:svy} result")
 		di as err "`nm' is `why', and Cox models ({cmd:stcox}) cannot be combined with weights or {cmd:svy}."
-		exit 198
-		}
-	if "`pnm'" != "" {
-		di as err "`pnm' is weighted. With {opt time()}, fit weighted models with the {cmd:svy} prefix."
 		exit 198
 		}
 	c_local mectopt " time(`time')"

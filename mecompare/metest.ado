@@ -1,4 +1,4 @@
-*! metest v0.4.0 Trenton Mize 2026-11-11  | history: CHANGELOG-mecompare.md (repo)
+*! metest v0.5.0 Trenton Mize 2026-11-15  | history: CHANGELOG-mecompare.md (repo)
 * Tests and combines estimates by their number in the table, or by name.
 * A number is the n-th non-omitted column of e(b) -- the ME # after mecompare,
 * but well defined after any e-class command. Expressions without "=" go to
@@ -41,7 +41,7 @@ program define metest, rclass
 			STATS(string asis) STATistics(string asis) ALLstats ///
 			Details NOTABle ///
 			clear add save ///
-			ROWNames(string asis) label(string asis) PWCompare MCOMPare(string) pwrow ///
+			ROWNames(string asis) label(string asis) PWCompare SEQuential REFerence REVerse MCOMPare(string) pwrow ///
 			DECimals(integer 3) WIDth(integer 9) title(string) ///
 			LABWidth(integer 0) TWIDth(integer 0) Level(cilevel) ///
 			]
@@ -58,9 +58,10 @@ program define metest, rclass
 	if `labwidth' > 0     local twidth = `labwidth'
 
 	if `"`label'"' == ""  local label `"`rownames'"'		// synonyms
-*	one quoted label loses its quotes; a pwcompare list keeps them
+	local pwo = trim("`pwcompare' `sequential' `reference'")
+*	one quoted label loses its quotes; a list keeps them
 	local nlw : word count `label'
-	if `nlw' == 1 & "`pwcompare'" == ""  local label : word 1 of `label'
+	if `nlw' == 1 & "`pwo'" == ""  local label : word 1 of `label'
 	if "`save'" == "save"  local add "add"				// synonyms
 	if "`details'" == "details"  local quietly ""
 	else                         local quietly "quietly"
@@ -75,15 +76,23 @@ program define metest, rclass
 		}
 	if `labwidth' > 0     local twidth = `labwidth'
 
-*pwcompare and mcompare(): checked before anything runs
-	if `"`mcompare'"' != "" & "`pwcompare'" == "" {
-		display as error "{opt mcompare()} requires {opt pwcompare}."
+*pwcompare, sequential, reference, reverse and mcompare(): checked before anything runs
+	if `: word count `pwo'' > 1 {
+		display as error "Specify only one of {opt pwcompare}, {opt sequential}, or {opt reference}."
 		exit 198
 		}
-	if "`pwcompare'" != "" & trim(`"`expression'"') == "" {
-		display as error "{opt pwcompare} needs a list of the estimates to " /*
-		*/ "compare, e.g. {cmd:metest 1 2 3, pwcompare} or " /*
-		*/ "{cmd:metest 1/3, pwcompare}."
+	if "`reverse'" != "" & "`pwo'" == "" {
+		display as error "{opt reverse} requires {opt pwcompare}, {opt sequential}, or {opt reference}."
+		exit 198
+		}
+	if `"`mcompare'"' != "" & "`pwo'" == "" {
+		display as error "{opt mcompare()} requires {opt pwcompare}, {opt sequential}, or {opt reference}."
+		exit 198
+		}
+	if "`pwo'" != "" & trim(`"`expression'"') == "" {
+		display as error "{opt `pwo'} needs a list of the estimates to " /*
+		*/ "compare, e.g. {cmd:metest 1 2 3, `pwo'} or " /*
+		*/ "{cmd:metest 1/3, `pwo'}."
 		exit 198
 		}
 	local mcmeth ""
@@ -180,9 +189,9 @@ program define metest, rclass
 	local nme : word count `menames'
 
 *-----------------------------------------------------------------------------
-* pwcompare: each later estimate in the list minus each earlier one
+* pwcompare, sequential, reference: later minus earlier in the list; reverse flips them
 *-----------------------------------------------------------------------------
-	if "`pwcompare'" != "" {
+	if "`pwo'" != "" {
 		tempname pwT pwcv
 		local pwme = cond(`ismec', "ME ", "")
 		local pwn ""
@@ -204,8 +213,8 @@ program define metest, rclass
 				if `k' == 0 {
 					display as error "{bf:`u'} is neither a `whatnum' number " /*
 					*/ "nor a coefficient name in `whatsrc'. With " /*
-					*/ "{opt pwcompare}, list the estimates to compare, e.g. " /*
-					*/ "{cmd:metest 1 2 3, pwcompare} or {cmd:metest 1/3, pwcompare}."
+					*/ "{opt `pwo'}, list the estimates to compare, e.g. " /*
+					*/ "{cmd:metest 1 2 3, `pwo'} or {cmd:metest 1/3, `pwo'}."
 					exit 198
 					}
 				local dup : list posof "`k'" in pwn
@@ -218,7 +227,7 @@ program define metest, rclass
 			}
 		local pwk : word count `pwn'
 		if `pwk' < 2 {
-			display as error "{opt pwcompare} needs at least two estimates to compare."
+			display as error "{opt `pwo'} needs at least two estimates to compare."
 			exit 198
 			}
 		if `"`label'"' != "" {
@@ -226,11 +235,11 @@ program define metest, rclass
 			if `nlab' != `pwk' {
 				local lw = cond(`nlab' == 1, "label", "labels")
 				display as error "{opt rownames()} has `nlab' `lw' for " /*
-				*/ "`pwk' estimates; with {opt pwcompare} give one label per estimate."
+				*/ "`pwk' estimates; with {opt `pwo'} give one label per estimate."
 				exit 198
 				}
 			if strpos(`"`label'"', ":") > 0 {
-				display as error "With {opt pwcompare}, the labels in " /*
+				display as error "With {opt `pwo'}, the labels in " /*
 				*/ "{opt rownames()} cannot contain a colon."
 				exit 198
 				}
@@ -240,7 +249,7 @@ program define metest, rclass
 			if `"`label'"' == ""  local l`i' "`pwme'`n`i''"
 			else  local l`i' : word `i' of `label'
 			}
-		local pwm = `pwk'*(`pwk' - 1)/2
+		local pwm = cond("`pwo'" == "pwcompare", `pwk'*(`pwk' - 1)/2, `pwk' - 1)
 		local pwlv = `level'/100
 		if "`mcmeth'" == "bonferroni"  scalar `pwcv' = invnormal(1 - (1 - `pwlv')/(2*`pwm'))
 		if "`mcmeth'" == "sidak"  scalar `pwcv' = invnormal(1 - (1 - `pwlv'^(1/`pwm'))/2)
@@ -249,8 +258,12 @@ program define metest, rclass
 		local pwadd "`add'"
 		forvalues i = 1/`=`pwk' - 1' {
 			forvalues j = `=`i' + 1'/`pwk' {
-				local pa `"`l`j''"'
-				local pb `"`l`i''"'
+				if "`pwo'" == "sequential" & `j' > `i' + 1  continue
+				if "`pwo'" == "reference" & `i' > 1  continue
+				local jj = cond("`reverse'" == "", `j', `i')
+				local ii = cond("`reverse'" == "", `i', `j')
+				local pa `"`l`jj''"'
+				local pb `"`l`ii''"'
 				local na = ustrlen(`"`pa'"')
 				local nb = ustrlen(`"`pb'"')
 *				a row label holds 32 characters: 14 a side around " vs ", a shorter label leaving its room to the other
@@ -260,7 +273,7 @@ program define metest, rclass
 					local pa = trim(usubstr(`"`pa'"', 1, `wa'))
 					local pb = trim(usubstr(`"`pb'"', 1, `wb'))
 					}
-				metest `n`j'' - `n`i'', `pwadd' notable pwrow /*
+				metest `n`jj'' - `n`ii'', `pwadd' notable pwrow /*
 				*/ rownames("`pa' vs `pb'") level(`level') `pwst' `allstats' `details'
 				local pwadd "add"
 				if "`mcmeth'" != "" {

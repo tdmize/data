@@ -1,4 +1,4 @@
-*! version 1.2.1  14nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.2.2  15nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -918,7 +918,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.2.1"
+    ereturn local suest2_version "1.2.2"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'
@@ -1854,19 +1854,23 @@ program define suest2_pwestimate, eclass sortpreserve
             di as err "all models in a pweighted suest2 system must explicitly use {bf:[pweight=...]}"
             exit 322
         }
-        if !inlist("`e(cmd)'", "regress", "logit", "logistic", "probit", "poisson", "nbreg", "ologit", "oprobit", "mlogit") & "`e(cmd)'" != "glm" {
+        local isst = "`e(cmd2)'" == "streg"
+        if !inlist("`e(cmd)'", "regress", "logit", "logistic", "probit", "poisson", "nbreg", "ologit", "oprobit", "mlogit") & "`e(cmd)'" != "glm" & !`isst' {
             di as err "pweight support is not yet implemented for {bf:`e(cmd)'} results"
             di as err "the current pweight stage supports regress, binary logit/probit, poisson, nbreg, glm,"
-            di as err "ologit, oprobit, and mlogit"
+            di as err "ologit, oprobit, mlogit, and streg"
             di as err "other model families remain later stages"
             exit 321
         }
-        if "`e(clustvar)'" != "" {
+        // streg clusters on the stset id() variable by itself
+        local stid : char _dta[st_id]
+        local stown = `isst' & "`stid'" != "" & "`e(clustvar)'" == "`stid'"
+        if "`e(clustvar)'" != "" & !`stown' {
             di as err "model {bf:`name'} was estimated with clustered standard errors"
             di as err "re-estimate without {bf:vce(cluster ...)} and specify {bf:cluster()} with {bf:suest2}"
             exit 322
         }
-        if !inlist(`"`e(vce)'"', "", "robust", "ols", "standard") {
+        if !inlist(`"`e(vce)'"', "", "robust", "ols", "standard") & !`stown' {
             di as err "model {bf:`name'} was estimated with unsupported VCE {bf:`e(vce)'}"
             exit 322
         }
@@ -1898,6 +1902,11 @@ program define suest2_pwestimate, eclass sortpreserve
     local clones
     local rc 0
     local errstage
+    local anyst 0
+    local stclus
+    local stid : char _dta[st_id]
+    local stwt : char _dta[st_wt]
+    local stwv : char _dta[st_wv]
 
     // Reconstruct each model's exact stored sample and evaluated pweights.
     forvalues i = 1/`nmodels' {
@@ -1907,6 +1916,8 @@ program define suest2_pwestimate, eclass sortpreserve
         local cmd`i' `"`e(cmd)'"'
         local cmdline`i' `"`e(cmdline)'"'
         local wexp`i' `"`e(wexp)'"'
+        local isst`i' = "`e(cmd2)'" == "streg"
+        if `isst`i''  local anyst 1
         tempname bp`i'
         matrix `bp`i'' = e(b)
 
@@ -1951,6 +1962,14 @@ program define suest2_pwestimate, eclass sortpreserve
         quietly replace `pwvar' = `weight' if `sample' & missing(`pwvar')
         quietly replace `owner' = `i' if `sample' & missing(`owner')
         quietly replace `union' = 1 if `sample'
+
+        // several records per subject: the system is clustered on the stset id() variable
+        if `isst`i'' & "`stid'" != "" & "`stclus'" == "" {
+            tempvar nrec
+            quietly bysort `stid' `sample': generate long `nrec' = _N
+            quietly count if `sample' & `nrec' > 1
+            if r(N)  local stclus `stid'
+        }
     }
 
     if `rc' {
@@ -1972,8 +1991,9 @@ program define suest2_pwestimate, eclass sortpreserve
             "(?i)\[[ ]*(pw(e(i(g(h(t)?)?)?)?)?)[ ]*=[^]]+\]", "[iweight=`pwvar']")
         local iwcmd = ustrregexra(`"`iwcmd'"', ///
             "(?i)vce[ ]*\([ ]*robust[ ]*\)", "")
+        if `isst`i''  local iwcmd = ustrregexra(`"`iwcmd'"', "(?i)vce[ ]*\([^)]*\)", "")
 
-        if `"`iwcmd'"' == `"`original'"' {
+        if `"`iwcmd'"' == `"`original'"' & !`isst`i'' {
             local rc 198
             di as err "suest2 could not locate the pweight specification in the stored command for model {bf:`name'}"
             di as err "stored command: `original'"
@@ -1988,6 +2008,14 @@ program define suest2_pwestimate, eclass sortpreserve
 
         quietly replace `pwvar' = .
         quietly replace `pwvar' = `fullpw' if `sample`i''
+        if `isst`i'' {
+            capture quietly streset [iweight=`pwvar']
+            if _rc {
+                local rc = _rc
+                di as err "unable to set iweights with {bf:streset} for model {bf:`name'}"
+                continue, break
+            }
+        }
         capture quietly `iwcmd'
         if _rc {
             local rc = _rc
@@ -2022,6 +2050,14 @@ program define suest2_pwestimate, eclass sortpreserve
         local clones `"`clones' `clone`i''"'
     }
 
+    if `anyst' {
+        capture quietly streset [`stwt'=`stwv']
+        if _rc & !`rc' {
+            local rc = _rc
+            di as err "unable to restore the stset weight [`stwt'=`stwv']"
+        }
+    }
+
     if `rc' {
         foreach clone of local clones {
             capture quietly estimates drop `clone'
@@ -2033,6 +2069,7 @@ program define suest2_pwestimate, eclass sortpreserve
     // Official suest and later margins see the coherent union weight.
     quietly replace `pwvar' = `fullpw'
 
+    if "`stclus'" != "" & `"`cluster'`vce'"' == ""  local cluster cluster(`stclus')
     local suestopts `"`cluster' `vce' `minus' `regressml' `robust' `level' `eform' `options'"'
     if trim(`"`suestopts'"') == "" capture quietly suest `clones'
     else capture quietly suest `clones', `suestopts'

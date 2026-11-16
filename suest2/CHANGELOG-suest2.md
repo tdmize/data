@@ -957,3 +957,32 @@ Help: the Cox models paragraph adds "including mi estimate results".
 
 The 36-suite regression passed 36 / 36 on Stata 19.5 (runner v2.9), and so did every gate of the
 rev84 battery (v2.30, 84 gates; gate 68 as v1_5, 506 / 0). Distribution-Date 20261115.
+
+## suest2.ado 1.2.2 -- 15nov2026
+
+**Probability-weighted `streg`.** The pweight route refused `streg`, r(321): it refits each model
+with iweights by rewriting the weight in the model's command, and a `streg` model takes its weight
+from `stset`. Each `streg` model is now refit with `streset [iweight=]` on its own sample, `stset`
+is put back with `streset [pweight=]`, and the refits are combined by official `suest`, as for the
+other families. A pweighted `streg` after `stset, id()` clusters on the id variable by itself; that
+clustering is accepted, and with several records per subject the system is clustered on the id
+variable, so each `streg` model keeps its own standard errors. Clustering on another variable is
+still refused, as is a Cox model with weights.
+
+Gate 92 (`test_suest2_pwstreg_gate92`): for exponential and Weibull models (both metrics) and
+Gompertz, lognormal, loglogistic and generalized gamma models, each with a pweighted logit,
+suest2's coefficients equal each model's own, the `streg` standard errors its own pweighted ones
+(within 4e-15 relative), and the whole covariance official `suest` of the same models fit with
+`svy:` and `svyset _n [pw=w]` (exactly); `stset` is unchanged afterwards. With `time(5)`, the
+effects of a Weibull, a lognormal and a logit model and their standard errors equal each model
+alone (within 1e-16, and 3e-11 relative). A model fit on a subsample keeps its own standard errors
+times the small-sample factor of the combined sample, sqrt((N/(N-1))/(n/(n-1))), as official
+`suest` gives for every family. With `stset, id()` and several records per subject, the system is
+clustered on the id variable and each model keeps its own standard errors. Rounds: 89 / 4 (v1.0;
+the four failures were the gate's own), 28 / 0 (v1.1). Probe: `probe_pwstreg_v1_0`, 120 / 0.
+
+Help: `streg` among the pweight families; the "Companion Commands" heading. The banner and
+`e(suest2_version)` move to 1.2.2.
+
+The 36-suite regression passed 36 / 36 on Stata 19.5 (runner v2.9), and so did every gate of the
+rev85 battery (v2.32, 86 gates; gate 68 as v1_5, 506 / 0). Distribution-Date 20261116.
