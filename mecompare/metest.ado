@@ -1,4 +1,4 @@
-*! metest v0.5.0 Trenton Mize 2026-11-15  | history: CHANGELOG-mecompare.md (repo)
+*! metest v0.5.1 Trenton Mize 2026-11-16  | history: CHANGELOG-mecompare.md (repo)
 * Tests and combines estimates by their number in the table, or by name.
 * A number is the n-th non-omitted column of e(b) -- the ME # after mecompare,
 * but well defined after any e-class command. Expressions without "=" go to
@@ -193,7 +193,6 @@ program define metest, rclass
 *-----------------------------------------------------------------------------
 	if "`pwo'" != "" {
 		tempname pwT pwcv
-		local pwme = cond(`ismec', "ME ", "")
 		local pwn ""
 		foreach t of local exprlist {
 			if regexm(`"`t'"', "^[0-9]+/[0-9]+$") {
@@ -246,8 +245,7 @@ program define metest, rclass
 			}
 		forvalues i = 1/`pwk' {
 			local n`i' : word `i' of `pwn'
-			if `"`label'"' == ""  local l`i' "`pwme'`n`i''"
-			else  local l`i' : word `i' of `label'
+			if `"`label'"' != ""  local l`i' : word `i' of `label'
 			}
 		local pwm = cond("`pwo'" == "pwcompare", `pwk'*(`pwk' - 1)/2, `pwk' - 1)
 		local pwlv = `level'/100
@@ -262,19 +260,24 @@ program define metest, rclass
 				if "`pwo'" == "reference" & `i' > 1  continue
 				local jj = cond("`reverse'" == "", `j', `i')
 				local ii = cond("`reverse'" == "", `i', `j')
-				local pa `"`l`jj''"'
-				local pb `"`l`ii''"'
-				local na = ustrlen(`"`pa'"')
-				local nb = ustrlen(`"`pb'"')
-*				a row label holds 32 characters: 14 a side around " vs ", a shorter label leaving its room to the other
-				if `na' + `nb' > 28 {
-					local wa = max(14, 28 - `nb')
-					local wb = 28 - min(`na', `wa')
-					local pa = trim(usubstr(`"`pa'"', 1, `wa'))
-					local pb = trim(usubstr(`"`pb'"', 1, `wb'))
+*				without rownames() the row is labeled as metest a - b would be, with vs for the minus
+				local pwlab ""
+				if `"`label'"' != "" {
+					local pa `"`l`jj''"'
+					local pb `"`l`ii''"'
+					local na = ustrlen(`"`pa'"')
+					local nb = ustrlen(`"`pb'"')
+*					a row label holds 32 characters: 14 a side around " vs ", a shorter label leaving its room to the other
+					if `na' + `nb' > 28 {
+						local wa = max(14, 28 - `nb')
+						local wb = 28 - min(`na', `wa')
+						local pa = trim(usubstr(`"`pa'"', 1, `wa'))
+						local pb = trim(usubstr(`"`pb'"', 1, `wb'))
+						}
+					local pwlab `"rownames("`pa' vs `pb'")"'
 					}
-				metest `n`jj'' - `n`ii'', `pwadd' notable pwrow /*
-				*/ rownames("`pa' vs `pb'") level(`level') `pwst' `allstats' `details'
+				metest `n`jj'' - `n`ii'', `pwadd' notable pwrow `pwlab' /*
+				*/ level(`level') `pwst' `allstats' `details'
 				local pwadd "add"
 				if "`mcmeth'" != "" {
 					local r = rowsof(`matrix')
@@ -328,6 +331,8 @@ program define metest, rclass
 	local eqlist ""			// equation part of each term, to compact the label
 	local colist ""			// coefficient part of each term
 	local ncolon = 0		// terms that carry an equation
+	local fvlist ""			// variable of each factor-level term (2.race -> race)
+	local nfv = 0			// terms that are factor levels
 
 	local nfn = 0			// function names seen
 	local ntok : word count `lc'
@@ -418,6 +423,10 @@ program define metest, rclass
 				}
 			local eqlist `"`eqlist' `eqp'"'
 			local colist `"`colist' `cop'"'
+			if strpos("`cop'",".") > 0 {
+				local fvlist `"`fvlist' `=substr("`cop'",strpos("`cop'",".")+1,.)'"'
+				local ++nfv
+				}
 			}
 		}
 
@@ -444,6 +453,15 @@ program define metest, rclass
 		local head ""
 		if `sameeq'       local head `"`eq1'"'
 		else if `sameco'  local head `"`co1'"'
+*		Levels of one factor variable: named by level, the variable heading the row unless an equation does
+		local samefv = (`nfv' == `neq' & `neq' > 0 & `sameco' == 0 & (`sameeq' | `ncolon' == 0))
+		local fv1 : word 1 of `fvlist'
+		foreach f of local fvlist {
+			if "`f'" != "`fv1'"  local samefv = 0
+			}
+		capture confirm name `fv1'
+		if _rc  local samefv = 0
+		if `samefv' & !`sameeq'  local head `"`fv1'"'
 
 *		Build the label at abbreviation level `k' and shorten the NAMES until
 *		it fits, so the shape of the test always survives.
@@ -461,6 +479,7 @@ program define metest, rclass
 				if inlist(`"`t'"',"(",")",",") {
 					local body `"`body'`t'"'
 					}
+				else if `"`t'"' == "-" & "`pwrow'" != ""  local body `"`body' vs "'
 				else if inlist(`"`t'"',"+","-","*","/","=") {
 					local body `"`body' `t' "'
 					}
@@ -473,6 +492,7 @@ program define metest, rclass
 					if `sameeq'       local nm = subinstr(`"`nm'"',"`eq1':","",1)
 					else if `sameco'  local nm = subinstr(`"`nm'"',":`co1'","",1)
 					else              local nm = subinstr(`"`nm'"',":","_",.)
+					if `samefv'       local nm = regexr(subinstr(`"`nm'"',".`fv1'","",1),"bn$","")
 					if `k' > 0        local nm = abbrev(`"`nm'"',`k')
 					local body `"`body'`nm'"'
 					}

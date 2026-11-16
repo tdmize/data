@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-11-15 Trenton D Mize -- matches metest v0.5.0}{...}
+{* 2026-11-16 Trenton D Mize -- matches metest v0.5.1}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -121,21 +121,22 @@ synonym for the option itself.{p_end}
 later effect in the list minus each earlier one, in the order
 {help margins:margins, pwcompare} uses. List the effects by {it:ME #}, as a
 range, or by name: {cmd:metest 1 2 3, pwcompare} or
-{cmd:metest 1/3, pwcompare}. The rows are labeled {cmd:ME 2 vs ME 1} and so
-on, or from {opt rownames()}.{p_end}
+{cmd:metest 1/3, pwcompare}. The rows are labeled from the names of the
+effects, as {cmd:metest 2 - 1} would label them, with {cmd:vs} for the minus
+(e.g., {cmd:m2 vs m1}), or from {opt rownames()}.{p_end}
 
 {p2col:{opt seq:uential}}compares each listed marginal effect with the one
-before it: {cmd:metest 1 2 3, sequential} reports {cmd:ME 2 vs ME 1} and
-{cmd:ME 3 vs ME 2}.{p_end}
+before it: {cmd:metest 1 2 3, sequential} reports ME 2 minus ME 1 and
+ME 3 minus ME 2.{p_end}
 
 {p2col:{opt ref:erence}}compares each listed marginal effect with the first
-one listed: {cmd:metest 1 2 3, reference} reports {cmd:ME 2 vs ME 1} and
-{cmd:ME 3 vs ME 1}. List another effect first to make it the reference, e.g.,
+one listed: {cmd:metest 1 2 3, reference} reports ME 2 minus ME 1 and
+ME 3 minus ME 1. List another effect first to make it the reference, e.g.,
 {cmd:metest 3 1 2, reference}.{p_end}
 
 {p2col:{opt rev:erse}}reverses the direction of the comparisons of
 {opt pwcompare}, {opt sequential}, or {opt reference}: each earlier effect
-minus the later one, e.g., {cmd:ME 1 vs ME 2}.{p_end}
+minus the later one, e.g., ME 1 minus ME 2.{p_end}
 
 {p2col:{opt mcomp:are(method)}}adjusts the p-values (and confidence
 intervals, when shown) of the {opt pwcompare}, {opt sequential}, or
@@ -281,7 +282,8 @@ Nothing in {cmd:metest} is specific to {cmd:mecompare}. After any e-class
 command, a bare number refers to the {it:n}th non-omitted coefficient of
 {cmd:e(b)}, in the order {cmd:matrix list e(b)} reports them, and coefficient
 names work as usual. Row labels fall back to the coefficient names themselves,
-abbreviated to fit.
+abbreviated to fit; the levels of one factor variable are labeled by their
+levels, with the variable as the heading.
 
 {pstd}
 This makes {cmd:metest} usable wherever {help mlincom} is, with the addition of

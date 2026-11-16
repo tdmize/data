@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-11-15 Trenton D Mize -- matches mecompare v1.12.1}{...}
+{* 2026-11-16 Trenton D Mize -- matches mecompare v1.12.1}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -1186,11 +1186,7 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 {pstd}{it:Use metest to calculate the cross-model tests. Here, whether the effect diminishes in each subsequent model.}
 {p_end}
 
-{phang} {stata "metest 1 - 2":metest 1 - 2} {p_end}
-
-{phang} {stata "metest 2 - 3, add":metest 2 - 3, add} {p_end}
-
-{phang} {stata "metest 3 - 4, add":metest 3 - 4, add} {p_end}
+{phang} {stata "metest 1/4, sequential reverse":metest 1/4, sequential reverse} {p_end}
 
 {pstd}{it:Two two-part models: whether the outcome is positive, then its amount where it is positive}
 {p_end}

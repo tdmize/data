@@ -5,6 +5,20 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## metest 0.5.1 -- 16nov2026, list comparisons labeled by name
+
+Without `rownames()`, the rows of `pwcompare`, `sequential` and `reference` are labeled as
+`metest a - b` labels its row, with `vs` for the minus: after `mecompare college, models(m1 m2 m3
+m4)`, `metest 1/4, sequential reverse` reads `college` / `m1 vs m2`, `m2 vs m3`, `m3 vs m4` (was
+`ME 1 vs ME 2`, ...); after `regress`, `ttl_exp vs age` (was `2 vs 1`). Levels of one factor
+variable are named by level, with the variable heading the row, in expressions and list rows
+alike: after `margins agec, post`, `metest 2 - 1` reads `agec` / `2 - 1` (was `2_agec -
+1bn_agec`). Owner's request (16nov2026). Gate 94 (`test_metest_labels_gate94`): 262 / 0.
+
+Help: the `pwcompare`, `sequential`, `reference` and `reverse` entries, and one sentence of "Use
+after other commands". mecompare's help: the four-model example's three metest lines are now
+`metest 1/4, sequential reverse`.
+
 ## v1.12.1 -- 15nov2026, time(#) with weighted models
 
 `time()` no longer refuses models fit with weights but without `svy`; weighted `streg` models now
