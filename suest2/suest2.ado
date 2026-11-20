@@ -1,4 +1,4 @@
-*! version 1.2.2  15nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 1.4.0  19nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2, sortpreserve eclass
     version 16
     *Stata 16 or later, including the version the caller sets
@@ -46,6 +46,11 @@ program define suest2, sortpreserve eclass
     quietly suest2_coxscan `0'
     local s2coxnames `"`r(names)'"'
     local s2coxall `"`r(all)'"'
+    local s2coxv ""
+    forvalues s2j = 1/`r(nv)' {
+        tempvar s2cxv
+        local s2coxv `s2coxv' `s2cxv'
+    }
     if `"`s2coxnames'"' != "" & missing(`s2time') {
         local s2c1 : word 1 of `s2coxnames'
         di as err "model {bf:`s2c1'} is a Cox model; give the time at which to evaluate the probability of the event with {bf:time(#)}"
@@ -62,6 +67,17 @@ program define suest2, sortpreserve eclass
         }
         suest2_miestimate `0'
         if !missing(`s2time')  ereturn scalar suest2_time = `s2time'
+        exit
+    }
+
+    // Replicate-weight survey models: suest2 of linearized stand-ins, covariance replicated by svy
+    quietly suest2_svyrepscan `0'
+    if r(has) {
+        if `"`s2coxnames'"' != "" {
+            di as err "Cox models (stcox) cannot be combined with survey or weighted models"
+            exit 322
+        }
+        suest2_svyrepestimate `0'
         exit
     }
 
@@ -105,9 +121,26 @@ program define suest2, sortpreserve eclass
         }
     }
 
+    // Beside multilevel models, xtreg, re or ivregress, each Cox model goes to the route as its working estimate
+    local s2cox ""
     if `"`s2coxnames'"' != "" & "`route'" != "" {
-        di as err "Cox models (stcox) can be combined only with single-level models such as {cmd:logit} or {cmd:streg}, not with panel or multilevel models"
-        exit 322
+        if !inlist("`route'", "mehetero", "xtre", "ivregress") | `svyivregress_path' {
+            di as err "Cox models (stcox) cannot be combined with the panel or survey models in this system"
+            exit 322
+        }
+        foreach s2cn of local s2coxnames {
+            quietly estimates restore `s2cn'
+            if "`e(vce)'" != "oim" {
+                di as err "store conventional (non-robust) estimates for Cox model `s2cn'; suest2 supplies the robust or clustered VCE"
+                exit 322
+            }
+        }
+        local s2cm = strpos(`"`0'"', ",")
+        local s2ro ""
+        if `s2cm'  local s2ro = substr(`"`0'"', `s2cm', .)
+        suest2_coxwork, names(`s2coxall') cox(`s2coxnames') time(`s2time') vars(`s2coxv')
+        local s2cox `"`r(pairs)'"'
+        local s2rargs `"`r(names)'`s2ro'"'
     }
 
     local survey_path 0
@@ -119,7 +152,13 @@ program define suest2, sortpreserve eclass
     if "`route'" != "" {
         if "`route'" == "ivregress" & `svyivregress_path' ///
             suest2_ivregress_svyestimate `0'
-        else suest2_`route'estimate `0'
+        else if `"`s2cox'"' == ""  suest2_`route'estimate `0'
+        else {
+            capture noisily suest2_`route'estimate `s2rargs'
+            local s2rc = _rc
+            suest2_coxfinish `s2rc' `s2cox'
+            if `s2rc'  exit `s2rc'
+        }
         // Two bridges post display options under short historical e() names.
         local dispname `route'
         if "`route'" == "xtnbregre"             local dispname xnbr
@@ -175,25 +214,9 @@ program define suest2, sortpreserve eclass
                     di as err "Cox models (stcox) cannot be combined with clustered standard errors"
                     exit 198
                 }
-                local s2names `"`s2coxall'"'
-                foreach s2cn of local s2coxnames {
-                    quietly estimates restore `s2cn'
-                    local s2cv ""
-                    forvalues s2j = 1/`=colsof(e(b)) + 1' {
-                        tempvar s2cxv
-                        quietly generate double `s2cxv' = .
-                        local s2cv `s2cv' `s2cxv'
-                    }
-                    local s2sub = substr(strtoname("`s2cn'__t"), 1, 32)
-                    capture noisily suest2_coxprep `s2cn', time(`s2time') vars(`s2cv') sub(`s2sub')
-                    if _rc {
-                        local s2crc = _rc
-                        if `"`s2cox'"' != ""  suest2_coxfinish 1 `s2cox'
-                        exit `s2crc'
-                    }
-                    local s2cox `"`s2cox' `s2cn' `s2sub'"'
-                    local s2names : subinstr local s2names "`s2cn'" "`s2sub'", word
-                }
+                suest2_coxwork, names(`s2coxall') cox(`s2coxnames') time(`s2time') vars(`s2coxv')
+                local s2cox `"`r(pairs)'"'
+                local s2names `"`r(names)'"'
             }
 
             quietly suest2_vcescan `s2names'
@@ -722,7 +745,7 @@ program define suest2, sortpreserve eclass
         if !`systempred`i'' local allsystem 0
 
         // Official suest appends one lnvar parameter to non-svy regress/anova.
-        if inlist("`e(cmd)'", "regress", "anova") & "`e(prefix)'" != "svy" & !`mehetero_path' {
+        if inlist("`e(cmd)'", "regress", "anova") & "`e(prefix)'" != "svy" & !`mehetero_path' & !`ivregress_path' {
             local kblock`i' = `kblock`i'' + 1
         }
 
@@ -918,7 +941,7 @@ program define suest2, sortpreserve eclass
     * only thing holding them together and a comment is not a mechanism.
     * Enforced now in two places that can fail: stata_preflight.py E10 at
     * build time, gate 32 v1_1 PART 0 at run time.
-    ereturn local suest2_version "1.2.2"
+    ereturn local suest2_version "1.4.0"
     ereturn scalar suest2_svy = (`survey_path' != 0)
     ereturn scalar suest2_ivregress = `ivregress_path'
     ereturn scalar suest2_xtlogit_fe = `allxtlogitfe'
@@ -1817,6 +1840,236 @@ program define suest2_svycheck, rclass
     return local subpop `"`survey_subpop'"'
 end
 
+// The subpopulation indicator of a svy subpop() specification ([varname] [if]): 1 inside, 0 outside
+program define suest2_svysubvar
+    version 16
+    gettoken v 0 : 0
+    syntax [varname(numeric default=none)] [if]
+    marksample s, novarlist
+    if "`varlist'"!="" quietly replace `s'=0 if `varlist'==0 | missing(`varlist')
+    quietly generate byte `v'=`s'
+end
+
+// ============================================================================
+// Replicate-weight survey route (svy brr, jackknife, bootstrap, sdr)
+// ============================================================================
+
+program define suest2_svyrepscan, rclass
+    version 16
+    syntax [anything] [, *]
+    est_expand `"`anything'"', min(1) default(.)
+    local names `"`r(names)'"'
+    local has 0
+    foreach name of local names {
+        if "`name'" == "." continue
+        capture quietly estimates restore `name'
+        if _rc continue
+        if "`e(prefix)'" == "svy" & inlist("`e(vce)'", "brr", "jackknife", "bootstrap", "sdr")  local has 1
+    }
+    return scalar has = `has'
+end
+
+program define suest2_svyrepestimate, eclass
+    version 16
+    syntax [anything] [, CLuster(passthru) VCE(passthru) Robust Level(passthru) EForm(passthru) *]
+    if `"`cluster'`vce'`robust'"' != "" {
+        di as err "do not specify {bf:cluster()}, {bf:vce()} or {bf:robust} with survey results"
+        di as err "the replication method and replicate weights are set by {bf:svyset} and the stored {bf:svy:} estimates"
+        exit 198
+    }
+    est_expand `"`anything'"', min(1) default(.)
+    local names `"`r(names)'"'
+    local names : list uniq names
+    if `: list posof "." in names' {
+        di as err "store each model with {bf:estimates store} before running {bf:suest2}"
+        exit 198
+    }
+    local n : word count `names'
+    local sopt = strtrim(`"`level' `eform' `options'"')
+    if `"`sopt'"' != ""  local sopt `", `sopt'"'
+    local dopt = strtrim(`"`level' `eform'"')
+    if `"`dopt'"' != ""  local dopt `", `dopt'"'
+    tempname b bsys brep V hs
+    tempvar one
+
+    // Each model: its survey settings, its command (if/in become its sample marker), its coefficients
+    forvalues i = 1/`n' {
+        local name : word `i' of `names'
+        quietly estimates restore `name'
+        if "`e(prefix)'" != "svy" {
+            di as err "model {bf:`name'} was not fit with the {bf:svy:} prefix"
+            di as err "when one model uses replicate weights, every model must be fit with {bf:svy:} and the same replication method"
+            exit 322
+        }
+        local set `"`e(vce)' `e(mse)' `e(fay)' `e(bsn)' `e(brrweight)'`e(jkrweight)'`e(sdrweight)'`e(bsrweight)' | `e(subpop)'"'
+        if `i' == 1  local set1 `"`set'"'
+        else if `"`set'"' != `"`set1'"' {
+            di as err "models {bf:`: word 1 of `names''} and {bf:`name'} were fit with different survey settings"
+            di as err "{bf:suest2} combines replicate-weight survey models when every model uses the same replication method, replicate weights, options and subpopulation"
+            exit 322
+        }
+        local cl `"`e(cmdline)'"'
+        capture _on_colon_parse `cl'
+        local rc = _rc
+        local stand`i' `"`s(after)'"'
+        local pfx`i' = strtrim(`"`s(before)'"')
+        if `rc' | substr(`"`pfx`i''"', 1, 3) != "svy" | `"`stand`i''"' == "" {
+            di as err "the {bf:svy:} command of model {bf:`name'} cannot be read from its e(cmdline)"
+            exit 498
+        }
+        suest2_svyrepcmd `stand`i''
+        local cmd`i' `"`r(cmd)'"'
+        local opt`i' `"`r(opts)'"'
+        tempvar smk`i'
+        quietly generate byte `smk`i'' = e(sample)
+        local k`i' = colsof(e(b))
+        matrix `b' = nullmat(`b'), e(b)
+    }
+    local sp
+    if `"`e(subpop)'"' != ""  local sp `", subpop(`e(subpop)')"'
+    // svy's saving() would overwrite the user's file with these replicates
+    local pfx = ustrregexra(ustrregexra(`"`pfx1'"', "saving\([^)]*\)", ""), ", *$", "")
+
+    // The user's models are held and svyset is saved; under the survey weight alone, linearized stand-ins
+    // (same command, sample and subpopulation) take the models' names while suest2 combines them
+    forvalues i = 1/`n' {
+        quietly estimates restore `: word `i' of `names''
+        tempname o`i'
+        _estimates hold `o`i''
+    }
+    quietly svyset
+    local sv0 `"`r(settings)'"'
+    local wt
+    local we = ustrregexra(`"`r(wexp)'"', "^ *= *", "")
+    if "`r(wtype)'" != ""  local wt `"[`r(wtype)' = `we']"'
+    local post
+    if "`r(poststrata)'" != ""  local post ", poststrata(`r(poststrata)') postweight(`r(postweight)')"
+    local ch : char _dta[]
+    local nch 0
+    foreach c of local ch {
+        if substr("`c'", 1, 4) == "_svy" {
+            local ++nch
+            local chn`nch' `c'
+            local chv`nch' : char _dta[`c']
+        }
+    }
+    capture quietly svyset _n `wt'`post'
+    local rc = _rc
+    forvalues i = 1/`n' {
+        if `rc'  continue, break
+        local name : word `i' of `names'
+        local o `"`opt`i''"'
+        if `"`o'"' != ""  local o `", `o'"'
+        capture quietly svy linearized`sp': `cmd`i'' if `smk`i'' `o'
+        local rc = _rc
+        if `rc'  di as err "model {bf:`name'} could not be refit for {bf:suest2}: svy linearized`sp': `cmd`i'' `o'"
+        else  quietly estimates store `name'
+    }
+    if !`rc' {
+        capture quietly suest2 `names'`sopt'
+        local rc = _rc
+        if `rc'  capture noisily suest2 `names'`sopt'
+    }
+    if !`rc' {
+        matrix `bsys' = e(b)
+        _estimates hold `hs'
+    }
+    // svyset and the user's models back
+    local ch : char _dta[]
+    foreach c of local ch {
+        if substr("`c'", 1, 4) == "_svy"  char _dta[`c']
+    }
+    forvalues j = 1/`nch' {
+        char _dta[`chn`j''] `"`chv`j''"'
+    }
+    quietly svyset
+    if `"`r(settings)'"' != `"`sv0'"'  quietly svyset `sv0'
+    forvalues i = 1/`n' {
+        _estimates unhold `o`i''
+        quietly estimates store `: word `i' of `names''
+    }
+    if `rc'  exit `rc'
+    if colsof(`bsys') != colsof(`b') {
+        _estimates drop `hs'
+        di as err "{bf:suest2} cannot combine replicate-weight survey results for these models"
+        exit 322
+    }
+    if mreldif(`bsys', `b') > 1e-6 {
+        _estimates drop `hs'
+        di as err "the linearized refits do not reproduce the models' coefficients; refit the models with the data in memory"
+        exit 498
+    }
+
+    // svy, with the first model's prefix, refits every model per replicate: the covariance of the whole system
+    global S2REP_N = `n'
+    forvalues i = 1/`n' {
+        global S2REP_CMD`i' `"`cmd`i''"'
+        global S2REP_OPT`i' `"`opt`i''"'
+        global S2REP_SMK`i' `smk`i''
+        global S2REP_K`i' = `k`i''
+    }
+    quietly generate byte `one' = 1
+    capture quietly `pfx': suest2_svyrep `one'
+    local rc = _rc
+    if `rc'  capture noisily `pfx': suest2_svyrep `one'
+    macro drop S2REP_*
+    if `rc' {
+        _estimates drop `hs'
+        di as err "{bf:suest2}: svy could not replicate the combined models"
+        exit `rc'
+    }
+    matrix `brep' = e(b)
+    matrix `V' = e(V)
+    local df = e(df_r)
+    local vce `"`e(vce)'"'
+    local vct `"`e(vcetype)'"'
+    local mse `"`e(mse)'"'
+    local reps = e(N_reps)
+    local mis = e(N_misreps)
+    local psu = e(N_psu)
+    local str = e(N_strata)
+    _estimates unhold `hs'
+    if mreldif(`brep', `bsys') > 1e-6 {
+        ereturn clear
+        di as err "the replicate-weight refits do not reproduce the models' coefficients"
+        exit 498
+    }
+    local cn : colfullnames e(b)
+    matrix rownames `V' = `cn'
+    matrix colnames `V' = `cn'
+    suest2_svyreppost, m(`V') df(`df') vce(`vce') vcetype(`vct') mse(`mse') reps(`reps') misreps(`mis') psu(`psu') strata(`str')
+    suest2_display`dopt'
+    if `mis' > 0 & `mis' < . {
+        di ""
+        di as txt "note: `mis' of the `reps' replications could not be computed and are left out of the covariance"
+    }
+end
+
+program define suest2_svyrepcmd, rclass
+    version 16
+    syntax anything(equalok) [if] [in] [, *]
+    return local cmd `"`anything'"'
+    return local opts `"`options'"'
+end
+
+program define suest2_svyreppost, eclass
+    version 16
+    syntax , m(name) [df(string) vce(string) vcetype(string) mse(string) reps(string) misreps(string) ///
+        psu(string) strata(string)]
+    ereturn repost V = `m'
+    // bootstrap and successive-difference replication without dof() use the normal distribution
+    if inlist("`df'", "", ".")  capture mata: st_numscalar("e(df_r)", J(0, 0, .))
+    else  ereturn scalar df_r = `df'
+    ereturn local vce "`vce'"
+    ereturn local vcetype "`vcetype'"
+    ereturn local mse "`mse'"
+    ereturn scalar N_reps = real("`reps'")
+    ereturn scalar N_misreps = real("`misreps'")
+    if real("`psu'") < .  ereturn scalar N_psu = `psu'
+    if real("`strata'") < .  ereturn scalar N_strata = `strata'
+    ereturn scalar suest2_svyrep = 1
+end
+
 program define suest2_pwestimate, eclass sortpreserve
     version 16
     syntax [anything] [, CLuster(passthru) VCE(passthru) MINUS(passthru) ///
@@ -2323,11 +2576,25 @@ program define suest2_ivregress_svyestimate, sortpreserve eclass
             local cleanupvars `cleanupvars' `ns'
             local nativescores `nativescores' `ns'
         }
-        capture quietly predict double `nativescores' if `sample', scores
+        // with subpop(), the scores as svy computes them: the fit restricted to the subpopulation, zero outside it
+        local scif `sample'
+        if trim(`"`survey_subpop'"')!="" {
+            tempvar insub es
+            local cleanupvars `cleanupvars' `insub'
+            suest2_svysubvar `insub' `survey_subpop'
+            quietly replace `insub'=`insub' & `sample'
+            quietly generate byte `es'=`insub'
+            ereturn repost, esample(`es')
+            local scif `insub'
+        }
+        capture quietly predict double `nativescores' if `scif', scores
         if _rc {
             local rc=_rc
             local errtext "unable to generate native ivregress scores for survey model `name'"
             continue, break
+        }
+        foreach ns of local nativescores {
+            quietly replace `ns'=0 if `sample' & !`scif'
         }
         local eqscore : word `nscore`i'' of `nativescores'
 
@@ -2509,9 +2776,9 @@ program define suest2_ivregress_svyestimate, sortpreserve eclass
         local name : word `i' of `names'
         tempname Vblock
         matrix `Vblock'=`Vout'[`start`i''..`end`i'',`start`i''..`end`i'']
-        mata: st_numscalar("__s2iv_diagdiff",max(abs(st_matrix("`Vblock'"):-st_matrix("`Vsrc`i''"))))
-        mata: st_numscalar("__s2iv_diagscale",1+max(abs(st_matrix("`Vsrc`i''"))))
-        if scalar(__s2iv_diagdiff)>1e-9*scalar(__s2iv_diagscale) {
+        // on the correlation scale of the model's own e(V); svy's own arithmetic agrees to about 1e-7
+        mata: st_numscalar("__s2iv_diagdiff",suest2_corrdiff(st_matrix("`Vblock'"),st_matrix("`Vsrc`i''")))
+        if scalar(__s2iv_diagdiff)>1e-6 {
             foreach v of local cleanupvars {
                 capture drop `v'
             }
@@ -2638,9 +2905,55 @@ program define suest2_ivregressestimate, sortpreserve eclass
             continue, break
         }
 
-        if "`e(cmd)'"!="ivregress" | "`e(estimator)'"!="2sls" {
+        local comp`i'=("`e(cmd)'"!="ivregress")
+        if `comp`i'' {
+            // 1.3.0: an ordinary model (logit, streg, stcox ...): its scores times its bread
+            quietly suest2_mehetero_identify
+            if !r(plain) {
+                local rc 322
+                local errtext "an ivregress system combines ivregress 2sls models with ordinary single-level models such as logit, streg, or stcox; model `name' is neither"
+                continue, break
+            }
+            if !inlist(`"`e(vce)'"',"","oim","ols") {
+                local rc 322
+                local errtext "store conventional (non-robust) estimates for ordinary constituent `name'; suest2 supplies the robust or clustered VCE"
+                continue, break
+            }
+            tempname pfx
+            local bsrc`i' `pfx'_b
+            local Hsrc`i' `pfx'_H
+            local cleanupmats `cleanupmats' `pfx'_b `pfx'_H
+            matrix `pfx'_b=e(b)
+            matrix `pfx'_H=e(V)
+            if "`e(cmd2)'"=="streg" suest2_ancstripe `pfx'_b `pfx'_H
+            local K`i'=colsof(`pfx'_b)
+            local rank`i'=e(rank)
+            local N`i'=e(N)
+            local nendog`i' 0
+            local nativecn`i' : colnames `pfx'_b
+            local nativeeq`i' : coleq `pfx'_b
+            tempvar sample
+            local sample`i' `sample'
+            local cleanupvars `cleanupvars' `sample'
+            quietly generate byte `sample'=e(sample)
+            local scorelist
+            forvalues j=1/`K`i'' {
+                tempvar sc
+                local cleanupvars `cleanupvars' `sc'
+                local scorelist `scorelist' `sc'
+            }
+            capture suest2_plainscores `scorelist', sample(`sample')
+            if _rc {
+                local rc=_rc
+                local errtext "unable to generate the scores of ordinary model `name'"
+                continue, break
+            }
+            local scores`i' `scorelist'
+            continue
+        }
+        if "`e(estimator)'"!="2sls" {
             local rc 322
-            local errtext "the first ivregress increment requires every constituent model to be ivregress 2sls"
+            local errtext "model `name' uses ivregress `e(estimator)'; suest2 supports ivregress 2sls"
             continue, break
         }
         if trim(`"`e(wtype)'"')!="" {
@@ -2910,14 +3223,70 @@ program define suest2_ivregressestimate, sortpreserve eclass
             local allif `allif' `ivf'
         }
         local ifs`i' `iflist'
+        local f 1
+        if `comp`i'' {
+            local f=`N`i''/(`N`i''-1)
+            if trim(`"`scorevar'"')!="" {
+                tempvar tagi
+                quietly egen byte `tagi'=tag(`scorevar') if `sample`i''
+                quietly count if `tagi'
+                if r(N)<2 {
+                    foreach v of local cleanupvars {
+                        capture drop `v'
+                    }
+                    foreach m of local cleanupmats {
+                        capture matrix drop `m'
+                    }
+                    local name : word `i' of `names'
+                    di as err "model {bf:`name'} contains fewer than two clusters in {bf:`scorevar'}"
+                    exit 459
+                }
+                local f=r(N)/(r(N)-1)
+            }
+        }
         mata: suest2_iv2sls_if_mata("`sample`i''","`scores`i''", ///
-            "`Hsrc`i''","`iflist'")
+            "`Hsrc`i''","`iflist'",`f')
     }
 
     tempname bout Vout
     local eqused
     forvalues i=1/`nmodels' {
         local name : word `i' of `names'
+        if `comp`i'' {
+            // one system equation per equation of the model, as on the heterogeneous route
+            local eqlist
+            local sysuniq
+            local prev
+            foreach neq of local nativeeq`i' {
+                if `"`neq'"'!=`"`prev'"' {
+                    local eq=substr(strtoname("`name'_`neq'"),1,32)
+                    local duplicate : list posof "`eq'" in eqused
+                    if `duplicate' {
+                        foreach v of local cleanupvars {
+                            capture drop `v'
+                        }
+                        foreach m of local cleanupmats {
+                            capture matrix drop `m'
+                        }
+                        di as err "suest2 could not construct unique equation names for the ivregress 2sls system"
+                        exit 498
+                    }
+                    local eqused `"`eqused' `eq'"'
+                    local sysuniq `sysuniq' `eq'
+                }
+                local eqlist `eqlist' `eq'
+                local prev `"`neq'"'
+            }
+            local eqname`i' `"`sysuniq'"'
+            local allcn `allcn' `nativecn`i''
+            local alleq `alleq' `eqlist'
+            tempname bi
+            matrix `bi'=`bsrc`i''
+            matrix coleq `bi'=`eqlist'
+            if `i'==1 matrix `bout'=`bi'
+            else matrix `bout'=`bout',`bi'
+            continue
+        }
         local eq=substr(strtoname("`name'_mean"),1,32)
         local duplicate : list posof "`eq'" in eqused
         if `duplicate' local eq=substr("s2iv`i'_mean",1,32)
@@ -2962,7 +3331,26 @@ program define suest2_ivregressestimate, sortpreserve eclass
         tempname Vblock Vtarget bref2
         matrix `Vblock'=`Vout'[`start`i''..`end`i'',`start`i''..`end`i'']
 
-        if trim(`"`scorevar'"')=="" matrix `Vtarget'=`Vrob`i''
+        if `comp`i'' {
+            quietly estimates restore `name'
+            local clo
+            if trim(`"`scorevar'"')!="" local clo cluster(`scorevar')
+            capture quietly suest2_mehetero_plain_robust, ///
+                scores(`scores`i'') sample(`sample`i'') `clo'
+            if _rc {
+                local rc=_rc
+                foreach v of local cleanupvars {
+                    capture drop `v'
+                }
+                foreach m of local cleanupmats {
+                    capture matrix drop `m'
+                }
+                di as err "unable to reproduce the model-specific robust covariance for model {bf:`name'}"
+                exit `rc'
+            }
+            matrix `Vtarget'=e(V)
+        }
+        else if trim(`"`scorevar'"')=="" matrix `Vtarget'=`Vrob`i''
         else {
             local refit `"`cmdline`i''"'
             if strpos(`"`refit'"',",") local refit `"`refit' vce(cluster `scorevar')"'
@@ -4151,10 +4539,38 @@ program define suest2_xtreestimate, sortpreserve eclass
             local errtext "unable to restore constituent model `name'"
             continue, break
         }
-        if "`e(cmd)'" != "xtreg" | "`e(model)'" != "re" {
-            local rc 322
-            local errtext "the first xtreg, re increment requires every constituent model to be xtreg, re"
-            continue, break
+        local comp`i' = "`e(cmd)'" != "xtreg" | "`e(model)'" != "re"
+        if `comp`i'' {
+            // 1.3.0: an ordinary model (logit, streg, stcox ...) goes to official suest as it is
+            quietly suest2_mehetero_identify
+            if !r(plain) {
+                local rc 322
+                local errtext "an xtreg, re system combines xtreg, re models with ordinary single-level models such as logit, streg, or stcox; model `name' is neither"
+                continue, break
+            }
+            if !inlist(`"`e(vce)'"',"","oim","ols") {
+                local rc 322
+                local errtext "store conventional (non-robust) estimates for ordinary constituent `name'; suest2 supplies the clustered VCE"
+                continue, break
+            }
+            tempvar sample
+            tempname A
+            quietly generate byte `sample' = e(sample)
+            local sample`i' `sample'
+            local N`i' = e(N)
+            local nativerank`i' = e(rank)
+            // regress in official suest: one more column (lnvar) and its own small-sample factor
+            local kre`i' = colsof(e(b)) + ("`e(cmd)'" == "regress")
+            local df`i' 1
+            if "`e(cmd)'" == "regress"  local df`i' = (e(N)-1)/(e(N)-e(rank))
+            matrix `A' = I(`kre`i'')
+            local A`i' `A'
+            local At`i' `A'
+            foreach s in Ng_native sigmae sigmau Tcon thmin thmax {
+                local `s'`i' .
+            }
+            local suestlist `"`suestlist' `name'"'
+            continue
         }
         if trim(`"`e(wtype)'"') != "" {
             local rc 198
@@ -4168,7 +4584,7 @@ program define suest2_xtreestimate, sortpreserve eclass
             local errtext "model `name' does not retain its panel identifier in e(ivar)"
             continue, break
         }
-        if `i' == 1 local panelvar `"`ivar'"'
+        if `"`panelvar'"' == "" local panelvar `"`ivar'"'
         else if `"`ivar'"' != `"`panelvar'"' {
             local rc 459
             local errtext "all xtreg, re constituent models must use the same panel variable"
@@ -4355,6 +4771,7 @@ program define suest2_xtreestimate, sortpreserve eclass
         quietly estimates store `bridge'
         local bridge`i' `bridge'
         local bridges `"`bridges' `bridge'"'
+        local suestlist `"`suestlist' `bridge'"'
     }
 
     if `rc' {
@@ -4434,7 +4851,7 @@ program define suest2_xtreestimate, sortpreserve eclass
         }
     }
 
-    capture quietly suest `bridges', cluster(`scorevar')
+    capture quietly suest `suestlist', cluster(`scorevar')
     local rc = _rc
     if `rc' {
         foreach bridge of local bridges {
@@ -4452,8 +4869,17 @@ program define suest2_xtreestimate, sortpreserve eclass
     local expected 0
     local syscolnames : colnames `bsys'
     local usedstarts
+    local pos 1
 
     forvalues i = 1/`nmodels' {
+        if `comp`i'' {
+            local bstart`i' = `pos'
+            local bend`i' = `pos' + `kre`i'' - 1
+            local expected = `expected' + `kre`i''
+            local pos = `bend`i'' + 1
+            local eqname`i' `"`e(eqnames`i')'"'
+            continue
+        }
         local expected = `expected' + `kre`i'' + 1
         local targetnames `"`bridgecnames`i''"'
         local nsys = colsof(`bsys')
@@ -4475,7 +4901,7 @@ program define suest2_xtreestimate, sortpreserve eclass
         }
         local bend`i' = `bstart`i'' + `kre`i'' - 1
         local duplicate : list posof "`bstart`i''" in usedstarts
-        if `nmatches' != 1 | `duplicate' {
+        if `nmatches' != 1 | `duplicate' | `bstart`i'' != `pos' {
             foreach bridge of local bridges {
                 capture quietly estimates drop `bridge'
             }
@@ -4484,6 +4910,7 @@ program define suest2_xtreestimate, sortpreserve eclass
             exit 498
         }
         local usedstarts `"`usedstarts' `bstart`i''"'
+        local pos = `bend`i'' + 2
     }
 
     if colsof(`bsys') != `expected' {
@@ -4497,6 +4924,7 @@ program define suest2_xtreestimate, sortpreserve eclass
     forvalues i = 1/`nmodels' {
         local scale`i' = ((`G`i''/(`G`i''-1))*((`N`i''-1)/(`N`i''-`kre`i''))) / ///
             (`Gsys'/(`Gsys'-1))
+        if `comp`i''  local scale`i' = `df`i''*(`G`i''/(`G`i''-1))/(`Gsys'/(`Gsys'-1))
     }
 
     forvalues i = 1/`nmodels' {
@@ -4522,6 +4950,13 @@ program define suest2_xtreestimate, sortpreserve eclass
     local eqused
     forvalues i = 1/`nmodels' {
         local name : word `i' of `names'
+        if `comp`i'' {
+            tempname bi
+            matrix `bi' = `bsys'[1, `bstart`i''..`bend`i'']
+            if `i' == 1 matrix `bout' = `bi'
+            else matrix `bout' = `bout', `bi'
+            continue
+        }
         local eq = substr(strtoname("`name'_mean"), 1, 32)
         local duplicate : list posof "`eq'" in eqused
         if `duplicate' {
@@ -5288,6 +5723,18 @@ program define suest2_mehetero_identify, rclass
         local class ordinal_logit
         if "`cmd'"=="oprobit" local class ordinal_probit
     }
+    else if (("`cmd2'"=="streg" & trim(`"`e(frailty)'`e(shared)'"')=="") | "`cmd2'"=="stcox" | "`cmd'"=="suest2_cox") & ///
+        trim(`"`e(prefix)'"')=="" & trim(`"`e(wtype)'"')=="" {
+        // 1.3.0: streg and stcox (through its working estimate) beside a multilevel, panel or ivregress model
+        local supported 1
+        local plain 1
+        local activecmd streg
+        local class streg_`cmd'
+        if "`cmd2'"!="streg" {
+            local activecmd stcox
+            local class cox
+        }
+    }
     else if inlist("`cmd'","logit","logistic","probit","cloglog","poisson","nbreg","regress") & ///
         trim(`"`e(prefix)'"')=="" & trim(`"`e(wtype)'"')=="" {
         // 1.1.0: ordinary single-level constituent beside a multilevel or panel model
@@ -5479,8 +5926,9 @@ program define suest2_mehetero_plain_robust, eclass
     // native variant asks predict for column-count scores, which
     // ordinary ordinal models refuse r(103); this one sandwiches the
     // already-expanded column scores over the restored result.
-    syntax, SCores(varlist) SAMPLE(varname) CLuster(varname)
-    _robust2 `scores' if `sample', cluster(`cluster') allcons
+    syntax, SCores(varlist) SAMPLE(varname) [CLuster(varname)]
+    if "`cluster'"!="" _robust2 `scores' if `sample', cluster(`cluster') allcons
+    else _robust2 `scores' if `sample', allcons
 end
 
 program define suest2_mehetero_repost, eclass
@@ -5964,6 +6412,7 @@ program define suest2_meheteroestimate, sortpreserve eclass
         local Vbsrc`i' `Vbsrc'
         matrix `bsrc'=e(b)
         matrix `Vsrc'=e(V)
+        if "`activecmd`i''"=="streg" suest2_ancstripe `bsrc' `Vsrc'
         if "`wshape`i''"=="plain" matrix `Vbsrc'=`Vsrc'
         else matrix `Vbsrc'=e(V_modelbased)
         local K`i'=colsof(`bsrc')
@@ -6061,77 +6510,79 @@ program define suest2_meheteroestimate, sortpreserve eclass
             continue, break
         }
 
-        if trim(`"`cmdline`i''"')=="" {
-            local rc 498
-            local errtext "model `name' does not retain e(cmdline)"
-            continue, break
-        }
-        capture quietly `cmdline`i''
-        if _rc {
-            local rc=_rc
-            local errtext "the current data cannot re-estimate stored model `name'"
-            continue, break
-        }
-        matrix `bref'=e(b)
-        matrix `Vref'=e(V)
-        quietly generate byte `sampleref'=e(sample)
-        quietly count if `sample'!=`sampleref'
-        if r(N) {
-            local rc 459
-            local errtext "the current data do not reproduce the stored sample for model `name'"
-            continue, break
-        }
-        quietly suest2_mehetero_identify
-        local reprook=(r(supported) & `"`r(class)'"'==`"`class`i''"')
-        mata: st_numscalar("__s2het_bdiff",max(abs(st_matrix("`bsrc'"):-st_matrix("`bref'"))))
-        mata: st_numscalar("__s2het_Vdiff",max(abs(st_matrix("`Vsrc'"):-st_matrix("`Vref'"))))
-        mata: st_numscalar("__s2het_bscale",1+max(abs(st_matrix("`bsrc'"))))
-        mata: st_numscalar("__s2het_Vscale",1+max(abs(st_matrix("`Vsrc'"))))
-        local structureok 1
-        if `xtgre`i'' {
-            if `"`e(ivar)'"'!=`"`ivars`i''"' local structureok 0
-        }
-        else if `"`e(ivars)'"'!=`"`ivars`i''"' | `"`e(redim)'"'!=`"`redim`i''"' | ///
-            `"`e(vartypes)'"'!=`"`vartypes`i''"' | `"`e(revars)'"'!=`"`revars`i''"' local structureok 0
-        if scalar(__s2het_bdiff)>1e-7*scalar(__s2het_bscale) | ///
-            scalar(__s2het_Vdiff)>1e-7*scalar(__s2het_Vscale) | !`reprook' | !`structureok' {
-            local rc 459
-            local errtext "the current data do not reproduce coefficients, bread, or random-effects structure for model `name'"
-            continue, break
-        }
-        if "`activecmd`i''"=="mixed" & (`"`e(rstructure)'"'!=`"`rstructure`i''"' | `"`e(optmetric)'"'!=`"`optmetric`i''"') {
-            local rc 459
-            local errtext "the current data do not reproduce the mixed-model specification for model `name'"
-            continue, break
-        }
-        if "`activecmd`i''"!="mixed" & "`plain`i''"!="1" {
-            if `"`e(intmethod)'"'!=`"`intmethod`i''"' | real("`e(n_quad)'")!=`nquad`i'' {
-                local rc 459
-                local errtext "the current data do not reproduce quadrature settings for model `name'"
+        if "`activecmd`i''"!="stcox" {
+            if trim(`"`cmdline`i''"')=="" {
+                local rc 498
+                local errtext "model `name' does not retain e(cmdline)"
                 continue, break
             }
-        }
-        if "`activecmd`i''"=="mestreg" {
-            if lower(trim(`"`e(distribution)'"'))!=`"`distribution`i''"' | ///
-                lower(trim(`"`e(frm2)'"'))!=`"`frm2`i''"' {
-                local rc 459
-                local errtext "the current data do not reproduce the mestreg distribution or metric for model `name'"
+            capture quietly `cmdline`i''
+            if _rc {
+                local rc=_rc
+                local errtext "the current data cannot re-estimate stored model `name'"
                 continue, break
             }
-        }
-        if `ordered`i'' {
-            if e(k_cat)!=`kcat`i'' {
+            matrix `bref'=e(b)
+            matrix `Vref'=e(V)
+            quietly generate byte `sampleref'=e(sample)
+            quietly count if `sample'!=`sampleref'
+            if r(N) {
                 local rc 459
-                local errtext "the current data do not reproduce outcome categories for model `name'"
+                local errtext "the current data do not reproduce the stored sample for model `name'"
                 continue, break
             }
-            tempname catref
-            matrix `catref'=e(cat)
-            mata: st_numscalar("__s2het_catdiff",max(abs(st_matrix("`catsrc`i''"):-st_matrix("`catref'"))))
-            if scalar(__s2het_catdiff)>1e-12 {
+            quietly suest2_mehetero_identify
+            local reprook=(r(supported) & `"`r(class)'"'==`"`class`i''"')
+            mata: st_numscalar("__s2het_bdiff",max(abs(st_matrix("`bsrc'"):-st_matrix("`bref'"))))
+            mata: st_numscalar("__s2het_Vdiff",max(abs(st_matrix("`Vsrc'"):-st_matrix("`Vref'"))))
+            mata: st_numscalar("__s2het_bscale",1+max(abs(st_matrix("`bsrc'"))))
+            mata: st_numscalar("__s2het_Vscale",1+max(abs(st_matrix("`Vsrc'"))))
+            local structureok 1
+            if `xtgre`i'' {
+                if `"`e(ivar)'"'!=`"`ivars`i''"' local structureok 0
+            }
+            else if `"`e(ivars)'"'!=`"`ivars`i''"' | `"`e(redim)'"'!=`"`redim`i''"' | ///
+                `"`e(vartypes)'"'!=`"`vartypes`i''"' | `"`e(revars)'"'!=`"`revars`i''"' local structureok 0
+            if scalar(__s2het_bdiff)>1e-7*scalar(__s2het_bscale) | ///
+                scalar(__s2het_Vdiff)>1e-7*scalar(__s2het_Vscale) | !`reprook' | !`structureok' {
                 local rc 459
-                local errtext "the current data do not reproduce outcome categories for model `name'"
+                local errtext "the current data do not reproduce coefficients, bread, or random-effects structure for model `name'"
                 continue, break
+            }
+            if "`activecmd`i''"=="mixed" & (`"`e(rstructure)'"'!=`"`rstructure`i''"' | `"`e(optmetric)'"'!=`"`optmetric`i''"') {
+                local rc 459
+                local errtext "the current data do not reproduce the mixed-model specification for model `name'"
+                continue, break
+            }
+            if "`activecmd`i''"!="mixed" & "`plain`i''"!="1" {
+                if `"`e(intmethod)'"'!=`"`intmethod`i''"' | real("`e(n_quad)'")!=`nquad`i'' {
+                    local rc 459
+                    local errtext "the current data do not reproduce quadrature settings for model `name'"
+                    continue, break
+                }
+            }
+            if "`activecmd`i''"=="mestreg" {
+                if lower(trim(`"`e(distribution)'"'))!=`"`distribution`i''"' | ///
+                    lower(trim(`"`e(frm2)'"'))!=`"`frm2`i''"' {
+                    local rc 459
+                    local errtext "the current data do not reproduce the mestreg distribution or metric for model `name'"
+                    continue, break
+                }
+            }
+            if `ordered`i'' {
+                if e(k_cat)!=`kcat`i'' {
+                    local rc 459
+                    local errtext "the current data do not reproduce outcome categories for model `name'"
+                    continue, break
+                }
+                tempname catref
+                matrix `catref'=e(cat)
+                mata: st_numscalar("__s2het_catdiff",max(abs(st_matrix("`catsrc`i''"):-st_matrix("`catref'"))))
+                if scalar(__s2het_catdiff)>1e-12 {
+                    local rc 459
+                    local errtext "the current data do not reproduce outcome categories for model `name'"
+                    continue, break
+                }
             }
         }
 
@@ -6395,127 +6846,18 @@ program define suest2_meheteroestimate, sortpreserve eclass
             local bridgecall`i' `"`bridgecall'"'
             local bridgevar`i'=`naturalvar'
         }
-        else if "`plain`i''"=="1" & `ordered`i'' {
-            // 0.1.90: ordinary ordinal constituent. Native scores come
-            // one per EQUATION (measured: asking for column counts is
-            // refused r(103)); expand them to one per COLUMN so the
-            // joint meat can be built uniformly: slope columns are the
-            // equation score times the covariate value, omitted columns
-            // are zero, cutpoint columns map one to one.
-            capture quietly estimates restore `name'
-            if _rc {
-                local rc=_rc
-                local errtext "unable to restore model `name' after reproduction checks"
-                continue, break
-            }
-            capture drop __s2hpsc*
-            capture quietly predict double __s2hpsc* if `sample', scores
-            if _rc {
-                local rc=_rc
-                local errtext "unable to generate native equation scores for ordinary model `name'"
-                continue, break
-            }
-            quietly ds __s2hpsc*
-            local pleqsc `r(varlist)'
-            local nesc : word count `pleqsc'
-            if `nesc'!=`kcat`i'' {
-                capture drop __s2hpsc*
-                local rc 498
-                local errtext "ordinary model `name' returned `nesc' equation scores where `kcat`i'' were expected"
-                continue, break
-            }
-            tempname plomit
-            quietly _ms_omit_info `bsrc'
-            matrix `plomit'=r(omit)
-            local plrc 0
-            forvalues j=1/`K`i'' {
-                local scj : word `j' of `scorelist'
-                if `j'>=`cutstart`i'' {
-                    local c=`j'-`cutstart`i''+2
-                    local esc : word `c' of `pleqsc'
-                    quietly generate double `scj'=`esc' if `sample'
-                }
-                else if `plomit'[1,`j'] {
-                    quietly generate double `scj'=0 if `sample'
-                }
-                else {
-                    local cnj : word `j' of `nativecn`i''
-                    local esc1 : word 1 of `pleqsc'
-                    if "`cnj'"=="_cons" quietly generate double `scj'=`esc1' if `sample'
-                    else {
-                        capture fvrevar `cnj' if `sample'
-                        if _rc {
-                            local plrc=_rc
-                            continue, break
-                        }
-                        quietly generate double `scj'=`esc1'*`r(varlist)' if `sample'
-                    }
-                }
-            }
-            capture drop __s2hpsc*
-            if `plrc' {
-                local rc=`plrc'
-                local errtext "unable to evaluate the design column for a score of ordinary model `name'"
-                continue, break
-            }
-        }
         else if "`plain`i''"=="1" {
-            // 1.1.0: one score per equation, expanded to columns; ancillary columns map one to one
+            // 1.3.0: the scores of an ordinary model, shared with the ivregress route
             capture quietly estimates restore `name'
             if _rc {
                 local rc=_rc
                 local errtext "unable to restore model `name' after reproduction checks"
                 continue, break
             }
-            local firsteq : word 1 of `nativeeq`i''
-            local nanc 0
-            foreach eq of local nativeeq`i' {
-                if `"`eq'"'!=`"`firsteq'"' local ++nanc
-            }
-            local pleqsc
-            forvalues q=0/`nanc' {
-                tempvar esc
-                local pleqsc `pleqsc' `esc'
-            }
-            capture quietly predict double `pleqsc' if `sample', scores
-            if _rc capture quietly predict double `pleqsc' if `sample', score
+            capture suest2_plainscores `scorelist', sample(`sample')
             if _rc {
                 local rc=_rc
-                local errtext "unable to generate native equation scores for ordinary model `name'"
-                continue, break
-            }
-            local esc1 : word 1 of `pleqsc'
-            if "`activecmd`i''"=="regress" quietly replace `esc1'=`esc1'*sqrt((e(N)-1)/(e(N)-e(rank)))/e(rmse)^2 if `sample'
-            tempname plomit
-            quietly _ms_omit_info `bsrc'
-            matrix `plomit'=r(omit)
-            local plrc 0
-            local anc 1
-            forvalues j=1/`K`i'' {
-                local scj : word `j' of `scorelist'
-                local eqj : word `j' of `nativeeq`i''
-                local cnj : word `j' of `nativecn`i''
-                if `"`eqj'"'!=`"`firsteq'"' {
-                    local ++anc
-                    local esc : word `anc' of `pleqsc'
-                    quietly generate double `scj'=`esc' if `sample'
-                }
-                else if `plomit'[1,`j'] {
-                    quietly generate double `scj'=0 if `sample'
-                }
-                else if "`cnj'"=="_cons" quietly generate double `scj'=`esc1' if `sample'
-                else {
-                    capture fvrevar `cnj' if `sample'
-                    if _rc {
-                        local plrc=_rc
-                        continue, break
-                    }
-                    quietly generate double `scj'=`esc1'*`r(varlist)' if `sample'
-                }
-            }
-            if `plrc' {
-                local rc=`plrc'
-                local errtext "unable to evaluate the design column for a score of ordinary model `name'"
+                local errtext "unable to generate the scores of ordinary model `name'"
                 continue, break
             }
         }
@@ -12311,11 +12653,16 @@ program define suest2_coxscan, rclass
     local names `"`r(names)'"'
     local names : list uniq names
     local cox ""
+    local nv 0
     foreach name of local names {
         if "`name'" == "." continue
         capture quietly estimates restore `name'
-        if !_rc & "`e(cmd2)'" == "stcox"  local cox `cox' `name'
+        if !_rc & "`e(cmd2)'" == "stcox" {
+            local cox `cox' `name'
+            local nv = `nv' + colsof(e(b)) + 1
+        }
     }
+    return scalar nv = `nv'
     return local names `"`cox'"'
     return local all `"`names'"'
 end
@@ -12403,12 +12750,121 @@ program define suest2_coxprep
     quietly estimates store `sub'
 end
 
+// Store each Cox model's working estimate as <name>__t, with vars (the caller's) as its influence variables, in order;
+// r(pairs) "name sub ...", r(names) the namelist with the working estimates in place
+program define suest2_coxwork, rclass
+    version 16
+    syntax, NAMes(string) COX(string) Time(real) VARs(string)
+    local pairs ""
+    foreach cn of local cox {
+        quietly estimates restore `cn'
+        local cv ""
+        forvalues j = 1/`=colsof(e(b)) + 1' {
+            gettoken v vars : vars
+            quietly generate double `v' = .
+            local cv `cv' `v'
+        }
+        local sub = substr(strtoname("`cn'__t"), 1, 32)
+        capture noisily suest2_coxprep `cn', time(`time') vars(`cv') sub(`sub')
+        if _rc {
+            local rc = _rc
+            if `"`pairs'"' != ""  suest2_coxfinish 1 `pairs'
+            exit `rc'
+        }
+        local pairs `pairs' `cn' `sub'
+        local names : subinstr local names "`cn'" "`sub'", word
+    }
+    return local pairs `"`pairs'"'
+    return local names `"`names'"'
+end
+
+// Column scores of the ordinary model in e() over sample: each equation's score times the design column,
+// free parameters (/name) and constants one to one, omitted columns zero; regress scaled to its own robust VCE
+program define suest2_plainscores
+    version 16
+    syntax newvarlist, SAMPLE(varname)
+    tempname b omit
+    matrix `b' = e(b)
+    local K = colsof(`b')
+    local cn : colnames `b'
+    local ce : coleq `b'
+    quietly _ms_omit_info `b'
+    matrix `omit' = r(omit)
+    // equations as predict, scores counts them: each change of equation and each free parameter
+    local q 0
+    local prev
+    forvalues j = 1/`K' {
+        local e : word `j' of `ce'
+        if `"`e'"' != `"`prev'"' | `"`e'"' == "/"  local ++q
+        local q`j' `q'
+        local prev `"`e'"'
+    }
+    local esc
+    if inlist("`e(cmd)'", "ologit", "oprobit") {
+        // ordered models give equation scores to a stub only
+        capture drop __s2hpsc*
+        quietly predict double __s2hpsc* if `sample', scores
+        quietly ds __s2hpsc*
+        local esc `r(varlist)'
+    }
+    else {
+        forvalues k = 1/`q' {
+            tempvar s
+            local esc `esc' `s'
+        }
+        capture quietly predict double `esc' if `sample', scores
+        if _rc  quietly predict double `esc' if `sample', score
+    }
+    if `: word count `esc'' != `q' {
+        capture drop __s2hpsc*
+        exit 498
+    }
+    local esc1 : word 1 of `esc'
+    if "`e(cmd)'" == "regress"  quietly replace `esc1' = `esc1'*sqrt((e(N)-1)/(e(N)-e(rank)))/e(rmse)^2 if `sample'
+    forvalues j = 1/`K' {
+        local scj : word `j' of `varlist'
+        local e : word `j' of `ce'
+        local c : word `j' of `cn'
+        local s : word `q`j'' of `esc'
+        if `omit'[1, `j']  quietly generate double `scj' = 0 if `sample'
+        else if `"`e'"' == "/" | "`c'" == "_cons"  quietly generate double `scj' = `s' if `sample'
+        else {
+            capture fvrevar `c' if `sample'
+            if _rc {
+                local rc = _rc
+                capture drop __s2hpsc*
+                exit `rc'
+            }
+            quietly generate double `scj' = `s'*`r(varlist)' if `sample'
+        }
+    }
+    capture drop __s2hpsc*
+end
+
+// streg: each free parameter /name becomes the equation name:_cons, as official suest names it
+program define suest2_ancstripe
+    version 16
+    args b V
+    local cf : colfullnames `b'
+    local fn
+    foreach c of local cf {
+        if substr("`c'", 1, 1) == "/"  local c = subinstr(substr("`c'", 2, .), ":", "", 1) + ":_cons"
+        local fn `fn' `c'
+    }
+    matrix colnames `b' = `fn'
+    matrix colnames `V' = `fn'
+    matrix rownames `V' = `fn'
+end
+
 program define suest2_coxaux, eclass
     version 16
     syntax, BMAT(name) VMAT(name) ES(varname) N(integer) IFVars(string) VCE(string) [VMB(name)]
     local k = colsof(`bmat')
+    tempname rk
+    mata: st_numscalar("`rk'", rank(st_matrix("`vmat'")))
     ereturn post `bmat' `vmat', esample(`es') obs(`n')
     ereturn scalar k_eq = `k'
+    ereturn scalar rank = `rk'
     if "`vmb'" != ""  ereturn matrix V_modelbased = `vmb'
     ereturn local vce `vce'
     if "`vce'" == "robust"  ereturn local vcetype Robust
@@ -12698,7 +13154,8 @@ void suest2_iv2sls_if_mata(
     string scalar samplevar,
     string scalar scorevars,
     string scalar breadname,
-    string scalar outvars)
+    string scalar outvars,
+    | real scalar f)
 {
     real colvector s, idx
     real matrix S, H, IF
@@ -12708,9 +13165,21 @@ void suest2_iv2sls_if_mata(
     idx=selectindex(s:==1)
     S=st_data(idx,tokens(scorevars))
     H=st_matrix(breadname)
-    IF=S*H
+    if (args()<5) f=1
+    IF=S*H*sqrt(f)
     outs=tokens(outvars)
     st_store(idx,outs,IF)
+}
+
+// largest |A - R| on the correlation scale of R (absolute where R has a zero variance)
+real scalar suest2_corrdiff(real matrix A, real matrix R)
+{
+    real colvector d
+    real matrix W
+
+    d=sqrt(diagonal(R):*(diagonal(R):>0))
+    W=d*d'
+    return(max(abs(A:-R):/(W:+(W:==0))))
 }
 
 void suest2_iv2sls_vce_mata(

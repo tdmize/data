@@ -1,4 +1,4 @@
-*! metest v0.5.1 Trenton Mize 2026-11-16  | history: CHANGELOG-mecompare.md (repo)
+*! metest v0.5.2 Trenton Mize 2026-11-16  | history: CHANGELOG-mecompare.md (repo)
 * Tests and combines estimates by their number in the table, or by name.
 * A number is the n-th non-omitted column of e(b) -- the ME # after mecompare,
 * but well defined after any e-class command. Expressions without "=" go to
@@ -182,9 +182,19 @@ program define metest, rclass
 	matrix `b' = e(b)
 	local orignms : colfullnames `b'
 	local menames ""				// ME # n  ->  word n of menames
+	local menone ""				// after mecompare: 0 with no variance, not estimated
+	tempname mnV
+	if `ismec'  matrix `mnV' = e(V)
+	local mnc = 0
 	foreach var of local orignms {
+		local ++mnc
 		_ms_parse_parts `var'
-		if (!`r(omit)')  local menames `menames' `var'
+		if (!`r(omit)') {
+			local menames `menames' `var'
+			if `ismec' {
+				if `b'[1,`mnc'] == 0 & `mnV'[`mnc',`mnc'] == 0  local menone `menone' `: word count `menames''
+				}
+			}
 		}
 	local nme : word count `menames'
 
@@ -215,6 +225,11 @@ program define metest, rclass
 					*/ "{opt `pwo'}, list the estimates to compare, e.g. " /*
 					*/ "{cmd:metest 1 2 3, `pwo'} or {cmd:metest 1/3, `pwo'}."
 					exit 198
+					}
+				if `: list posof "`k'" in menone' {
+					display as error "{bf:`u'} could not be estimated by " /*
+					*/ "{cmd:mecompare}, so it cannot be tested."
+					exit 498
 					}
 				local dup : list posof "`k'" in pwn
 				if `dup' > 0 {
@@ -410,6 +425,12 @@ program define metest, rclass
 					*/ "`whatleg' to list the names."
 					exit 198
 					}
+				}
+			local mnk : list posof "`bnm'" in menames
+			if `: list posof "`mnk'" in menone' {
+				display as error "{bf:`e'} could not be estimated by " /*
+				*/ "{cmd:mecompare}, so it cannot be tested."
+				exit 498
 				}
 			local lcstr   `"`lcstr'_b[`bnm']"'
 			local lbltoks `"`lbltoks' `bnm'"'

@@ -1,4 +1,4 @@
-*! version 0.1.59  26jul2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.60  16nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2_marg_check, rclass
     version 16
     syntax [if] [in] [fw aw iw pw] [, MODEL(string) OUTcome(string) TOLerance(real 1e-7) *]
@@ -44,6 +44,13 @@ program define suest2_marg_check, rclass
     local bad 0
     local opts eclass fill0 ignoreomit allownotfound
     tempname H Lfull L LH
+
+    // 0.1.60: xtlogit, fe is estimable -- no constant, and a covariate omitted for no within-group
+    // variation sits in the prediction design (as on the xtreg, fe route below).
+    if "`cmd'" == "xtlogit" & "`e(suest2_xtmodel`imodel')'" == "fe" {
+        return scalar not_estimable = 0
+        exit
+    }
 
     // Ordered models use buildfvinfo ADDCONS natively.  Its H matrix contains
     // one synthetic implicit-constant column after the covariate equation and

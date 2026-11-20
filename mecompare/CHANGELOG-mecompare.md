@@ -5,6 +5,90 @@ mecompare` printed all 87 of these lines (surface gate v1.1, cell
 1.mecompare); the `.ado` now carries one banner line, matching
 `meinequality.ado` and `totalme.ado`.
 
+## v1.15.0 -- 19nov2026, survey subpopulations and replicate weights
+
+**Survey subpopulations.** After `svy, subpop()`, mecompare now averages the marginal effects over
+the subpopulation, and computes the quantities it takes from the data (standard deviations, means,
+ranges, level shares) in the subpopulation too, with a note. It averaged them over the whole estimation
+sample, as `margins` does after `svy, subpop()`: e(sample) of a `svy` fit marks every observation used
+for the design, in the subpopulation or not, so the effects of a model fit on men aged 40 and older were
+averaged over everyone in the data (nhanes2: .0078355, against .0079030 over the subpopulation;
+probe_svyrep_v1_3 PART A). This holds for linearized `svy` too. A `subpop()` given in `marginsopt()`
+is used as given. The note reads "NOTE: the models were fit with svy, subpop(if age >= 40 & female ==
+0), so the marginal effects are averaged over that subpopulation, and the standard deviations and
+other quantities taken from the data are computed in the subpopulation too."
+
+**Replicate-weight survey models** (`svy brr`, `svy jackknife`, `svy bootstrap`, `svy sdr`) run
+through suest2 1.4.0; the standard errors use the delta method from the replicate covariance, as
+`margins` does after each model. With several models the standard-error column is labelled by the
+method (BRR_SE, Jackknife_SE, Bootstrap_SE, SDR_SE), as one model's already was.
+
+Gate 98 (`test_mecompare_svyrep_gate98`, PART M and PART L): PASSED (19nov2026).
+
+Help: one paragraph in the svy section.
+
+## v1.14.0 -- 18nov2026, twopart(): a two-part model beside other models
+
+`twopart()` can name the two-part models' parts, each first part then its second part. The other
+models in `models()` keep their own prediction, so `mecompare x, models(Any Amount Pois)
+twopart(Any Amount)` compares the two-part model Any+Amount with a Poisson model of the same
+outcome. One model may be in more than one pair: `twopart(Any Amount Any LnAmount, duan)` compares
+a gamma and a log-outcome second part with the same first part. `duan` and `normal`, alone or after
+the names and a comma, apply to the pairs whose second part is a `regress` model; a `glm` second
+part keeps its mean (`twopart(duan)` refused a `glm` pair before). The table keeps the order of
+`models()`, each pair in the place of the first of its models listed there. `twopart` alone still
+pairs `models()` in order, with the same results. The models beside a two-part model must be
+single-level models. A first part may be any model of whether the outcome is positive whose
+prediction is its probability: `logit`, `probit`, `cloglog`, `hetprobit`, or `glm` with a binomial
+family (before: `logit` or `probit`); a second part may be a `glm`, `regress`, `poisson`, or `nbreg`
+model (before: `glm` or `regress`). Owner's request (18nov2026). Probe (`probe_mecompare_twopart_mixed_v1_0`): a
+two-part prediction beside other models' predictions in one margins call = margins with
+expression(). Gates 97 (`test_mecompare_twopart_named_gate97`) and 99
+(`test_mecompare_twopart_first_gate99`).
+
+The two-part code moved from mecompare's main program into three subprograms, which keeps the main
+program well inside Stata's size limit for a program.
+
+Help: the twopart entry ("a model of whether the outcome is positive, such as logit or probit, and a
+glm, regress, poisson, or nbreg model of the outcome where it is positive") and its line in the
+options list; an example of a two-part model and a Poisson model.
+
+## v1.13.0 -- 16nov2026, time(#) beside multilevel, panel and ivregress models
+
+`time()` no longer refuses multilevel, panel and `ivregress` models: suest2 1.3.0 combines `streg`
+and Cox models with them and decides what can be combined. With an `ivregress` model the note under
+the table says that mecompare computes robust standard errors for every model and to fit every
+model without vce(robust). The Predicting line names every model: with `time()`, a model margins
+gives no label is labeled "Default prediction". mecompare reads how margins named its results from
+the results themselves, so a system whose models are named by equation is read correctly when the
+first model is named otherwise (`xtlogit, fe` beside `streg`). Gate 95 (see suest2's CHANGELOG):
+the rows and differences equal each model's own margins on the three routes. Gate 91 v1_7 170 / 0
+(a Cox model stored with vce(robust) beside melogit or ivregress is now refused by suest2, r(322)).
+
+**An effect a model cannot estimate is shown as `.`.** When the variable was omitted from a model
+(it does not vary within groups in an `xtlogit, fe` model, say, or is collinear), or margins cannot
+estimate a prediction the effect needs, the row showed 0.000 with SE 0.000, and a Difference using
+it showed the other model's effect. Such a row, and any Difference that uses it, is now `.`, with a
+note under the table (also on replay); when no effect is left, mecompare stops, r(498). mecompare
+finds them by splitting each effect into each model's part: a part with no variance or no slope, or
+one that uses a prediction with no variance, cannot be estimated. In `e(b)` they are 0 with zero
+rows and columns of `e(V)`, and `e(k_noest)` counts them. Gate 96 (`test_mecompare_noest_gate96`).
+
+**A fixed-effects model that dropped a covariate.** When a fixed-effects model drops a covariate
+because it does not vary within groups, Stata's `margins` calls every counterfactual prediction not
+estimable, so the model's other effects were 0.000 (now they would be `.`). With one such model
+mecompare runs `margins` with `noestimcheck`: the dropped covariate's coefficient is fixed at 0 and
+absorbed by the fixed effects, so it does not enter the prediction. When a cell of an interaction is
+empty as well, the check stays, so an effect that needs the empty cell is not estimated. Gate 96 (E, K, L).
+
+Help: the survival paragraph ends "time() cannot be combined with predict() or mestreg."; `e(k_noest)`.
+
+## metest 0.5.2 -- 16nov2026, effects mecompare could not estimate
+
+After mecompare, an effect posted as 0 with no variance (one mecompare could not estimate) is
+refused, r(498), by number or by name, in expressions and in `pwcompare`, `sequential` and
+`reference` lists. Gate 96.
+
 ## metest 0.5.1 -- 16nov2026, list comparisons labeled by name
 
 Without `rownames()`, the rows of `pwcompare`, `sequential` and `reference` are labeled as

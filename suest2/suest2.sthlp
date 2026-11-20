@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  15nov2026}{...}
+{* *! version 1.4.0  19nov2026}{...}
 {vieweralsosee "suest" "help suest"}{...}
 {vieweralsosee "margins" "help margins"}{...}
 {vieweralsosee "predict" "help predict"}{...}
@@ -112,7 +112,8 @@ either unweighted conventional estimates, or linearized
 {p 8 12 2}
 {cmd:stcox} with Breslow ties (the default), one record per subject, and no
 delayed entry, weights, {cmd:strata()}, {cmd:tvc()}, {cmd:shared()}, or
-{cmd:vce(cluster)}, alone or with the ordinary single-level models above,
+{cmd:vce(cluster)}, alone, with the ordinary single-level models above, or
+beside a multilevel, panel, or {cmd:ivregress 2sls} model (see below),
 including {cmd:mi estimate} results.
 Specify {cmd:time(}{it:#}{cmd:)}: the Cox model's block holds its coefficients
 and, as {cmd:_cons}, the log of the baseline cumulative hazard at that time,
@@ -165,13 +166,14 @@ Bernoulli-logit, Bernoulli-probit, Bernoulli-cloglog, Poisson-log,
 negative-binomial-log, Gamma-log, ordinal-logit, and ordinal-probit.
 
 {p 8 12 2}
-Multilevel and panel models may also be combined with ordinary
-single-level models: {cmd:regress}, {cmd:logit}, {cmd:probit},
-{cmd:cloglog}, {cmd:poisson}, {cmd:nbreg}, {cmd:ologit}, and
-{cmd:oprobit}, e.g., a {cmd:logit} with a {cmd:melogit} or {cmd:xtlogit}.
-Fit the ordinary model unweighted, without a prefix, and with
-conventional standard errors; its standard errors are clustered on the
-highest-level group of the multilevel or panel model.
+Multilevel and panel models, and {cmd:ivregress 2sls}, may also be
+combined with ordinary single-level models: {cmd:regress}, {cmd:logit},
+{cmd:probit}, {cmd:cloglog}, {cmd:poisson}, {cmd:nbreg}, {cmd:ologit},
+{cmd:oprobit}, {cmd:streg}, and {cmd:stcox}, e.g., a {cmd:logit} with a
+{cmd:melogit} or {cmd:xtlogit}. Fit the ordinary model unweighted, without
+a prefix, and with conventional standard errors; its standard errors are
+clustered on the highest-level group of the multilevel or panel model, or
+robust beside {cmd:ivregress 2sls}.
 
 {pstd}
 Supported {cmd:mestreg} distributions are exponential, Weibull, lognormal,
@@ -205,10 +207,14 @@ each model with the {cmd:svy:} prefix, then pass the stored names to
 {phang2}{cmd:. suest2 s1 s2}{p_end}
 
 {pstd}
-The survey route supports linearized VCEs. Survey design information is taken
-from {cmd:svyset}; do not specify {cmd:cluster()}, {cmd:vce()}, or
-{cmd:robust} on {cmd:suest2}. All models must use the same survey
-subpopulation specification. Replicate-weight VCEs are not supported.
+Survey design information is taken from {cmd:svyset}; do not specify
+{cmd:cluster()}, {cmd:vce()}, or {cmd:robust} on {cmd:suest2}. All models must
+use the same survey subpopulation specification. Linearized results and
+replicate-weight results ({cmd:svy brr}, {cmd:svy jackknife},
+{cmd:svy bootstrap}, {cmd:svy sdr}) are supported. With replicate weights,
+every model must use the same replication method, replicate weights and
+options; {cmd:suest2} refits every model for each replicate, as {cmd:svy}
+does, to compute the covariance of all the models' coefficients.
 
 {dlgtab:Pweights}
 
@@ -266,9 +272,10 @@ requested prediction. Inference uses the complete joint {cmd:suest2}
 covariance matrix, including the cross-model covariance.
 
 {pstd}
-For a two-part model, fit the two parts as separate models: a {cmd:logit} or
-{cmd:probit} model of whether the outcome is positive, and a {cmd:glm} or
-{cmd:regress} model of the outcome where it is positive. {cmd:twopart(}{it:first}
+For a two-part model, fit the two parts as separate models: a model of whether
+the outcome is positive, such as {cmd:logit} or {cmd:probit}, and a {cmd:glm},
+{cmd:regress}, {cmd:poisson}, or {cmd:nbreg} model of the outcome where it is
+positive. {cmd:twopart(}{it:first}
 {it:second}{cmd:)} predicts the first model's probability times the second
 model's mean. With a {cmd:regress} model of the log of the outcome, add
 {cmd:duan} for Duan's smearing estimate or {cmd:normal} for the normal-theory
@@ -356,7 +363,8 @@ when applicable, {cmd:e(clustvar)} and {cmd:e(N_clust)}. It also stores:
 {synopt:{cmd:e(suest2_resvar#)}}residual variance of a {cmd:regress} model, the mean squared residual{p_end}
 {synopt:{cmd:e(suest2_systempred#)}}whether active-system prediction is available{p_end}
 {synopt:{cmd:e(suest2_pweight)}}whether the pweight route was used{p_end}
-{synopt:{cmd:e(suest2_svy)}}whether the linearized survey route was used{p_end}
+{synopt:{cmd:e(suest2_svy)}}whether the survey route was used{p_end}
+{synopt:{cmd:e(suest2_svyrep)}}whether the models used replicate weights{p_end}
 {synopt:{cmd:e(suest2_mi_reconstruction_checked)}}whether MI source results were successfully reconstructed{p_end}
 {synopt:{cmd:e(predict)}}{cmd:suest2_p}{p_end}
 {synopt:{cmd:e(margins_cmd)}}{cmd:suest2_margins}{p_end}

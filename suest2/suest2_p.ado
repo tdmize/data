@@ -1,4 +1,4 @@
-*! version 0.1.96  12nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.98  19nov2026  | history: CHANGELOG-suest2.md (repo)
 program define suest2_p
     version 16
     if "`e(cmd)'" == "suest2_cox" {
@@ -49,12 +49,14 @@ program define suest2_p
         local tp2 : word 2 of `tpi'
         local tpm1 : word 1 of `twopart'
         local tpm2 : word 2 of `twopart'
-        if !inlist(`"`e(suest2_cmd`tp1')'"', "logit", "logistic", "probit") {
-            di as err "the first part of {bf:twopart()}, {bf:`tpm1'}, must be a {bf:logit} or {bf:probit} model"
+        if !inlist(`"`e(suest2_cmd`tp1')'"', "logit", "logistic", "probit", "cloglog", "hetprobit") & ///
+            !(`"`e(suest2_cmd`tp1')'"' == "glm" & `"`e(suest2_family`tp1')'"' == "bernoulli") {
+            di as err "the first part of {bf:twopart()}, {bf:`tpm1'}, must be a model of whether the outcome is positive: " ///
+                "{bf:logit}, {bf:probit}, {bf:cloglog}, {bf:hetprobit}, or {bf:glm} with a binomial family"
             exit 198
         }
-        if !inlist(`"`e(suest2_cmd`tp2')'"', "glm", "regress") {
-            di as err "the second part of {bf:twopart()}, {bf:`tpm2'}, must be a {bf:glm} or {bf:regress} model"
+        if !inlist(`"`e(suest2_cmd`tp2')'"', "glm", "regress", "poisson", "nbreg") {
+            di as err "the second part of {bf:twopart()}, {bf:`tpm2'}, must be a {bf:glm}, {bf:regress}, {bf:poisson}, or {bf:nbreg} model"
             exit 198
         }
         if "`duan'`normal'" != "" & `"`e(suest2_cmd`tp2')'"' != "regress" {
@@ -723,9 +725,28 @@ program define suest2_p
                 di as err "specify only one of pu0 or xb"
                 exit 198
             }
-            local pass "pu0"
-            if "`xb'"!="" local pass "xb"
-            suest2_p_legacy `typlist' `varlist' `if' `in', model(`model') `pass'
+            // 0.1.97: from the system's own equation, as for logit, with the fixed effect at 0
+            tempvar s2xb
+            quietly _predict double `s2xb' `if' `in', xb equation(#`eqstart')
+            local offset `"`e(suest2_offset`imodel')'"'
+            if `"`offset'"' != "" {
+                tempvar offsetvalue
+                capture quietly generate double `offsetvalue' = `offset' `if' `in'
+                local offsetrc = _rc
+                if `offsetrc' {
+                    di as err "unable to evaluate offset {bf:`offset'} for model {bf:`model'}"
+                    exit `offsetrc'
+                }
+                quietly replace `s2xb' = `s2xb' + `offsetvalue' `if' `in'
+            }
+            if "`xb'"!="" {
+                quietly generate `typlist' `varlist' = `s2xb' `if' `in'
+                label variable `varlist' "Linear prediction"
+            }
+            else {
+                quietly generate `typlist' `varlist' = invlogit(`s2xb') `if' `in'
+                label variable `varlist' "Pr(`depvar'|fixed effect is 0)"
+            }
             exit
         }
 
@@ -1421,6 +1442,11 @@ program define suest2_p
 
     // Ordered logit/probit.  Numeric equation() positions after the primary xb
     // are the cutpoint equations posted by official suest.
+    // outcome(#k): the k-th outcome, as in official predict
+    if inlist("`cmd'", "ologit", "oprobit", "mlogit") & ustrregexm(`"`outcome'"', "^ *#([0-9]+) *$") {
+        local outk = real(ustrregexs(1))
+        if `outk' >= 1 & `outk' <= `: word count `outcomes''  local outcome : word `outk' of `outcomes'
+    }
     if inlist("`cmd'", "ologit", "oprobit") {
         if `wantxb' {
             quietly _predict `typlist' `varlist' `if' `in', xb equation(#`eqstart')

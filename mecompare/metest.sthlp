@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-11-16 Trenton D Mize -- matches metest v0.5.1}{...}
+{* 2026-11-16 Trenton D Mize -- matches metest v0.5.2}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}

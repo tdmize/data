@@ -1,5 +1,5 @@
 {smcl}
-{* 2026-11-16 Trenton D Mize -- matches mecompare v1.12.1}{...}
+{* 2026-11-19 Trenton D Mize -- matches mecompare v1.15.0}{...}
 {title:Title}
 
 {p2colset 5 16 16 1}{...}
@@ -29,7 +29,7 @@ the models.{p_end}
 {synopt:{opt groupm:e}}outcome difference between the two groups{p_end}
 {synopt:{opt groupsd}}each group's own SD for {opt amount(sd)}{p_end}
 {synopt:{opt own:sample}}average each model over its own sample{p_end}
-{synopt:{opt twop:art}[{cmd:(}{it:type}{cmd:)}]}two-part models, listed in {opt models( )} in pairs{p_end}
+{synopt:{opt twop:art}[{cmd:(}{it:spec}{cmd:)}]}two-part models, in pairs in {opt models( )} or named here{p_end}
 
 {syntab:Amount of change}
 {synopt:{opt amount(list)}}change for continuous variables; default is {bf:one}{p_end}
@@ -257,15 +257,19 @@ need to have been stored.
 {marker twopart}
 
 {p2colset 5 18 19 0}
-{p2col:{opt twop:art}[{cmd:(}{it:type}{cmd:)}]} compares two-part models. A
-two-part model is two stored models: a {cmd:logit} or {cmd:probit} model of
-whether the outcome is positive, and a {cmd:glm} or {cmd:regress} model of the
-outcome where it is positive. {opt mod:els( )} lists each first part, then its
-second part, and each pair is one model in the table, labeled by its two names
-(e.g. {cmd:Any+Amount}). The effects are on the expected outcome, the first
-part's probability times the second part's mean. With a {cmd:regress} model of
-the log of the outcome as each second part, {opt twopart(duan)} uses Duan's
-smearing estimate and {opt twopart(normal)} the normal-theory retransformation.
+{p2col:{opt twop:art}[{cmd:(}{it:spec}{cmd:)}]} compares two-part models. A
+two-part model is two stored models: a model of whether the outcome is
+positive, such as {cmd:logit} or {cmd:probit}, and a {cmd:glm}, {cmd:regress},
+{cmd:poisson}, or {cmd:nbreg} model of the outcome where it is positive. With {opt twopart} alone, {opt mod:els( )} lists
+each first part, then its second part. To compare a two-part model with other
+models, name its two parts in {opt twopart( )}, as in {cmd:twopart(Any Amount)};
+the other models in {opt mod:els( )} keep their own prediction. Each pair is
+one model in the table, labeled by its two names (e.g. {cmd:Any+Amount}). The
+effects are on the expected outcome, the first part's probability times the
+second part's mean. With a {cmd:regress} model of the log of the outcome as a
+second part, {opt duan} uses Duan's smearing estimate and {opt normal} the
+normal-theory retransformation, as in {opt twopart(duan)} or
+{cmd:twopart(Any LnAmount, duan)}.
 {p_end}
 
 {marker groups}
@@ -748,8 +752,7 @@ such as a {cmd:logit} of the same event, keep their default prediction. A Cox
 model needs {opt time()}, and it must be fit with Breslow ties (the default),
 one record per subject, no delayed entry, and no weights, {cmd:svy},
 {cmd:strata()}, or {cmd:tvc()}. {opt time()} cannot be combined with
-{opt predict()}, {cmd:mestreg}, or multilevel, panel, or {cmd:ivregress}
-models.
+{opt predict()} or {cmd:mestreg}.
 {p_end}
 
 {marker svy_mi}
@@ -766,6 +769,15 @@ specified using {help svyset} and the {cmd:svy:} prefix should be used
 on the individual models before {cmdab:mecomp:are}. For {cmd:svy:}, all 
 models must be {cmd:svy:} and the relevant {help svyset} design must be 
 active when {cmdab:mecomp:are} is run. 
+{p_end}
+
+{pstd}After {cmd:svy, subpop()}, the marginal effects are averaged over the
+subpopulation, and the standard deviations, means and other quantities taken
+from the data are computed in the subpopulation. Models fit with replicate
+weights ({cmd:svy brr}, {cmd:svy jackknife}, {cmd:svy bootstrap},
+{cmd:svy sdr}) are supported when every model uses the same replication
+method; the standard errors use the delta method, as {cmd:margins} does after
+each model.
 {p_end}
 
 {pstd}Weights carry through to every quantity {cmdab:mecomp:are} computes 
@@ -898,6 +910,8 @@ recovered; 0 otherwise{p_end}
 as 0 with a warning){p_end}
 {synopt:{cmd:e(V_zeroed)}}number of covariance elements set to 0 for the same 
 reason{p_end}
+{synopt:{cmd:e(k_noest)}}number of effects a model cannot estimate (shown as {bf:.} 
+in the table; posted as 0 with their rows and columns of {cmd:e(V)} zeroed){p_end}
 
 {p2col 5 22 26 2: Macros}{p_end}
 {synopt:{cmd:e(cmd)}}{cmd:mecompare}{p_end}
@@ -1212,6 +1226,15 @@ syntax required for the regression model; optional for {cmdab:mecomp:are}.
 {phang} {stata "estimates store Amount2":estimates store Amount2} {p_end}
 
 {phang} {stata "mecompare ins_unins, models(Any Amount Any2 Amount2) twopart":mecompare ins_unins, models(Any Amount Any2 Amount2) twopart} {p_end}
+
+{pstd}{it:A two-part model and a Poisson model of the same outcome}
+{p_end}
+
+{phang} {stata "poisson exp_tot c.age i.female i.ins_unins, vce(robust)":poisson exp_tot c.age i.female i.ins_unins, vce(robust)} {p_end}
+
+{phang} {stata "estimates store Pois":estimates store Pois} {p_end}
+
+{phang} {stata "mecompare ins_unins, models(Any Amount Pois) twopart(Any Amount)":mecompare ins_unins, models(Any Amount Pois) twopart(Any Amount)} {p_end}
 
 {pstd}{it:A Cox model and a Weibull model: effects on the probability of death by month 10}
 {p_end}

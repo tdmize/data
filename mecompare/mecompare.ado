@@ -3,7 +3,7 @@
 *******************
 
 capture program drop mecompare
-*! mecompare v1.12.1 Trenton Mize 2026-11-15  | history: CHANGELOG-mecompare.md (repo)
+*! mecompare v1.15.0 Trenton Mize 2026-11-19  | history: CHANGELOG-mecompare.md (repo)
 
 program define mecompare, eclass 
 	version 16.0
@@ -27,6 +27,7 @@ program define mecompare, eclass
 				matlist e(table), title(`"`e(dtitle)'"') 	///
 					cspec(`"`e(dcspec)'"') rspec(`"`e(drspec)'"') 	///
 					nodotz underscore
+				if e(k_noest) > 0 & e(k_noest) < .  _mec_nenote `=e(n_mods)'
 				}
 			exit
 			}
@@ -122,24 +123,11 @@ program define mecompare, eclass
 		TOTALme(string) MARGINSopt(string asis) ATMeans cochange(string) ///
 		LABWidth(numlist integer) STATWidth(numlist integer) RRatios TWOPart(string) OWNsample TIME(numlist max=1 >0)]  
 	if `mecgrpon' == 1  local groups "groups"
-*twopart: models() lists each two-part model's first part, then its second part
+*twopart: the parts named in twopart(), else models() in pairs; duan or normal
+	local mectpm ""
 	if `"`twopart'"' != "" {
-		local twopart = lower(strtrim(`"`twopart'"'))
-		if !inlist("`twopart'", "default", "duan", "normal") {
-			di as err "{opt twopart()} takes {opt duan} or {opt normal}; for the default, type {opt twopart}."
-			exit 198
-			}
-		local mectpn : word count `models'
-		if `mectpn' < 2 | mod(`mectpn', 2) {
-			di as err "With {opt twopart}, {opt models( )} lists each two-part model's first part " /*
-			*/ "and then its second part, so it needs an even number of models."
-			exit 198
-			}
-		if "`groups'`predict'" != "" | lower(strtrim("`engine'")) == "gsem" | strpos(lower(`"`marginsopt'"'), "expression(") {
-			di as err "{opt twopart} sets the prediction, so it cannot be combined with {opt groups}, " /*
-			*/ "{opt predict()}, {opt engine(gsem)}, or {opt expression()} in {opt marginsopt()}."
-			exit 198
-			}
+		local mecx = "`groups'`predict'" != "" | lower(strtrim("`engine'")) == "gsem" | strpos(lower(`"`marginsopt'"'), "expression(") > 0
+		_mec_tpopt `mecx' `"`models'"' `"`twopart'"'
 		}
 	if `"`cochange'"' != "" {
 		_mec_ccvars `cochange', focal(`varlist')
@@ -635,6 +623,9 @@ local issvy = 0
 ****************************************************************************
 if `nummods' == 1 {
 	qui est restore `mod1'
+	*A fixed-effects model's absorbed covariate (o. main effect) would make margins call every counterfactual not estimable
+	local mecnoec ""
+	if "`e(model)'" == "fe" & ustrregexm(" `: colnames e(b)' ", " [0-9]*o\.[^ #]+ ")  _mec_noec
 	*commands prints the model's stored command line
 	if "`commands'" != "" {
 		local mecm1 = cond("`mecsolo'" != "", "m1", "`mod1'")
@@ -658,7 +649,10 @@ if `nummods' == 1 {
 	local meclevif "if `mec_sample' == 1"
 	qui count if `mec_sample' == 1
 	if r(N) == 0  local meclevif ""
-	if "`e(prefix)'" == "svy"  local issvy = 1
+	if "`e(prefix)'" == "svy" {
+		local issvy = 1
+		local mecsubpop `"`e(subpop)'"'
+		}
 	*check for supported pweight[] model
 	if inlist("`e(cmd)'", "mixed", "melogit", "meprobit", "mecloglog", "mepoisson") | /*
 	*/ inlist("`e(cmd)'", "menbreg", "meologit", "meoprobit", "mestreg", "meglm") {
@@ -783,6 +777,7 @@ foreach mecc in mixed melogit meprobit mecloglog mepoisson menbreg meologit meop
 	}
 *Every xt panel model, any estimator; xtgee (pa) and clogit (xtlogit, fe) carry the xt command in e(cmd2)
 if substr("`e(cmd)'", 1, 2) == "xt" | substr("`e(cmd2)'", 1, 2) == "xt"  local mecml`i' = 1
+if "`e(cmd)'" == "ivregress"  local mecml`i' = 2
 *mi checks / info
 local ismi`i' = 0
 local s2mimark = 0
@@ -814,6 +809,7 @@ if `s2mimark' == 1 {
 local issvy`i' = 0
 if "`e(prefix)'" == "svy" {
 	local issvy`i' = 1
+	local mecsubpop `"`e(subpop)'"'
 	local mc = strpos("`cmdline`i''", ":")
 	if `mc' > 0 local cmdline`i' = trim(substr("`cmdline`i''", `mc'+1, .))
 	}
@@ -891,37 +887,13 @@ else if `inpos' > 0 {
 
 } // End of looping through each of the models
 
-*twopart: a logit/probit first part and a glm/regress second part fit on its positive outcomes
+*twopart: check each pair; the other models keep their own prediction
 if "`twopart'" != "" {
-	if `ismi' == 1 {
-		di as err "{opt twopart} is not available with {cmd:mi estimate} results."
-		exit 198
+	local mectl ""
+	forvalues j = 1/`nummods' {
+		local mectl `"`mectl' `"`mod`j''"' `"`cmd`j''"' `mod`j'samp' `"`dv`j''"' `mecml`j''"'
 		}
-	forvalues j = 1(2)`nummods' {
-		local k = `j' + 1
-		if !inlist("`cmd`j''", "logit", "logistic", "probit") {
-			di as err "With {opt twopart}, a first part must be a {cmd:logit} or {cmd:probit} model; " /*
-			*/ "{bf:`mod`j''} is a {cmd:`cmd`j''} model."
-			exit 198
-			}
-		if !inlist("`cmd`k''", "glm", "regress") {
-			di as err "With {opt twopart}, a second part must be a {cmd:glm} or {cmd:regress} model; " /*
-			*/ "{bf:`mod`k''} is a {cmd:`cmd`k''} model."
-			exit 198
-			}
-		if "`twopart'" != "default" & "`cmd`k''" != "regress" {
-			di as err "{opt twopart(`twopart')} needs a {cmd:regress} model of the log of the outcome " /*
-			*/ "as each second part; {bf:`mod`k''} is a {cmd:`cmd`k''} model."
-			exit 198
-			}
-		qui count if `mod`k'samp' == 1 & !(`mod`j'samp' == 1 & `dv`j'' != 0)
-		if r(N) > 0 {
-			di as err "The second part {bf:`mod`k''} uses `r(N)' observations that the first part " /*
-			*/ "{bf:`mod`j''} does not count as positive. Fit the second part on the observations " /*
-			*/ "with a positive outcome, as in {cmd:glm y x if y > 0}."
-			exit 198
-			}
-		}
+	_mec_tpchk `twopart' `"`mectpm'"' `ismi' `mectl'
 	}
 
 *With two or more models and no weight given, inherit the models' weight (all must agree)
@@ -1238,6 +1210,7 @@ else {
 
 capture estimates drop `mecalt'
 est 	store `mecsys'
+if "`twopart'" != ""  local mecmdall `"`e(marginsdefault)'"'
 *A heterogeneous suest2 system labels every model by equation (the specialized stripe)
 if "`engine'" != "gsem" & "`e(suest2_mehetero)'" == "1"  local s2spec1 = 1
 
@@ -1307,46 +1280,20 @@ if "`groups'" == "" & "`twopart'" == "" {
 
 }	// End of multi-model-specific options
 
-*twopart: each pair of models is one two-part model from here on
+*twopart: each pair of models is one two-part model from here on; the other models keep their own prediction
 if "`twopart'" != "" {
-	local mecnp = `nummods' / 2
-	forvalues j = 1/`mecnp' {
-		local a = 2*`j' - 1
-		local b = 2*`j'
-		local tpa`j' "`mod`a''"
-		local tpb`j' "`mod`b''"
-		local tpN`j' = `N`a''
-		local tpdv`j' "`dv`b'name'"
-		local tpcmd`j' "`cmd`a''/`cmd`b''"
-		local tpl`j' : list list_ivs`a' | list_ivs`b'
-		local tpf`j' : list mecfull`a' | mecfull`b'
-		local tpv`j' : list fvivs`a' | fvivs`b'
-		}
-	forvalues j = 1/`mecnp' {
-		local mod`j' "`tpa`j''+`tpb`j''"
-		local mod`j'lab "`tpa`j''+`tpb`j''"
-		local N`j' = `tpN`j''
-		local dv`j'name "`tpdv`j''"
-		local cmd`j' "`tpcmd`j''"
-		local list_ivs`j' "`tpl`j''"
-		local mecfull`j' "`tpf`j''"
-		local fvivs`j' "`tpv`j''"
-		local mod`j'cats = 1
-		local s2spec`j' = 0
-		}
-	local nummods = `mecnp'
-	if "`mod1name'" != ""  local mod1lab "`mod1name'"
-	if "`mod2name'" != "" & `nummods' >= 2  local mod2lab "`mod2name'"
-	if `nummods' == 1  local mod2lab ""
+	local mectl ""
 	forvalues j = 1/`nummods' {
-		local rkey`j' = strtoname(substr("`tpa`j''_`tpb`j''",1,28))
-		if "`rkey`j''" == "`rkeyD'"  local rkey`j' "`rkey`j''_`j'"
-		local jm1 = `j' - 1
-		forvalues q = 1/`jm1' {
-			if "`rkey`j''" == "`rkey`q''"  local rkey`j' "`rkey`j''_`j'"
-			}
+		local mectl `"`mectl' `"`mod`j''"' `N`j'' `"`dv`j'name'"' `"`cmd`j''"' `"`list_ivs`j''"' `"`mecfull`j''"' `"`fvivs`j''"' `mod`j'cats' `"`s2spec`j''"' `mod`j'samp'"'
 		}
-	if `nummods' == 1  local rkey2 ""
+	_mec_tpunits "`mecunits'" `"`mecmdall'"' "`mod1name'" "`mod2name'" "`rkeyD'" `mectl'
+	}
+
+*After svy, subpop(), the effects and the quantities taken from the data are over the subpopulation (margins alone uses the whole sample)
+local mecsubspec ""
+if `issvy' == 1 & `"`mecsubpop'"' != "" & !strpos(`"`marginsopt'"', "subpop(") {
+	local mecsubspec `" subpop(`mecsubpop')"'
+	_mec_subpop `mec_sample' `mecsubpop'
 	}
 
 *Weight for SDs/shares: mecompare's if given, else the models' own (pweight maps to aweight)
@@ -2310,14 +2257,8 @@ if "`predict'" != "" {
 		}
 	}
 
-*twopart: one two-part prediction per pair
-if "`twopart'" != "" {
-	local mectpo = cond("`twopart'" == "default", "", "`twopart'")
-	local predspec ""
-	forvalues j = 1/`nummods' {
-		local predspec "`predspec' predict(twopart(`tpa`j'' `tpb`j'') `mectpo')"
-		}
-	}
+*twopart: a two-part prediction for each pair; the other models their own default prediction
+if "`twopart'" != ""  local predspec `"`mectpps'"'
 *time(): one model also goes through suest2; stcox and streg rows on the probability of the event by the time
 if "`time'" != ""  _mec_timepred `time' `nummods' "`cmdqui'" "`commands'" "`mectst'" `mod1' `mecmodlist'
 
@@ -2334,11 +2275,16 @@ if `ismi' == 1 {
 if "`commands'" != "" {		// show command line if requested
 	di ""
 	di as text "margins command is: "
-	di as result `"    `marginscmd' `if' `in', `mrgspec' `predspec' `mimarginsspec' `overspec' `atmeans' `marginsopt' post"'
+	di as result `"    `marginscmd' `if' `in', `mrgspec' `predspec' `mimarginsspec' `overspec' `atmeans'`mecsubspec' `marginsopt'`mecnoec' post"'
 	}
 
 `cmdqui'	`marginscmd' `if' `in', `mrgspec' `predspec' `mimarginsspec' /*
-		*/ `overspec' `atmeans' `marginsopt' post  
+		*/ `overspec' `atmeans'`mecsubspec' `marginsopt'`mecnoec' post  
+*The stripe margins posted decides the crosswalk: each model labelled by equation, or by _predict
+if "`engine'" != "gsem" {
+	local mecceq : coleq e(b)
+	local s2spec1 : list mod1 in mecceq
+	}
 
 
 *What margins says it is predicting, for the table header: model j's label is its first prediction
@@ -2359,15 +2305,15 @@ if `mod1cats' > 1 {
 		}
 	}
 
-*twopart: the expected outcome, the first part's probability times the second part's mean
+*twopart: a pair's prediction is the expected outcome, the first part's probability times the second part's mean
 if "`twopart'" != "" {
 	forvalues j = 1/`nummods' {
-		if "`twopart'" == "default"  local plab`j' "Two-part mean of `dv`j'name'"
-		else                         local plab`j' "Two-part mean of exp(`dv`j'name'), `twopart'"
+		if "`mectpl`j''" != ""  local plab`j' "`mectpl`j''"
 		}
 	}
 forvalues j = 1/`nummods' {
 	if "`mectl`j''" != ""  local plab`j' "`mectl`j''"
+	if "`time'" != "" & "`s2spec1'" == "1" & inlist("`plab`j''", "", "Default prediction for each model")  local plab`j' "Default prediction"
 	}
 
 *rratios: probabilities give risk ratios; other predictions a ratio
@@ -3580,6 +3526,43 @@ forvalues i = 1/`numvars' {
 		local rrn`i' = rowsof(_mlincom) - `rr0'
 		}
 }	// End of ME calculation loop
+
+*An effect a model cannot estimate, and any Difference using it, shows as .; with none left, stop
+local mecne ""
+local K = `me_num' - 1
+if `K' > 0 {
+	local mecmx ""
+	forvalues j = 1/`K' {
+		local mecmx `"`mecmx' "`mexp`j''""'
+		}
+	local mecpfx ""
+	if `nummods' > 1 {
+		forvalues j = 1/`nummods' {
+			forvalues o = 1/`mod1cats' {
+				local mecpfx "`mecpfx' `j'|`prnum`j'_`o''"
+				}
+			}
+		}
+	_mec_nest `K' `nummods' "`mecpfx'" `mecmx'
+	local mecok = 0
+	local mecr = 0
+	forvalues r = 1/`=rowsof(_mlincom)' {
+		if _mlincom[`r',1] == .z  continue
+		local ++mecr
+		if `: list posof "`mecr'" in mecne' {
+			forvalues c = 1/`=colsof(_mlincom)' {
+				matrix _mlincom[`r',`c'] = .
+				}
+			}
+		else if !missing(_mlincom[`r',1])  local ++mecok
+		}
+	if `mecok' == 0 & "`mecne'" != "" {
+		di as err "None of the requested marginal effects can be estimated " /*
+		*/ "from the model(s) (for example, the variables were omitted from " /*
+		*/ "the model, or do not vary within groups in a fixed-effects model)."
+		exit 498
+		}
+	}
 	
 *********************
 // Build the table //
@@ -3613,6 +3596,8 @@ local est_col 		"Estimate"
 local se_col 		"Robust_SE"
 *One model keeps its own VCE: label the column by it
 if `nummods' == 1 & "`mecvct'" != "Robust"  local se_col = cond("`mecvct'" == "", "SE", ustrregexra("`mecvct'", "[^A-Za-z]", "") + "_SE")
+if `nummods' > 1 & inlist("`vcetype1'", "brr", "sdr")  local se_col = upper("`vcetype1'") + "_SE"
+if `nummods' > 1 & inlist("`vcetype1'", "jackknife", "bootstrap")  local se_col = proper("`vcetype1'") + "_SE"
 if regexm(`"`mecmorest'"', "vce\( *unconditional *\)")  local se_col "Uncond_SE"
 local pvalue_col 	"P>|z|"
 local pval_col 		"P>|z|"
@@ -3886,6 +3871,7 @@ if "`plab1'" != "" {
 *Display table
 matlist _mecompare, title("`N_title'") 	///
 		cspec("`colspec'") rspec("`rowspec'") nodotz underscore `mecplnb'
+if "`mecne'" != ""  _mec_nenote `nummods'
 
 if `"`cochange'"' != "" {
 	di ""
@@ -3939,12 +3925,19 @@ forvalues j = 1/`nummods' {
 	local mecsl `"`mecsl' "`mod`j''" "`cmd`j''""'
 	}
 _mec_survnote `"`predict'"' `"`mecexpr'"' "`time'" `nummods' `mecsl'
+if `"`mecsubspec'"' != "" {
+	local mecsm = cond(`nummods' == 1, "model was", "models were")
+	di ""
+	di as text "NOTE: the `mecsm' fit with {cmd:svy, subpop(`mecsubpop')}, so the marginal effects " /*
+	*/ "are averaged over that subpopulation, and the standard deviations and other quantities " /*
+	*/ "taken from the data are computed in the subpopulation too."
+	}
 
 *One difference per outcome; under groupme each model averages over its own group
 if "`groupme'" != "" {
 	qui est restore `mecsys'
 	`cmdqui' `marginscmd' `if' `in', `mimarginsspec' `predspec' /*
-		*/ over(`mecgsamp') post
+		*/ over(`mecgsamp')`mecsubspec' post
 	di ""
 	di as text "Average conditional difference in the outcome " /*
 	*/ "(`mod2lab' - `mod1lab'),"
@@ -3976,17 +3969,13 @@ local K = `me_num' - 1
 
 if `K' > 0 {
 
-	local mecmx ""
-	forvalues j = 1/`K' {
-		local mecmx `"`mecmx' "`mexp`j''""'
-		}
 	local meckeys ""
 	local mecns ""
 	forvalues j = 1/`nummods' {
 		local meckeys "`meckeys' `rkey`j''"
 		local mecns "`mecns' `N`j''"
 		}
-	_mec_post `K' `nummods' `ismi' `mec_sample' "`groups'" "`store'" "`dv1name'" "`rkeyD'" "`meckeys'" "`mecns'" "`MEC_eqn'" "`MEC_rol'" `"`MEC_ctr'"' "`MEC_lev'" `"`MEC_nam'"' `mecmx'
+	_mec_post `K' `nummods' `ismi' `mec_sample' "`groups'" "`store'" "`dv1name'" "`rkeyD'" "`meckeys'" "`mecns'" "`MEC_eqn'" "`MEC_rol'" `"`MEC_ctr'"' "`MEC_lev'" `"`MEC_nam'"' "`mecne'" `mecmx'
 *Post the prediction label(s); per-model macros only when the models disagree
 	if `"`plab1'"' != "" {
 		ereturn local predict_label `"`plab1'"'
@@ -4015,6 +4004,7 @@ if `K' > 0 {
 	*Unrecoverable quantities post as 0; counts and a completeness flag are returned
 	ereturn scalar k_failed = `__nmiss'
 	ereturn scalar V_zeroed = `__vmiss'
+	ereturn scalar k_noest = `: word count `mecne''
 	if `__nmiss' == 0 & `__vmiss' == 0  ereturn scalar V_complete = 1
 	else                                ereturn scalar V_complete = 0
 	*names of the persistent variables mecompare created, if any
@@ -4038,6 +4028,376 @@ capture error `__rcsave'
 end		
 	
 	
+capture program drop _mec_nest
+program define _mec_nest, eclass
+*Effects a model cannot estimate: the part from one model has no variance (or no slope), or uses a margin margins could not estimate
+	version 16.0
+	gettoken K 0 : 0
+	gettoken nummods 0 : 0
+	gettoken pfx 0 : 0
+	forvalues k = 1/`K' {
+		gettoken mexp`k' 0 : 0
+		}
+	c_local mecne ""
+	*The margins each effect uses
+	local cells ""
+	forvalues k = 1/`K' {
+		local r`k' ""
+		local s `"`mexp`k''"'
+		local q = strpos(`"`s'"', "_b[")
+		while `q' > 0 {
+			local s = substr(`"`s'"', `q' + 3, .)
+			local c = strtrim(substr(`"`s'"', 1, strpos(`"`s'"', "]") - 1))
+			if "`c'" != "" {
+				local cells : list cells | c
+				local r`k' `r`k'' `: list posof "`c'" in cells'
+				}
+			local q = strpos(`"`s'"', "_b[")
+			}
+		}
+	local p : word count `cells'
+	if `p' == 0  exit
+	*Each margin's model (0 when no model's prefix matches)
+	local grp ""
+	local cs ""
+	local i = 0
+	foreach c of local cells {
+		local ++i
+		local g = (`nummods' == 1)
+		foreach t of local pfx {
+			local tp = substr("`t'", strpos("`t'", "|") + 1, .)
+			if strpos("`c'", "`tp'") == 1  local g = substr("`t'", 1, strpos("`t'", "|") - 1)
+			}
+		local grp `grp' `g'
+		local cs `"`cs' (C`i': _b[`c'])"'
+		}
+	*The margins' covariance; then each effect's slopes, which nlcom returns beside the margins when V is the identity
+	tempname V vd b I R G Gg C D
+	qui est restore mec_margins
+	capture qui nlcom `cs'
+	if _rc  exit
+	matrix `V' = r(V)
+	matrix `vd' = vecdiag(`V')
+	matrix `b' = e(b)
+	matrix `I' = I(colsof(`b'))
+	capture ereturn repost b = `b' V = `I', rename
+	if _rc {
+		qui est restore mec_margins
+		exit
+		}
+	local es ""
+	forvalues k = 1/`K' {
+		local es `"`es' (ME`k': `mexp`k'')"'
+		}
+	capture qui nlcom `es' `cs'
+	if _rc == 0 {
+		matrix `R' = r(V)
+		matrix `G' = `R'[1..`K', `=`K'+1'...]
+		}
+	else {
+		matrix `G' = J(`K', `p', .)
+		forvalues k = 1/`K' {
+			capture qui nlcom (ME`k': `mexp`k'') `cs'
+			if _rc == 0 {
+				matrix `R' = r(V)
+				matrix `R' = `R'[1, 2...]
+				matrix `G'[`k', 1] = `R'
+				}
+			}
+		}
+	qui est restore mec_margins
+	*Flag an effect that uses a margin with no variance, or whose part from one model has no variance or no slope
+	local gs ""
+	forvalues k = 1/`K' {
+		local f`k' = 0
+		local m`k' ""
+		foreach i of local r`k' {
+			if `vd'[1,`i'] == 0  local f`k' = 1
+			local g : word `i' of `grp'
+			local m`k' : list m`k' | g
+			}
+		local gs : list gs | m`k'
+		}
+	foreach g of local gs {
+		matrix `Gg' = J(1, `p', 0)
+		forvalues i = 1/`p' {
+			if "`: word `i' of `grp''" == "`g'"  matrix `Gg'[1,`i'] = 1
+			}
+		matrix `Gg' = `G' * diag(`Gg')
+		matrix `C' = `Gg' * `V' * `Gg''
+		matrix `D' = hadamard(`Gg', `Gg') * `vd''
+		forvalues k = 1/`K' {
+			if `f`k'' | !`: list posof "`g'" in m`k''  continue
+			if missing(`D'[`k',1])  continue
+			if !(`D'[`k',1] > 0) | `C'[`k',`k'] <= 1e-12*`D'[`k',1]  local f`k' = 1
+			}
+		}
+	local ne ""
+	forvalues k = 1/`K' {
+		if `f`k''  local ne `ne' `k'
+		}
+	c_local mecne "`ne'"
+end
+
+capture program drop _mec_nenote
+program define _mec_nenote
+	args nummods
+	di ""
+	if `nummods' == 2  di as text "NOTE: an effect that a model cannot estimate is shown as . (for " /*
+		*/ "example, the variable was omitted from that model, or does not vary within groups " /*
+		*/ "in a fixed-effects model), and so is any Difference that uses it."
+	else  di as text "NOTE: an effect that a model cannot estimate is shown as . (for " /*
+		*/ "example, the variable was omitted from that model, or does not vary within groups " /*
+		*/ "in a fixed-effects model)."
+end
+
+*noestimcheck for a fixed-effects model, unless an interaction cell is empty (an omitted term with no base level)
+capture program drop _mec_noec
+program define _mec_noec
+	local ok 1
+	foreach c in `: colnames e(b)' {
+		if !strpos("`c'", "#")  continue
+		local om 0
+		local ba 0
+		foreach u in `: subinstr local c "#" " ", all' {
+			local h = substr("`u'", 1, strpos("`u'", ".") - 1)
+			if ustrregexm("`h'", "o$")  local om 1
+			if ustrregexm("`h'", "^[0-9]+bo?$")  local ba 1
+			}
+		if `om' & !`ba'  local ok 0
+		}
+	if `ok'  c_local mecnoec " noestimcheck"
+end
+
+capture program drop _mec_tpopt
+program define _mec_tpopt
+*twopart(): the parts named, each first part then its second part, else models() in pairs; duan or normal alone or after a comma
+	version 16.0
+	gettoken x 0 : 0
+	gettoken models 0 : 0
+	gettoken tp 0 : 0
+	local tp = strtrim(`"`tp'"')
+	local type "default"
+	if strpos(`"`tp'"', ",") {
+		local type = lower(strtrim(substr(`"`tp'"', strpos(`"`tp'"', ",") + 1, .)))
+		local tp = strtrim(substr(`"`tp'"', 1, strpos(`"`tp'"', ",") - 1))
+		if "`type'" == ""  local type "default"
+		}
+	else if inlist(lower(`"`tp'"'), "default", "duan", "normal") {
+		local type = lower(`"`tp'"')
+		local tp ""
+		}
+	if !inlist("`type'", "default", "duan", "normal") {
+		di as err "{opt twopart()} takes {opt duan} or {opt normal}, alone or after the models' names " /*
+		*/ "and a comma; for the default, type {opt twopart}."
+		exit 198
+		}
+	local n : word count `tp'
+	if `n' == 0 {
+		local n : word count `models'
+		if `n' < 2 | mod(`n', 2) {
+			di as err "With {opt twopart}, {opt models( )} lists each two-part model's first part " /*
+			*/ "and then its second part, so it needs an even number of models. To compare a " /*
+			*/ "two-part model with other models, name its two parts in {opt twopart( )}."
+			exit 198
+			}
+		}
+	else if mod(`n', 2) {
+		di as err "{opt twopart( )} names each two-part model's first part and then its second part, " /*
+		*/ "so it needs an even number of models."
+		exit 198
+		}
+	if `x' {
+		di as err "{opt twopart} sets the prediction, so it cannot be combined with {opt groups}, " /*
+		*/ "{opt predict()}, {opt engine(gsem)}, or {opt expression()} in {opt marginsopt()}."
+		exit 198
+		}
+	c_local twopart "`type'"
+	c_local mectpm "`tp'"
+end
+
+capture program drop _mec_tpchk
+program define _mec_tpchk
+*twopart: each pair a logit/probit first part and a glm/regress second part fit on its positive outcomes; the table's order
+	version 16.0
+	gettoken type 0 : 0
+	gettoken tpm 0 : 0
+	gettoken ismi 0 : 0
+	if `ismi' == 1 {
+		di as err "{opt twopart} is not available with {cmd:mi estimate} results."
+		exit 198
+		}
+	tempname h
+	_estimates hold `h', copy restore nullok
+	local n = 0
+	local models ""
+	while `"`0'"' != "" {
+		local ++n
+		foreach x in mod cmd samp dv ml {
+			gettoken `x'`n' 0 : 0
+			}
+		local models `models' `mod`n''
+		}
+	if "`tpm'" == ""  local tpm "`models'"
+	local reg = 0
+	local units ""
+	local keys ""
+	forvalues p = 1/`=`: word count `tpm''/2' {
+		local a : word `=2*`p'-1' of `tpm'
+		local b : word `=2*`p'' of `tpm'
+		foreach m in a b {
+			if !`: list posof "``m''" in models' {
+				di as err "{bf:``m''} is named in {opt twopart( )} but not in {opt models( )}."
+				exit 198
+				}
+			}
+		local j : list posof "`a'" in models
+		local k : list posof "`b'" in models
+		local ok = inlist("`cmd`j''", "logit", "logistic", "probit", "cloglog", "hetprobit")
+		if "`cmd`j''" == "glm" {
+			qui estimates restore `mod`j''
+			local ok = lower("`e(varfunct)'") == "bernoulli"
+			}
+		if !`ok' {
+			di as err "With {opt twopart}, a first part must be a model of whether the outcome is positive: " /*
+			*/ "{cmd:logit}, {cmd:probit}, {cmd:cloglog}, {cmd:hetprobit}, or {cmd:glm} with a binomial " /*
+			*/ "family; {bf:`mod`j''} is a {cmd:`cmd`j''} model."
+			exit 198
+			}
+		if !inlist("`cmd`k''", "glm", "regress", "poisson", "nbreg") {
+			di as err "With {opt twopart}, a second part must be a {cmd:glm}, {cmd:regress}, {cmd:poisson}, or {cmd:nbreg} model; " /*
+			*/ "{bf:`mod`k''} is a {cmd:`cmd`k''} model."
+			exit 198
+			}
+		qui count if `samp`k'' == 1 & !(`samp`j'' == 1 & `dv`j'' != 0)
+		if r(N) > 0 {
+			di as err "The second part {bf:`mod`k''} uses `r(N)' observations that the first part " /*
+			*/ "{bf:`mod`j''} does not count as positive. Fit the second part on the observations " /*
+			*/ "with a positive outcome, as in {cmd:glm y x if y > 0}."
+			exit 198
+			}
+		local t "default"
+		if "`type'" != "default" & "`cmd`k''" == "regress" {
+			local t "`type'"
+			local reg = 1
+			}
+		local units `units' `j'-`k'-`t'
+		local keys `keys' `=100*min(`j', `k') + `p''
+		}
+	if "`type'" != "default" & `reg' == 0 {
+		di as err "{opt `type'} needs a {cmd:regress} model of the log of the outcome as a second part."
+		exit 198
+		}
+	forvalues j = 1/`n' {
+		if `: list posof "`mod`j''" in tpm'  continue
+		if `ml`j'' != 0 {
+			di as err "With {opt twopart}, the models beside the two-part models must be single-level " /*
+			*/ "models; {bf:`mod`j''} is a {cmd:`cmd`j''} model."
+			exit 198
+			}
+		local units `units' `j'
+		local keys `keys' `=100*`j''
+		}
+*The table keeps the order of models(), a pair in its first-listed model's place
+	numlist "`keys'", sort
+	local out ""
+	foreach q in `r(numlist)' {
+		local i : list posof "`q'" in keys
+		local out `out' `: word `i' of `units''
+		}
+	c_local mecunits "`out'"
+end
+
+capture program drop _mec_tpunits
+program define _mec_tpunits
+*twopart: renumbers the caller's model locals, a pair one model, and builds each model's prediction and a pair's label
+	version 16.0
+	gettoken units 0 : 0
+	gettoken md 0 : 0
+	gettoken m1n 0 : 0
+	gettoken m2n 0 : 0
+	gettoken rD 0 : 0
+	if "`units'" == "" {
+		di as err "{opt twopart} needs at least two models in {opt models( )}: a two-part model's first part and its second part."
+		exit 198
+		}
+	local n = 0
+	while `"`0'"' != "" {
+		local ++n
+		foreach x in mod N dv cmd iv fu fv ca sp sa {
+			gettoken `x'`n' 0 : 0
+			}
+		}
+	local u = 0
+	local ps ""
+	foreach t of local units {
+		local ++u
+		if strpos("`t'", "-") {
+			local t = subinstr("`t'", "-", " ", .)
+			local a : word 1 of `t'
+			local b : word 2 of `t'
+			local ty : word 3 of `t'
+			c_local mod`u' "`mod`a''+`mod`b''"
+			c_local mod`u'lab "`mod`a''+`mod`b''"
+			c_local N`u' "`N`a''"
+			c_local dv`u'name "`dv`b''"
+			c_local cmd`u' "`cmd`a''/`cmd`b''"
+			local l : list iv`a' | iv`b'
+			c_local list_ivs`u' "`l'"
+			local l : list fu`a' | fu`b'
+			c_local mecfull`u' "`l'"
+			local l : list fv`a' | fv`b'
+			c_local fvivs`u' "`l'"
+			c_local mod`u'cats 1
+			c_local s2spec`u' 0
+			c_local mod`u'samp "`sa`a''"
+			local rk`u' = strtoname(substr("`mod`a''_`mod`b''", 1, 28))
+			local o = cond("`ty'" == "default", "", "`ty'")
+			local ps "`ps' predict(twopart(`mod`a'' `mod`b'') `o')"
+			if "`ty'" == "default"  c_local mectpl`u' "Two-part mean of `dv`b''"
+			else  c_local mectpl`u' "Two-part mean of exp(`dv`b''), `ty'"
+			}
+		else {
+			c_local mod`u' "`mod`t''"
+			c_local mod`u'lab "`mod`t''"
+			c_local N`u' "`N`t''"
+			c_local dv`u'name "`dv`t''"
+			c_local cmd`u' "`cmd`t''"
+			c_local list_ivs`u' "`iv`t''"
+			c_local mecfull`u' "`fu`t''"
+			c_local fvivs`u' "`fv`t''"
+			c_local mod`u'cats "`ca`t''"
+			c_local s2spec`u' "`sp`t''"
+			c_local mod`u'samp "`sa`t''"
+			c_local mectpl`u' ""
+			local rk`u' = strtoname(substr("`mod`t''", 1, 28))
+			local p ""
+			local r `"`md'"'
+			while `"`r'"' != "" {
+				gettoken k r : r, bind
+				if strpos(`"`k'"', "predict(model(`mod`t''))") == 1 | strpos(`"`k'"', "predict(model(`mod`t'') ") == 1  local p `"`p' `k'"'
+				}
+			if `"`p'"' == ""  local p "predict(model(`mod`t''))"
+			local ps `"`ps' `p'"'
+			}
+		}
+	forvalues j = 1/`u' {
+		if "`rk`j''" == "`rD'"  local rk`j' "`rk`j''_`j'"
+		forvalues q = 1/`=`j'-1' {
+			if "`rk`j''" == "`rk`q''"  local rk`j' "`rk`j''_`j'"
+			}
+		c_local rkey`j' "`rk`j''"
+		}
+	c_local nummods `u'
+	c_local mectpps `"`ps'"'
+	if "`m1n'" != ""  c_local mod1lab "`m1n'"
+	if "`m2n'" != "" & `u' >= 2  c_local mod2lab "`m2n'"
+	if `u' == 1 {
+		c_local mod2lab ""
+		c_local rkey2 ""
+		}
+end
+
 capture program drop _mec_vcenote
 program define _mec_vcenote
 *The note on standard errors when a stored model was not fit with vce(robust)
@@ -4054,9 +4414,11 @@ program define _mec_vcenote
 local vcerobustall = 1
 local mecvcelist ""
 local mecmlany = 0
+local mecivany = 0
 forvalues j = 1/`nummods' {
 	if !inlist("`vcetype`j''", "robust", "cluster")  local vcerobustall = 0
 	if `mecml`j'' == 1  local mecmlany = 1
+	if `mecml`j'' == 2  local mecivany = 1
 	local mecvcelist "`mecvcelist' `mod`j'' ({cmd:`cmd`j''}),"
 	}
 local mecvcelist = substr(trim("`mecvcelist'"), 1, length(trim("`mecvcelist'")) - 1)
@@ -4067,6 +4429,11 @@ if `vcerobustall' == 0 & `issvy' != 1 & `ismi' != 1 {
 	*/ "highest-level group of the multilevel or panel model(s), so they " /*
 	*/ "will differ from the models' own. Fit every model without " /*
 	*/ "vce(robust); {cmd:mecompare} supplies the clustering."
+	}
+	else if `mecivany' == 1 {
+	di in red "NOTE: with an {cmd:ivregress} model, {cmd:mecompare} computes " /*
+	*/ "robust standard errors for every model itself. Fit every model " /*
+	*/ "without vce(robust)."
 	}
 	else if `nummods' == 2 {
 	di in red "{cmd:mecompare} uses vce(robust) for all models. " /*
@@ -4087,6 +4454,18 @@ if `vcerobustall' == 0 & `issvy' != 1 & `ismi' != 1 {
 	*/ "vce(robust). See {help vce_option} for details on vce(robust)."
 	}
 	}	
+end
+
+capture program drop _mec_subpop
+program define _mec_subpop
+*Keep the svy subpopulation, e(subpop) = [varname] [if], in the analysis sample
+	version 16.0
+	gettoken mecsamp 0 : 0
+	syntax [varname(default=none numeric)] [if]
+	tempvar mecsp
+	mark `mecsp' `if'
+	if "`varlist'" != ""  qui replace `mecsp' = 0 if `varlist' == 0 | missing(`varlist')
+	qui replace `mecsamp' = . if !`mecsp'
 end
 
 capture program drop _mec_survnote
@@ -4186,14 +4565,6 @@ program define _mec_timechk
 		if inlist("mestreg", "`c'", "`c2'") {
 			di as err "`nm' is a {cmd:mestreg} model. {opt time()} gives the probability of the event " /*
 			*/ "by a chosen time for {cmd:stcox} and {cmd:streg} models, not for {cmd:mestreg}."
-			exit 198
-			}
-		if inlist(substr("`c'", 1, 2), "xt", "me") | inlist(substr("`c2'", 1, 2), "xt", "me") | "`c'" == "mixed" {
-			di as err "`nm' is a multilevel or panel model; {opt time()} cannot be combined with those."
-			exit 198
-			}
-		if "`c'" == "ivregress" {
-			di as err "`nm' is an {cmd:ivregress} model; {opt time()} cannot be combined with {cmd:ivregress}."
 			exit 198
 			}
 		local sv = "`e(prefix)'" == "svy" | ustrregexm(`"`e(cmdline_mi)'"', ":[ ]*svy[ ,:]")
@@ -4438,7 +4809,7 @@ capture program drop _mec_post
 program define _mec_post, eclass
 *Posts the MEs as e(b) and e(V), named by variable, model, contrast and level; store() keeps each role
 	version 16.0
-	foreach mecin in K nummods ismi mec_sample groups store dv1name rkeyD meckeys mecns MEC_eqn MEC_rol MEC_ctr MEC_lev MEC_nam {
+	foreach mecin in K nummods ismi mec_sample groups store dv1name rkeyD meckeys mecns MEC_eqn MEC_rol MEC_ctr MEC_lev MEC_nam mecne {
 		gettoken `mecin' 0 : 0
 		}
 	forvalues j = 1/`K' {
@@ -4611,6 +4982,15 @@ program define _mec_post, eclass
 				matrix `__b'[1,`j'] = r(b)[1,1]
 				matrix `__V'[`j',`j'] = r(V)[1,1]
 				}
+			}
+		}
+
+	*An effect a model cannot estimate posts as 0 with no variance
+	foreach j of local mecne {
+		matrix `__b'[1,`j'] = 0
+		forvalues q = 1/`K' {
+			matrix `__V'[`j',`q'] = 0
+			matrix `__V'[`q',`j'] = 0
 			}
 		}
 

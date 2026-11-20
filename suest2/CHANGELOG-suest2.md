@@ -986,3 +986,124 @@ Help: `streg` among the pweight families; the "Companion Commands" heading. The 
 
 The 36-suite regression passed 36 / 36 on Stata 19.5 (runner v2.9), and so did every gate of the
 rev85 battery (v2.32, 86 gates; gate 68 as v1_5, 506 / 0). Distribution-Date 20261116.
+
+## suest2.ado 1.3.0, suest2_margins.ado 0.1.80, suest2_p.ado 0.1.97, suest2_marg_check.ado 0.1.60 -- 16nov2026
+
+**`streg` and Cox models beside multilevel, `xtreg, re` and `ivregress` models.** With `time()`,
+`streg` and `stcox` models now combine with the multilevel and panel models of the heterogeneous
+route (melogit, meprobit, mecloglog, mepoisson, menbreg, meologit, meoprobit, meglm, mixed, and
+the Gaussian random-effects xtlogit, xtprobit, xtpoisson, xtcloglog, xtologit and xtoprobit), with
+`xtreg, re`, and with `ivregress 2sls`. `xtreg, re` and `ivregress` also take the ordinary models
+the heterogeneous route takes (regress, logit, probit, cloglog, poisson, nbreg, ologit, oprobit).
+Each model keeps its own command's standard errors: beside a multilevel or panel model they are
+clustered on its highest-level group, G/(G-1); beside `ivregress` they are robust, n/(n-1), or
+clustered with `cluster()`; `regress` and `xtreg, re` also carry (N-1)/(N-K), and `ivregress` no
+factor; cross-model covariances carry the square root of the two models' factors. On these routes
+`streg` and Cox models must be stored with conventional standard errors (a stored vce(robust) is
+refused, r(322)); a Cox model beside any other panel model or `svy: ivregress` is refused, r(322).
+`mestreg` with `time()` stays refused. On these systems `margins` takes each model's own margins
+(an `ivregress` system with ordinary models too): for `streg` the probability of the event by
+`time()`, for a Cox model the same probability from its coefficients and the log of its baseline
+cumulative hazard at that time.
+
+**`xtlogit, fe` beside other models.** `margins` gave 0 with standard error 0 for an `xtlogit, fe`
+model beside any other model. suest2_marg_check judged its predictions with the whole system's
+estimability matrix, which treats every equation as having a constant, and conditional logit has
+none. Its own matrix fails too when a covariate is omitted for having no within-group variation (only
+predictions with the other covariates at 0 passed), so an `xtlogit, fe` prediction is now taken as
+estimable, as on the `xtreg, fe` route (suest2_marg_check 0.1.60).
+suest2_p 0.1.97 computes the `xtlogit, fe` pu0 and xb from the system's own equation, as for logit.
+
+**`margins` no longer prints the at() filter's working lines.** When `margins` ran on a system whose
+models take their own margins, suest2_margins printed four lines per model (`at()-filter, model ...`,
+the model's covariates, each at() and its class, a summary). They were diagnostics; the filter is
+unchanged. When a fixed-effects model that dropped a covariate for having no within-group variance
+takes its own margins, they run with `noestimcheck`, since Stata's check otherwise calls every
+counterfactual prediction not estimable, unless a cell of an interaction is empty (suest2_margins 0.1.80).
+Gate 96 (`test_mecompare_noest_gate96`), parts J and L.
+
+Gate 95 (`test_time_companions_gate95`), against stacks rebuilt in the gate from each model's
+scores and against Stata's own fits and margins: the whole covariance on each of the three routes
+(within 3e-13; `xtreg, re` within 3e-8 once its (N-1)/(N-K) is taken out), each block equal to the
+model's own clustered or robust fit, mecompare's rows and differences equal to each model's own
+margins, and `xtlogit, fe` beside `streg`, `logit` and `tobit` equal to `clogit, vce(cluster)`
+margins. Rounds: v1_0 142 / 0 (its `xtlogit, fe` reference took the same path; the zero was found
+in the output), v1_2 154 / 5 (those five), v1_3 161 / 0. Gate 86 v1_6 172 / 0, gate 91 v1_7
+170 / 0, gate 67 v1_2 139 / 0. Probe: `probe_time_companions` round 2 (Stata 84 / 3, the three
+explained; R 34 / 0).
+
+Help: `ivregress 2sls`, `streg` and `stcox` join the models that combine with multilevel and panel
+models, with robust standard errors beside `ivregress 2sls`; a Cox model also beside a multilevel,
+panel or `ivregress 2sls` model. The banner and `e(suest2_version)` move to 1.3.0.
+
+## suest2_p.ado 0.1.98 -- 19nov2026
+
+**More first and second parts for `predict(twopart())`.** The first part of a two-part prediction may
+now be any model of whether the outcome is positive whose default prediction is its probability:
+`logit`, `probit`, `cloglog`, `hetprobit`, or `glm` with a binomial family (before: `logit` or
+`probit`). The second part may also be a `poisson` or `nbreg` model (before: `glm` or `regress`),
+whose mean is its default prediction. The two-part prediction is the first part's probability times
+the second part's mean, as before. Gate 99 (`test_mecompare_twopart_first_gate99`).
+
+**`outcome(#k)` after `ologit`, `oprobit` and `mlogit`.** `predict(model(name) outcome(#2))` now means
+the model's second outcome, as in official `predict`. Before, only the outcome's value, such as
+`outcome(2)`, was accepted on the route `margins` takes with `at()`, so `outcome(#2)` stopped r(198)
+("outcome #2 was not found"), while `margins, dydx()` accepted both. Found by gate 98 (G.9.3);
+recheck `test_mecompare_svyrep_gate98_recheck`.
+
+Help: the two-part paragraph reads "a model of whether the outcome is positive, such as logit or probit,
+and a glm, regress, poisson, or nbreg model of the outcome where it is positive".
+
+## suest2.ado 1.4.0, suest2_svyrep.ado 1.0.0 (new), suest2_margins.ado 0.1.81 -- 19nov2026
+
+**Replicate-weight survey models.** suest2 now combines models fit with `svy brr`, `svy jackknife`,
+`svy bootstrap` or `svy sdr`: replicate weights set with `svyset`, a jackknife built from the PSUs, or
+BRR from a Hadamard matrix, with their mse, Fay, bsn, fpc and dof settings. It refused them, r(322),
+because official `suest` takes only linearized survey results. Found with a student's example: three
+nested logits on ACS data with successive-difference weights (`svyset [pw=perwt], vce(sdr)
+sdrweight(repwtp1-repwtp80) dof(79) mse`) fit with `svy, subpop()`.
+
+suest2 refits each model as a linearized stand-in under the survey weight alone (the same command,
+sample and subpopulation) to build the system, then puts the stored models and `svyset` back. It then
+runs the first model's own `svy` prefix on `suest2_svyrep`, which refits every model with the weight
+`svy` gives for each replicate, so `svy` computes the covariance of all the models' coefficients with
+its own formulas. That covariance replaces the stand-ins', with `svy`'s degrees of freedom (none, so
+the normal distribution, for bootstrap and successive-difference replication without dof()),
+e(vce), e(vcetype), e(mse), e(N_reps), e(N_misreps), e(N_psu) and e(N_strata); e(suest2_svyrep) is
+1. Each model's block equals its own `svy` e(V), so `margins` for one model gives that model's own
+effects and standard errors (the delta method, as `margins` after each `svy` model), and the blocks
+between models come from the same replicates. When some replications fail, a note says how many
+were left out. The refits take about as long as the models' own replicate fits.
+
+Every model must be fit with `svy` and the same replication method, replicate weights, options and
+subpopulation; otherwise refused, r(322), as are linearized and replicate-weight models together.
+`cluster()`, `vce()` and `robust` are refused, r(198); data changed since the fits, r(498).
+
+**Survey `ivregress 2sls`.** suest2 refused survey `ivregress` systems on real survey data such as
+nhanes2, r(459) ("the stacked survey-IV covariance does not reproduce the native block"). Its check of
+each model's covariance against the model's own e(V) demanded agreement to 1e-9, where `svy`'s own
+arithmetic agrees to about 1e-7; the check is now on the correlation scale, at 1e-6. With `subpop()`,
+the covariance it built was also wrong, 11% to 33% too large on nhanes2: after `svy, subpop()` the
+estimation sample holds every observation, and `predict, scores` computed the scores over all of them.
+They are now computed with the estimation sample restricted to the subpopulation, as `svy` computes
+them. The check refused these systems, so no wrong results were posted. This also lets
+replicate-weight `ivregress` models run. Found by gate 98 PART I and probe_svyiv_v1_0.
+
+**`margins, dydx()` with `expression()` naming two models.** On a system of `logit`, `logistic`,
+`ologit`, `oprobit` or `mlogit` models, `margins, dydx(x) expression(predict(model(A) pr) -
+predict(model(B) pr))` stopped r(198): `dydx()` with `model()` sent the call to the route that takes
+each model's own margins, where an `expression()` naming another model fails. `dydx()` with
+`expression()` now goes to official `margins` (suest2_margins 0.1.81). Found in probe_svyrep_v1_1;
+it did not depend on survey data.
+
+Gate 98 (`test_mecompare_svyrep_gate98`): 169 / 2, both explained (U.9.1 the gate's own reference;
+G.9.3 the suest2_p `outcome(#k)` fix); v1_1 171 / 0 in the battery. Gate 100 (`test_suest2_svyiv_gate100`):
+PASSED 52 / 0. Probe: probe_svyrep v1_1 160 / 4 (the four were probe tolerances), v1_3 31 / 0.
+
+Help: the survey section says linearized and replicate-weight results are supported, and lists
+e(suest2_svyrep). The banner and e(suest2_version) move to 1.4.0; suest2.pkg lists suest2_svyrep.ado.
+
+The 36-suite regression passed 36 / 36 on Stata 19.5 (runner v2.11), and so did every gate of the
+rev88 battery, which covers rev87 too (v2.36, 93 gates; gates 95 and 96 as v1_4, 161 / 0 and 85 / 0,
+after v1_3 failed only its exact version pins); the help examples passed 232 / 0. Distribution-Date
+20261120.

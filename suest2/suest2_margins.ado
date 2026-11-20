@@ -1,4 +1,4 @@
-*! version 0.1.79  12nov2026  | history: CHANGELOG-suest2.md (repo)
+*! version 0.1.81  19nov2026  | history: CHANGELOG-suest2.md (repo)
 * Candidate 21. LIVE METADATA ON LINE 2, NOT HISTORY -- do not move it to
 * the changelog. run_suest2_v0175_full_regression.do:123,
 * test_suest2_v0175_marginsdefault_pa.do:191 and
@@ -142,6 +142,8 @@ program define suest2_margins, rclass
     // What that default MEANS per family belongs in the help file, where
     // it can be stated per family, and mecompare.sthlp now states it.
     local hasdydx = (strpos(lower(`"`raw'"'), "dydx(") > 0)
+    // 0.1.81: an expression() can name several models, so dydx() with expression() goes to official margins
+    local hasexpr = regexm(lower(`"`raw'"'), "(^|[ ,])exp[a-z]*\(")
     local allme 1
     local allmecount 1
     local allmeologit 1
@@ -185,6 +187,10 @@ program define suest2_margins, rclass
     local ismehetero 0
     capture confirm scalar e(suest2_mehetero)
     if !_rc local ismehetero=e(suest2_mehetero)
+    // 0.1.80: an ivregress system with ordinary models also takes each model's own margins
+    local isiv 0
+    capture confirm scalar e(suest2_ivregress)
+    if !_rc local isiv=e(suest2_ivregress)
 
     if `allxtnbregrebeta' & strpos(lower(`"`raw'"'),"pr0(") {
         di as err "margins after beta xtnbreg, re does not support pr0(); use predict for observation-level probabilities"
@@ -193,8 +199,8 @@ program define suest2_margins, rclass
 
     if `ismehetero' | `allxtmlogit' | `allxtpa' | `allxtlogitfe' | `allxtpoissonfe' | ///
         `allxtpoissonregamma' | ///
-        `allxtnbregrebeta' | `allxtnbregfe' | `allivregress' | ///
-        (`hasdydx' & `allme') | (`hasdydx' & `allordinarycat' & trim(`"`selected'"')!="") | ///
+        `allxtnbregrebeta' | `allxtnbregfe' | `allivregress' | `isiv' | ///
+        (`hasdydx' & `allme') | (`hasdydx' & `allordinarycat' & trim(`"`selected'"')!="" & !`hasexpr') | ///
         `allmecount' | `allmeologit' | ///
         `allmeoprobit' | `allmecloglog' | ///
         `allmelogit' | `allmeprobit' {
@@ -689,6 +695,10 @@ program define suest2_margins_me_dydx, rclass
         local start = e(suest2_start`i')
         local korig = e(suest2_korig`i')
         local syscmd `"`e(suest2_cmd`i')'"'
+        local s2t = e(suest2_time)
+        local s2dist = lower(`"`e(suest2_distribution`i')'"')
+        local s2aft = (`"`e(suest2_frm2`i')'"'=="time")
+        local s2anc `"`e(suest2_anc`i')'"'
         local sysoutcomes `"`e(suest2_outcomes`i')'"'
         local name : word `i' of `names'
 
@@ -762,6 +772,53 @@ program define suest2_margins_me_dydx, rclass
             }
             local predinner=itrim(trim(`"`predinner'"'))
             if trim(`"`predinner'"')!="" local nativepred `"predict(`predinner')"'
+        }
+        else if inlist(`"`syscmd'"',"streg","stcox") {
+            // 0.1.80: pr, the probability of the event by e(suest2_time), from the model's own margins;
+            // after stcox on the model's block with ln H0(time) as _cons (suest2_margins_coxpost)
+            local predinner=itrim(trim(ustrregexra(`"`predict'"',"(?i)model\([^)]*\)","")))
+            local predinner=lower(`"`predinner'"')
+            local nativepred
+            local s2bad=(`"`syscmd'"'=="stcox" & !inlist(`"`predinner'"',"","pr","xb")) | ///
+                (`"`predinner'"'=="pr" & missing(`s2t'))
+            if `s2bad' {
+                capture quietly estimates restore `systemsave'
+                capture quietly estimates drop `systemsave'
+                foreach M in `bsys' `Vsys' `bpiece' `Jpiece' `Fpiece' ///
+                    `bjoint' `Jjoint' `Vjoint' `table' `bpost' `Vpost' `Jpost' {
+                    capture matrix drop `M'
+                }
+                if `"`syscmd'"'=="stcox" di as err "stcox active-system prediction supports pr, the probability of the event by time(), or xb"
+                else di as err "{bf:pr} after {cmd:streg} needs the time; run {cmd:suest2} with {bf:time(#)}"
+                exit 198
+            }
+            if `"`syscmd'"'=="stcox" {
+                if `"`predinner'"'=="xb" local nativepred "expression(predict(xb))"
+                else local nativepred "expression(1-exp(-exp(predict(xb))))"
+            }
+            else if `"`predinner'"'=="pr" {
+                local s2ce : coleq e(b)
+                foreach a of local s2anc {
+                    local v`a' "_b[/`a']"
+                    if `: list a in s2ce' local v`a' "xb(`a')"
+                }
+                local X "predict(xb)"
+                if "`s2dist'"=="weibull" {
+                    if `s2aft' local s "exp(-(exp(-`X')*`s2t')^exp(`vln_p'))"
+                    else local s "exp(-exp(`X')*`s2t'^exp(`vln_p'))"
+                }
+                else if "`s2dist'"=="gompertz" local s "exp(-exp(`X')*(exp(`vgamma'*`s2t')-1)/`vgamma')"
+                else if inlist("`s2dist'","lognormal","lnormal") local s "1-normal((ln(`s2t')-`X')/exp(`vlnsigma'))"
+                else if inlist("`s2dist'","loglogistic","llogistic") local s "1/(1+(exp(-`X')*`s2t')^(1/exp(`vlngamma')))"
+                else if inlist("`s2dist'","gamma","ggamma") {
+                    local u "exp(`vkappa'*(ln(`s2t')-`X')/exp(`vlnsigma'))/`vkappa'^2"
+                    local s "cond(`vkappa'>0,1-gammap(1/`vkappa'^2,`u'),gammap(1/`vkappa'^2,`u'))"
+                }
+                else if `s2aft' local s "exp(-exp(-`X')*`s2t')"
+                else local s "exp(-exp(`X')*`s2t')"
+                local nativepred `"expression(1-(`s'))"'
+            }
+            else if `"`predinner'"'!="" local nativepred `"predict(`predinner')"'
         }
         else if inlist(`"`syscmd'"',"logit","logistic","ologit","oprobit","mlogit") | ///
             inlist(`"`syscmd'"',"probit","cloglog","poisson","nbreg","regress") {
@@ -977,6 +1034,10 @@ program define suest2_margins_me_dydx, rclass
                 }
             }
         }
+        if `"`e(model)'"'=="fe" & ustrregexm(" `: colnames e(b)' "," [0-9]*o\.[^ #]+ ") {
+            suest2_margins_noec
+            local nativepred `"`nativepred' `s2noec'"'
+        }
         // at()-filter (candidate 18, increment (e)): classify this model's
         // at() specs, refuse what cannot be answered correctly, remove the
         // DROP specs from the native call, and (below, after the call)
@@ -1018,24 +1079,6 @@ program define suest2_margins_me_dydx, rclass
                     local s2uncat `"`s2at`s2k''"'
                 }
             }
-            if `s2dropn' > 0 {
-                di as text "at()-filter, model " as result "`name'" ///
-                    as text " (dropped specs filled from the model's own margins)"
-            }
-            else {
-                di as text "at()-filter, model " as result "`name'" ///
-                    as text " (nothing dropped; call unchanged)"
-            }
-            di as text "    model covariates: " as result "`s2mvars'"
-            forvalues s2k = 1/`s2atn' {
-                di as text "    at " as result "`s2k'" as text ": " ///
-                    as result `"`s2at`s2k''"' ///
-                    as text "  ->  " as result "`s2cls`s2k''" ///
-                    as text "  positions " as result `"`s2atc`s2k''"'
-            }
-            di as text "    summary: " as result "`s2keepn'" ///
-                as text " keep, " as result "`s2dropn'" ///
-                as text " drop, " as result "`s2mixn'" as text " mixed"
             if `s2mixn' > 0 {
                 capture quietly estimates restore `systemsave'
                 capture quietly estimates drop `systemsave'
@@ -1076,6 +1119,7 @@ program define suest2_margins_me_dydx, rclass
                 local s2useopts = itrim(trim(`"`s2useopts'"'))
             }
         }
+        if `"`syscmd'"'=="stcox" suest2_margins_coxpost `bsys' `Vsys' `start' `korig'
         if !`s2own' capture quietly margins `before' if `s2use' `s2wt', `s2useopts' `nativepred' noesample
         else if trim(`"`nativebefore'"')=="" {
             if trim(`"`s2useopts' `nativepred'"')=="" capture quietly margins
@@ -1324,6 +1368,27 @@ program define suest2_margins_me_dydx, rclass
 end
 
 
+// stcox: post its block of the suest2 system, the coefficients and ln H0(time) as _cons, over the model's sample
+program define suest2_margins_coxpost, eclass
+    version 16
+    args bsys Vsys start korig
+    local e=`start'+`korig'-1
+    local cn : colnames e(b)
+    tempname b V
+    tempvar s
+    matrix `b'=`bsys'[1,`start'..`e']
+    matrix `V'=`Vsys'[`start'..`e',`start'..`e']
+    matrix colnames `b'=`cn' _cons
+    matrix colnames `V'=`cn' _cons
+    matrix rownames `V'=`cn' _cons
+    matrix coleq `b'=_
+    matrix coleq `V'=_
+    matrix roweq `V'=_
+    quietly generate byte `s'=e(sample)
+    ereturn post `b' `V', esample(`s') buildfvinfo
+    ereturn local cmd "suest2_coxpost"
+end
+
 program define suest2_margins_me_post, eclass
     version 16
     args b V J N raw
@@ -1569,4 +1634,21 @@ program define suest2_margins_ebvars, sclass
     }
     local vars : list uniq vars
     sreturn local vars `"`vars'"'
+end
+
+* noestimcheck for a fixed-effects model, unless an interaction cell is empty (an omitted term with no base level)
+program define suest2_margins_noec
+    local ok 1
+    foreach c in `: colnames e(b)' {
+        if !strpos("`c'", "#") continue
+        local om 0
+        local ba 0
+        foreach u in `: subinstr local c "#" " ", all' {
+            local h = substr("`u'", 1, strpos("`u'", ".") - 1)
+            if ustrregexm("`h'", "o$") local om 1
+            if ustrregexm("`h'", "^[0-9]+bo?$") local ba 1
+        }
+        if `om' & !`ba' local ok 0
+    }
+    c_local s2noec = cond(`ok', "noestimcheck", "")
 end
